@@ -1,9 +1,12 @@
 package oauth
 
-import (
-	"github.com/garrettladley/thoop/internal/config"
-	"golang.org/x/oauth2"
-)
+import "golang.org/x/oauth2"
+
+type ConfigProvider interface {
+	GetClientID() string
+	GetClientSecret() string
+	GetRedirectURL() string
+}
 
 const (
 	authURL  = "https://api.prod.whoop.com/oauth/oauth2/auth"
@@ -20,11 +23,11 @@ var scopes = []string{
 	"read:body_measurement",
 }
 
-func NewConfig(whoop config.Whoop) *oauth2.Config {
+func NewConfig(provider ConfigProvider) *oauth2.Config {
 	return &oauth2.Config{
-		ClientID:     whoop.ClientID,
-		ClientSecret: whoop.ClientSecret,
-		RedirectURL:  whoop.RedirectURL,
+		ClientID:     provider.GetClientID(),
+		ClientSecret: provider.GetClientSecret(),
+		RedirectURL:  provider.GetRedirectURL(),
 		Scopes:       scopes,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  authURL,

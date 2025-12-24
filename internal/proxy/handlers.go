@@ -5,27 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/oauth"
 	"golang.org/x/oauth2"
 )
-
-const (
-	authURL  = "https://api.prod.whoop.com/oauth/oauth2/auth"
-	tokenURL = "https://api.prod.whoop.com/oauth/oauth2/token" //nolint:gosec // not credentials, just endpoint URL
-)
-
-var scopes = []string{
-	"offline",
-	"read:recovery",
-	"read:cycles",
-	"read:sleep",
-	"read:workout",
-	"read:profile",
-	"read:body_measurement",
-}
 
 type stateEntry struct {
 	localPort string
@@ -41,19 +27,8 @@ type Handler struct {
 }
 
 func NewHandler(cfg Config) *Handler {
-	oauthConfig := &oauth2.Config{
-		ClientID:     cfg.ClientID,
-		ClientSecret: cfg.ClientSecret,
-		RedirectURL:  cfg.RedirectURL(),
-		Scopes:       scopes,
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  authURL,
-			TokenURL: tokenURL,
-		},
-	}
-
 	h := &Handler{
-		config:      oauthConfig,
+		config:      oauth.NewConfig(cfg),
 		states:      make(map[string]stateEntry),
 		stateTTL:    10 * time.Minute,
 		cleanupDone: make(chan struct{}),
@@ -91,8 +66,8 @@ func (h *Handler) cleanupExpiredStates() {
 
 func (h *Handler) HandleAuthStart(w http.ResponseWriter, r *http.Request) {
 	localPort := r.URL.Query().Get("local_port")
-	if localPort == "" {
-		http.Error(w, "missing local_port parameter", http.StatusBadRequest)
+	if !isValidPort(localPort) {
+		http.Error(w, "invalid local_port parameter", http.StatusBadRequest)
 		return
 	}
 
@@ -182,4 +157,15 @@ func redirectWithError(w http.ResponseWriter, r *http.Request, localPort string,
 	u.RawQuery = q.Encode()
 
 	http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
+}
+
+func isValidPort(s string) bool {
+	if s == "" {
+		return false
+	}
+	port, err := strconv.Atoi(s)
+	if err != nil {
+		return false
+	}
+	return port >= 1 && port <= 65535
 }
