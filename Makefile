@@ -33,4 +33,81 @@ fmt:
 ## lint: run linter
 .PHONY: lint
 lint:
-	@golangci-lint run
+	@golangci-lint run --path-mode=abs --config=".golangci.yml" --timeout=5m
+
+## lint/fix: run linter with auto-fix
+.PHONY: lint/fix
+lint/fix:
+	@golangci-lint run --path-mode=abs --config=".golangci.yml" --timeout=5m --fix
+
+## thoop: run main CLI
+.PHONY: thoop
+thoop:
+	@go run ./cmd/thoop
+
+## db: run database CLI
+.PHONY: db
+db:
+	@go run ./cmd/db
+
+# Database migrations (golang-migrate CLI - alternative to db commands)
+MIGRATIONS_PATH = migrations
+DB_PATH ?= thoop.db
+
+## migrate/up: apply all up migrations
+.PHONY: migrate/up
+migrate/up:
+	@echo 'Running migrations...'
+	@go run -tags 'sqlite3' github.com/golang-migrate/migrate/v4/cmd/migrate -path=$(MIGRATIONS_PATH) -database=sqlite3://$(DB_PATH) up
+
+## migrate/down: rollback all migrations
+.PHONY: migrate/down
+migrate/down: confirm
+	@echo 'Rolling back migrations...'
+	@go run -tags 'sqlite3' github.com/golang-migrate/migrate/v4/cmd/migrate -path=$(MIGRATIONS_PATH) -database=sqlite3://$(DB_PATH) down
+
+## migrate/down/1: rollback the last migration
+.PHONY: migrate/down/1
+migrate/down/1:
+	@echo 'Rolling back last migration...'
+	@go run -tags 'sqlite3' github.com/golang-migrate/migrate/v4/cmd/migrate -path=$(MIGRATIONS_PATH) -database=sqlite3://$(DB_PATH) down 1
+
+## migrate/force: force migration version (use: make migrate/force VERSION=1)
+.PHONY: migrate/force
+migrate/force:
+	@echo 'Forcing migration version $(VERSION)...'
+	@go run -tags 'sqlite3' github.com/golang-migrate/migrate/v4/cmd/migrate -path=$(MIGRATIONS_PATH) -database=sqlite3://$(DB_PATH) force $(VERSION)
+
+## migrate/version: show current migration version
+.PHONY: migrate/version
+migrate/version:
+	@go run -tags 'sqlite3' github.com/golang-migrate/migrate/v4/cmd/migrate -path=$(MIGRATIONS_PATH) -database=sqlite3://$(DB_PATH) version
+
+## migrate/create: create a new migration file (use: make migrate/create NAME=your_migration_name)
+.PHONY: migrate/create
+migrate/create:
+	@echo 'Creating migration files for $(NAME)...'
+	@go run -tags 'sqlite3' github.com/golang-migrate/migrate/v4/cmd/migrate create -ext sql -dir $(MIGRATIONS_PATH) -seq $(NAME)
+
+# SQL and Code Generation
+## sqlc/install: install sqlc
+.PHONY: sqlc/install
+sqlc/install:
+	@echo 'Installing sqlc...'
+	@go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
+## sqlc/generate: generate sqlc code from SQL
+.PHONY: sqlc/generate
+sqlc/generate:
+	@echo 'Generating sqlc code...'
+	@sqlc generate
+
+## sqlc/verify: verify sqlc generated code is up to date
+.PHONY: sqlc/verify
+sqlc/verify: sqlc/generate
+	@if ! git diff --exit-code internal/sqlc/ > /dev/null; then \
+		echo "Error: sqlc generated code is out of date"; \
+		echo "Please run 'make sqlc/generate' and commit the changes"; \
+		exit 1; \
+	fi
+	@echo 'sqlc code is up to date'
