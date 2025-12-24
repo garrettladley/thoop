@@ -1,0 +1,44 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+
+linters:
+  enable:
+    - sloglint
+    - errcheck
+    - gosec
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gochecknoinits
+    - unconvert
+    - misspell
+    - nolintlint
+    - paralleltest
+
+  settings:
+    sloglint:
+      # Enforce using attributes only (overrides no-mixed-args, incompatible with kv-only).
+      attr-only: true
+      # Enforce using methods that accept a context.
+      context: all
+      # Enforce using static values for log messages.
+      static-msg: true
+      # Enforce using constants instead of raw keys.
+      no-raw-keys: true
+      # Enforce a single key naming convention.
+      key-naming-case: snake
+      # Enforce putting arguments on separate lines.
+      args-on-sep-lines: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 5m
+  tests: true
