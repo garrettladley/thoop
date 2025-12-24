@@ -26,7 +26,7 @@ type RateLimit struct {
 	Burst int     `env:"BURST" envDefault:"20"`
 }
 
-var _ oauth.ConfigProvider = Config{}
+var _ oauth.ConfigProvider = (*Config)(nil)
 
 func (c Config) GetClientID() string     { return c.Whoop.ClientID }
 func (c Config) GetClientSecret() string { return c.Whoop.ClientSecret }
