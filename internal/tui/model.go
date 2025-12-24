@@ -7,7 +7,7 @@ import (
 
 var _ tea.Model = (*Model)(nil)
 
-type page int
+type page uint
 
 const (
 	splashPage page = iota
