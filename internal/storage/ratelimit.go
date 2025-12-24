@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	_ "embed"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -13,13 +14,17 @@ var rateLimitLua string
 var rateLimitScript = redis.NewScript(rateLimitLua)
 
 type rateLimitParams struct {
-	windowMs   int64 // ARGV[1]: sliding window size in milliseconds
-	limit      int   // ARGV[2]: max requests allowed in window
-	ttlSeconds int   // ARGV[3]: key expiration in seconds
+	window time.Duration // ARGV[1]: sliding window size in milliseconds
+	limit  int           // ARGV[2]: max requests allowed in window
+	ttl    time.Duration // ARGV[3]: key expiration in seconds
 }
 
 func (p rateLimitParams) args() []any {
-	return []any{p.windowMs, p.limit, p.ttlSeconds}
+	return []any{
+		p.window.Milliseconds(),
+		p.limit,
+		int(p.ttl.Seconds()),
+	}
 }
 
 func runRateLimitScript(ctx context.Context, client *redis.Client, key string, params rateLimitParams) (bool, error) {

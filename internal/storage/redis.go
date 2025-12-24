@@ -51,9 +51,9 @@ func NewRedisBackend(cfg RedisConfig, rateLimit int) (*RedisBackend, error) {
 
 func (r *RedisBackend) Allow(ctx context.Context, key string) (bool, error) {
 	params := rateLimitParams{
-		windowMs:   r.rateWindow.Milliseconds(),
-		limit:      r.rateLimit,
-		ttlSeconds: int(r.rateWindow.Seconds()) + 1,
+		window: r.rateWindow,
+		limit:  r.rateLimit,
+		ttl:    r.rateWindow + time.Second,
 	}
 
 	allowed, err := runRateLimitScript(ctx, r.client, rateLimitKeyPrefix+key, params)
