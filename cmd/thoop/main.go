@@ -18,6 +18,7 @@ func main() {
 	}
 
 	rootCmd.AddCommand(authCmd())
+	rootCmd.AddCommand(testCmd())
 
 	if err := fang.Execute(context.Background(), rootCmd); err != nil {
 		os.Exit(1)
