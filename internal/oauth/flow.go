@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/sqlc"
@@ -15,41 +16,127 @@ import (
 )
 
 const (
-	callbackPath = "/callback"
-	shutdownTime = 5 * time.Second
+	callbackPath    = "/callback"
+	shutdownTime    = 5 * time.Second
+	defaultProxyURL = "https://thoop-proxy.fly.dev"
 )
 
-type Flow struct {
-	config  *oauth2.Config
-	querier sqlc.Querier
+type Flow interface {
+	Run(ctx context.Context) (*oauth2.Token, error)
 }
 
-func NewFlow(config *oauth2.Config, querier sqlc.Querier) *Flow {
-	return &Flow{
-		config:  config,
-		querier: querier,
+type tokenResult struct {
+	token *oauth2.Token
+	err   error
+}
+
+type callbackHandler func(w http.ResponseWriter, r *http.Request) (*oauth2.Token, error)
+
+type ProxyFlow struct {
+	proxyURL string
+	querier  sqlc.Querier
+}
+
+var _ Flow = (*ProxyFlow)(nil)
+
+func NewProxyFlow(querier sqlc.Querier) *ProxyFlow {
+	return &ProxyFlow{
+		proxyURL: defaultProxyURL,
+		querier:  querier,
 	}
 }
 
-func (f *Flow) Run(ctx context.Context) (*oauth2.Token, error) {
+func NewProxyFlowWithURL(proxyURL string, querier sqlc.Querier) *ProxyFlow {
+	return &ProxyFlow{
+		proxyURL: proxyURL,
+		querier:  querier,
+	}
+}
+
+func (f *ProxyFlow) Run(ctx context.Context) (*oauth2.Token, error) {
+	return runFlow(ctx, f.querier, f.authURL, proxyCallbackHandler)
+}
+
+func (f *ProxyFlow) authURL(port string) string {
+	return fmt.Sprintf("%s/auth/start?local_port=%s", f.proxyURL, port)
+}
+
+type DirectFlow struct {
+	config  *oauth2.Config
+	querier sqlc.Querier
+	state   string
+}
+
+var _ Flow = (*DirectFlow)(nil)
+
+func NewDirectFlow(config *oauth2.Config, querier sqlc.Querier) (*DirectFlow, error) {
 	state, err := GenerateState()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate state: %w", err)
 	}
+	return &DirectFlow{
+		config:  config,
+		querier: querier,
+		state:   state,
+	}, nil
+}
 
+func (f *DirectFlow) Run(ctx context.Context) (*oauth2.Token, error) {
+	return runFlow(ctx, f.querier, f.authURL, f.callbackHandler())
+}
+
+func (f *DirectFlow) authURL(_ string) string {
+	return f.config.AuthCodeURL(f.state, oauth2.AccessTypeOffline)
+}
+
+func (f *DirectFlow) callbackHandler() callbackHandler {
+	return func(w http.ResponseWriter, r *http.Request) (*oauth2.Token, error) {
+		if !ValidateState(f.state, r.URL.Query().Get("state")) {
+			http.Error(w, "Invalid state parameter", http.StatusBadRequest)
+			return nil, errors.New("invalid state parameter")
+		}
+
+		if errParam := r.URL.Query().Get("error"); errParam != "" {
+			errDesc := r.URL.Query().Get("error_description")
+			http.Error(w, fmt.Sprintf("OAuth error: %s", errDesc), http.StatusBadRequest)
+			return nil, fmt.Errorf("oauth error: %s - %s", errParam, errDesc)
+		}
+
+		code := r.URL.Query().Get("code")
+		if code == "" {
+			http.Error(w, "Missing authorization code", http.StatusBadRequest)
+			return nil, errors.New("missing authorization code")
+		}
+
+		token, err := f.config.Exchange(r.Context(), code)
+		if err != nil {
+			http.Error(w, "Failed to exchange authorization code", http.StatusInternalServerError)
+			return nil, fmt.Errorf("failed to exchange code: %w", err)
+		}
+
+		return token, nil
+	}
+}
+
+func runFlow(
+	ctx context.Context,
+	querier sqlc.Querier,
+	authURL func(port string) string,
+	handler callbackHandler,
+) (*oauth2.Token, error) {
 	resultCh := make(chan tokenResult, 1)
 
-	server, err := f.startCallbackServer(ctx, state, resultCh)
+	server, port, err := startCallbackServer(handler, resultCh)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start callback server: %w", err)
 	}
 
-	authURL := f.config.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	url := authURL(port)
 
 	fmt.Printf("Opening browser for authorization...\n")
-	fmt.Printf("If the browser doesn't open, visit:\n%s\n\n", authURL)
+	fmt.Printf("If the browser doesn't open, visit:\n%s\n\n", url)
 
-	if err := openBrowser(authURL); err != nil {
+	if err := openBrowser(url); err != nil {
 		fmt.Printf("Failed to open browser: %v\n", err)
 	}
 
@@ -66,7 +153,7 @@ func (f *Flow) Run(ctx context.Context) (*oauth2.Token, error) {
 			return nil, result.err
 		}
 
-		if err := f.saveToken(ctx, result.token); err != nil {
+		if err := saveToken(ctx, querier, result.token); err != nil {
 			return nil, fmt.Errorf("failed to save token: %w", err)
 		}
 
@@ -82,64 +169,26 @@ func (f *Flow) Run(ctx context.Context) (*oauth2.Token, error) {
 	}
 }
 
-type tokenResult struct {
-	token *oauth2.Token
-	err   error
-}
-
-func (f *Flow) startCallbackServer(ctx context.Context, expectedState string, resultCh chan<- tokenResult) (*http.Server, error) {
+func startCallbackServer(handler callbackHandler, resultCh chan<- tokenResult) (*http.Server, string, error) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc(callbackPath, func(w http.ResponseWriter, r *http.Request) {
-		state := r.URL.Query().Get("state")
-		if !ValidateState(expectedState, state) {
-			resultCh <- tokenResult{err: errors.New("invalid state parameter")}
-			http.Error(w, "Invalid state parameter", http.StatusBadRequest)
-			return
-		}
-
-		if errParam := r.URL.Query().Get("error"); errParam != "" {
-			errDesc := r.URL.Query().Get("error_description")
-			resultCh <- tokenResult{err: fmt.Errorf("oauth error: %s - %s", errParam, errDesc)}
-			http.Error(w, fmt.Sprintf("OAuth error: %s", errDesc), http.StatusBadRequest)
-
-			return
-		}
-
-		code := r.URL.Query().Get("code")
-		if code == "" {
-			resultCh <- tokenResult{err: errors.New("missing authorization code")}
-			http.Error(w, "Missing authorization code", http.StatusBadRequest)
-
-			return
-		}
-
-		token, err := f.config.Exchange(ctx, code)
+		token, err := handler(w, r)
 		if err != nil {
-			resultCh <- tokenResult{err: fmt.Errorf("failed to exchange code: %w", err)}
-			http.Error(w, "Failed to exchange authorization code", http.StatusInternalServerError)
-
+			resultCh <- tokenResult{err: err}
 			return
 		}
-
-		w.Header().Set("Content-Type", "text/html")
-		_, _ = fmt.Fprint(w, `<!DOCTYPE html>
-<html>
-<head><title>Authorization Successful</title></head>
-<body>
-<h1>Authorization Successful</h1>
-<p>You can close this window and return to the terminal.</p>
-</body>
-</html>`)
-
+		writeSuccessHTML(w)
 		resultCh <- tokenResult{token: token}
 	})
 
 	addr := net.JoinHostPort("127.0.0.1", "8080")
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to listen on %s: %w", addr, err)
+		return nil, "", fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
+
+	_, port, _ := net.SplitHostPort(listener.Addr().String())
 
 	server := &http.Server{
 		Handler:           mux,
@@ -152,10 +201,43 @@ func (f *Flow) startCallbackServer(ctx context.Context, expectedState string, re
 		}
 	}()
 
-	return server, nil
+	return server, port, nil
 }
 
-func (f *Flow) saveToken(ctx context.Context, token *oauth2.Token) error {
+func proxyCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Token, error) {
+	if errParam := r.URL.Query().Get("error"); errParam != "" {
+		errDesc := r.URL.Query().Get("error_description")
+		http.Error(w, fmt.Sprintf("OAuth error: %s", errDesc), http.StatusBadRequest)
+		return nil, fmt.Errorf("oauth error: %s - %s", errParam, errDesc)
+	}
+
+	accessToken := r.URL.Query().Get("access_token")
+	if accessToken == "" {
+		http.Error(w, "Missing access token", http.StatusBadRequest)
+		return nil, errors.New("missing access_token")
+	}
+
+	tokenType := r.URL.Query().Get("token_type")
+	if tokenType == "" {
+		tokenType = "Bearer"
+	}
+
+	var expiry time.Time
+	if expiresInStr := r.URL.Query().Get("expires_in"); expiresInStr != "" {
+		if expiresIn, err := strconv.Atoi(expiresInStr); err == nil {
+			expiry = time.Now().Add(time.Duration(expiresIn) * time.Second)
+		}
+	}
+
+	return &oauth2.Token{
+		AccessToken:  accessToken,
+		TokenType:    tokenType,
+		RefreshToken: r.URL.Query().Get("refresh_token"),
+		Expiry:       expiry,
+	}, nil
+}
+
+func saveToken(ctx context.Context, querier sqlc.Querier, token *oauth2.Token) error {
 	params := sqlc.UpsertTokenParams{
 		AccessToken: token.AccessToken,
 		TokenType:   token.TokenType,
@@ -166,7 +248,19 @@ func (f *Flow) saveToken(ctx context.Context, token *oauth2.Token) error {
 		params.RefreshToken = &token.RefreshToken
 	}
 
-	return f.querier.UpsertToken(ctx, params)
+	return querier.UpsertToken(ctx, params)
+}
+
+func writeSuccessHTML(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/html")
+	_, _ = fmt.Fprint(w, `<!DOCTYPE html>
+<html>
+<head><title>Authorization Successful</title></head>
+<body>
+<h1>Authorization Successful</h1>
+<p>You can close this window and return to the terminal.</p>
+</body>
+</html>`)
 }
 
 func openBrowser(url string) error {
