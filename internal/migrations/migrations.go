@@ -2,30 +2,31 @@ package migrations
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
 	"sort"
 	"strings"
 )
 
-const migrationsDir = "migrations"
+const migrationsDir = "sql"
+
+//go:embed sql/*.sql
+var migrationsFS embed.FS
 
 func Apply(db *sql.DB) error {
 	if err := createHistoryTable(db); err != nil {
 		return err
 	}
 
-	entries, err := os.ReadDir(migrationsDir)
+	entries, err := fs.ReadDir(migrationsFS, migrationsDir)
 	if err != nil {
 		return fmt.Errorf("failed to read migrations directory: %w", err)
 	}
 
 	var upFiles []string
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
-			upFiles = append(upFiles, entry.Name())
-		}
+		upFiles = append(upFiles, entry.Name())
 	}
 
 	sort.Strings(upFiles)
@@ -40,8 +41,7 @@ func Apply(db *sql.DB) error {
 			continue
 		}
 
-		// filename comes from os.ReadDir which only returns base names, safe from path traversal
-		content, err := os.ReadFile(filepath.Join(migrationsDir, filename)) //nolint:gosec
+		content, err := fs.ReadFile(migrationsFS, migrationsDir+"/"+filename)
 		if err != nil {
 			return fmt.Errorf("failed to read migration file %s: %w", filename, err)
 		}

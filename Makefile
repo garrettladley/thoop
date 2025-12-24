@@ -51,7 +51,7 @@ db:
 	@go run ./cmd/db
 
 # Database migrations (golang-migrate CLI - alternative to db commands)
-MIGRATIONS_PATH = migrations
+MIGRATIONS_PATH = internal/migrations/sql
 DB_PATH ?= thoop.db
 
 ## migrate/up: apply all up migrations
