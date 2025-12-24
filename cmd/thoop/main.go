@@ -10,7 +10,6 @@ import (
 )
 
 func main() {
-	// Load .env file if it exists (ignore error if not found)
 	_ = godotenv.Load()
 
 	rootCmd := &cobra.Command{
