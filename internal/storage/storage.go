@@ -18,7 +18,6 @@ type StateEntry struct {
 }
 
 type StateStore interface {
-	// Set stores a state entry with the specified TTL.
 	Set(ctx context.Context, state string, entry StateEntry, ttl time.Duration) error
 
 	// GetAndDelete atomically retrieves and removes a state entry.
