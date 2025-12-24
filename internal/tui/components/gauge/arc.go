@@ -57,14 +57,14 @@ func midpointCircleArc(canvas *drawille.Canvas, cx, cy, radius int, startAngle, 
 func drawOctantPoints(canvas *drawille.Canvas, cx, cy, x, y int, startAngle, endAngle float64) {
 	// the 8 symmetric points of a circle
 	points := [][2]int{
-		{cx + x, cy - y}, // Octant 1: 0° to 45° (top-right, above diagonal)
-		{cx + y, cy - x}, // Octant 2: 45° to 90° (top-right, below diagonal)
-		{cx - y, cy - x}, // Octant 3: 90° to 135° (top-left, below diagonal)
-		{cx - x, cy - y}, // Octant 4: 135° to 180° (top-left, above diagonal)
-		{cx - x, cy + y}, // Octant 5: 180° to 225° (bottom-left, above diagonal)
-		{cx - y, cy + x}, // Octant 6: 225° to 270° (bottom-left, below diagonal)
-		{cx + y, cy + x}, // Octant 7: 270° to 315° (bottom-right, below diagonal)
-		{cx + x, cy + y}, // Octant 8: 315° to 360° (bottom-right, above diagonal)
+		{cx + x, cy - y}, // octant 1: 0° to 45° (top-right, above diagonal)
+		{cx + y, cy - x}, // octant 2: 45° to 90° (top-right, below diagonal)
+		{cx - y, cy - x}, // octant 3: 90° to 135° (top-left, below diagonal)
+		{cx - x, cy - y}, // octant 4: 135° to 180° (top-left, above diagonal)
+		{cx - x, cy + y}, // octant 5: 180° to 225° (bottom-left, above diagonal)
+		{cx - y, cy + x}, // octant 6: 225° to 270° (bottom-left, below diagonal)
+		{cx + y, cy + x}, // octant 7: 270° to 315° (bottom-right, below diagonal)
+		{cx + x, cy + y}, // octant 8: 315° to 360° (bottom-right, above diagonal)
 	}
 
 	for _, p := range points {
