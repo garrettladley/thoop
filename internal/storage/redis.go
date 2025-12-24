@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	_ "embed"
 	"errors"
 	"fmt"
 	"time"
@@ -17,11 +16,6 @@ const (
 	rateLimitKeyPrefix = "ratelimit:"
 	stateKeyPrefix     = "state:"
 )
-
-//go:embed ratelimit.lua
-var rateLimitLua string
-
-var rateLimitScript = redis.NewScript(rateLimitLua)
 
 type RedisConfig struct {
 	URL string `env:"URL"`
@@ -56,20 +50,18 @@ func NewRedisBackend(cfg RedisConfig, rateLimit int) (*RedisBackend, error) {
 }
 
 func (r *RedisBackend) Allow(ctx context.Context, key string) (bool, error) {
-	windowMs := r.rateWindow.Milliseconds()
-	ttlSeconds := int(r.rateWindow.Seconds()) + 1
+	params := rateLimitParams{
+		windowMs:   r.rateWindow.Milliseconds(),
+		limit:      r.rateLimit,
+		ttlSeconds: int(r.rateWindow.Seconds()) + 1,
+	}
 
-	result, err := rateLimitScript.Run(ctx, r.client,
-		[]string{rateLimitKeyPrefix + key},
-		windowMs,
-		r.rateLimit,
-		ttlSeconds,
-	).Int()
+	allowed, err := runRateLimitScript(ctx, r.client, rateLimitKeyPrefix+key, params)
 	if err != nil {
 		return false, fmt.Errorf("failed to run rate limit script: %w", err)
 	}
 
-	return result == 1, nil
+	return allowed, nil
 }
 
 func (r *RedisBackend) Set(ctx context.Context, state string, entry StateEntry, ttl time.Duration) error {
