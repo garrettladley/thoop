@@ -16,7 +16,7 @@ type Whoop struct {
 	RedirectURL  string `env:"REDIRECT_URL,required"`
 }
 
-var _ oauth.ConfigProvider = Whoop{}
+var _ oauth.ConfigProvider = (*Whoop)(nil)
 
 func (w Whoop) GetClientID() string     { return w.ClientID }
 func (w Whoop) GetClientSecret() string { return w.ClientSecret }
