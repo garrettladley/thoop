@@ -11,13 +11,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/garrettladley/thoop/internal/env"
 	"github.com/garrettladley/thoop/internal/proxy"
+	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/xslog"
 )
 
 const (
-	keyPort  = "port"
-	keyError = "error"
+	keyPort = "port"
+	keyEnv  = "env"
 )
 
 func main() {
@@ -26,7 +28,7 @@ func main() {
 
 	ctx := context.Background()
 	if err := run(ctx, logger); err != nil {
-		logger.ErrorContext(ctx, "fatal error", slog.Any(keyError, err))
+		logger.ErrorContext(ctx, "fatal error", xslog.Error(err))
 		os.Exit(1)
 	}
 }
@@ -37,13 +39,28 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
 
-	handler := proxy.NewHandler(cfg)
-	defer handler.Close()
+	backend, err := initBackend(ctx, cfg, logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialize storage backend: %w", err)
+	}
+	defer func() {
+		if err := backend.Close(); err != nil {
+			logger.ErrorContext(ctx, "failed to close backend", xslog.Error(err))
+		}
+	}()
+
+	handler := proxy.NewHandler(cfg, backend)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /auth/start", handler.HandleAuthStart)
 	mux.HandleFunc("GET /auth/callback", handler.HandleAuthCallback)
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		if err := backend.Ping(r.Context()); err != nil {
+			logger.ErrorContext(r.Context(), "health check failed", xslog.Error(err))
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("unhealthy"))
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
@@ -52,7 +69,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		proxy.Recovery(logger),
 		proxy.RequestID,
 		proxy.Logging(logger),
-		proxy.RateLimit(cfg.RateLimit, cfg.RateBurst),
+		proxy.RateLimitWithBackend(backend, logger),
 		proxy.SecurityHeaders,
 	)
 
@@ -87,4 +104,21 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	logger.InfoContext(ctx, "server stopped")
 	return nil
+}
+
+func initBackend(ctx context.Context, cfg proxy.Config, logger *slog.Logger) (storage.Backend, error) {
+	switch cfg.Env {
+	case env.Production:
+		if cfg.Redis.URL == "" {
+			return nil, errors.New("REDIS_URL is required in production")
+		}
+		logger.InfoContext(ctx, "using Redis backend")
+		return storage.NewRedisBackend(cfg.Redis, int(cfg.RateLimit.Limit))
+	case env.Development:
+		logger.InfoContext(ctx, "using in-memory backend (local development)")
+		return storage.NewMemoryBackend(cfg.RateLimit.Limit, cfg.RateLimit.Burst), nil
+	default:
+		logger.InfoContext(ctx, "using in-memory backend (unknown environment)", slog.String(keyEnv, string(cfg.Env)))
+		return storage.NewMemoryBackend(cfg.RateLimit.Limit, cfg.RateLimit.Burst), nil
+	}
 }
