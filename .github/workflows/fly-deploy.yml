@@ -5,11 +5,15 @@ on:
   push:
     branches:
       - main
+
 jobs:
   deploy:
     name: Deploy app
     runs-on: ubuntu-latest
-    concurrency: deploy-group    # optional: ensure only one action runs at a time
+    concurrency: deploy-group
+    environment:
+      name: production
+      url: https://thoop-proxy.fly.dev
     steps:
       - uses: actions/checkout@v4
         with:
