@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"unicode"
 
 	drawille "github.com/exrook/drawille-go"
 
@@ -160,7 +161,10 @@ func getCanvasString(canvas *drawille.Canvas, width, height int) string {
 	return strings.Join(lines, "\n")
 }
 
-const emptyBraille rune = '\u2800'
+const (
+	emptyBraille rune = '\u2800'
+	ansiEscape   rune = '\x1b'
+)
 
 // overlayArcsRaw combines background and filled arcs with their respective colors.
 // This applies lipgloss styling per-line segment rather than per-character to avoid ANSI corruption.
@@ -288,7 +292,7 @@ func extractStyledSegment(styledStr string, start, end int) string {
 	pendingEscape := strings.Builder{}
 
 	for _, r := range styledStr {
-		if r == '\x1b' {
+		if r == ansiEscape {
 			inEscape = true
 			pendingEscape.WriteRune(r)
 			continue
@@ -296,7 +300,7 @@ func extractStyledSegment(styledStr string, start, end int) string {
 
 		if inEscape {
 			pendingEscape.WriteRune(r)
-			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			if unicode.IsLetter(r) {
 				inEscape = false
 				// if we're in the target range, include this escape sequence
 				if visibleIdx >= start && visibleIdx < end {
@@ -325,12 +329,12 @@ func stripAnsi(s string) string {
 	var result strings.Builder
 	inEscape := false
 	for _, r := range s {
-		if r == '\x1b' {
+		if r == ansiEscape {
 			inEscape = true
 			continue
 		}
 		if inEscape {
-			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			if unicode.IsLetter(r) {
 				inEscape = false
 			}
 			continue

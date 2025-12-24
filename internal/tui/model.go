@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -146,8 +147,8 @@ func (m *Model) View() tea.View {
 }
 
 func (m *Model) overlayStrings(base, overlay string) string {
-	baseLines := splitLines(base)
-	overlayLines := splitLines(overlay)
+	baseLines := strings.Split(base, "\n")
+	overlayLines := strings.Split(overlay, "\n")
 
 	maxLines := len(baseLines)
 	if len(overlayLines) > maxLines {
@@ -191,31 +192,5 @@ func (m *Model) overlayStrings(base, overlay string) string {
 		result[i] = string(merged)
 	}
 
-	return joinLines(result)
-}
-
-func splitLines(s string) []string {
-	var lines []string
-	start := 0
-	for i := range len(s) {
-		if s[i] == '\n' {
-			lines = append(lines, s[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		lines = append(lines, s[start:])
-	}
-	return lines
-}
-
-func joinLines(lines []string) string {
-	if len(lines) == 0 {
-		return ""
-	}
-	result := lines[0]
-	for i := 1; i < len(lines); i++ {
-		result += "\n" + lines[i]
-	}
-	return result
+	return strings.Join(result, "\n")
 }

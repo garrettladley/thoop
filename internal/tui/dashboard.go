@@ -60,7 +60,7 @@ func (m *Model) AuthIndicatorView() string {
 
 func (m *Model) recoveryColor() color.Color {
 	if m.state.dashboard.RecoveryScore == nil {
-		return theme.ColorRecoveryBlue // Neutral color when no data
+		return theme.ColorRecoveryBlue // neutral color when no data
 	}
 
 	score := *m.state.dashboard.RecoveryScore
