@@ -19,25 +19,27 @@ type DashboardState struct {
 }
 
 func (m *Model) DashboardView() string {
-	sleepGauge := gauge.NewGauge(
-		m.state.dashboard.SleepScore,
-		100,
-		"SLEEP",
-		theme.ColorSleep,
-	)
+	var (
+		sleepGauge = gauge.NewGauge(
+			m.state.dashboard.SleepScore,
+			100,
+			"SLEEP",
+			theme.ColorSleep,
+		)
 
-	recoveryGauge := gauge.NewGauge(
-		m.state.dashboard.RecoveryScore,
-		100,
-		"RECOVERY",
-		m.recoveryColor(),
-	)
+		recoveryGauge = gauge.NewGauge(
+			m.state.dashboard.RecoveryScore,
+			100,
+			"RECOVERY",
+			m.recoveryColor(),
+		)
 
-	strainGauge := gauge.NewGauge(
-		m.state.dashboard.StrainScore,
-		21,
-		"STRAIN",
-		theme.ColorStrain,
+		strainGauge = gauge.NewGauge(
+			m.state.dashboard.StrainScore,
+			21,
+			"STRAIN",
+			theme.ColorStrain,
+		)
 	)
 
 	// render gauges side by side with spacing

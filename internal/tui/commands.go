@@ -24,8 +24,10 @@ func fetchMetricsCmd(client *whoop.Client) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx := context.Background()
-		msg := MetricsDataMsg{}
+		var (
+			ctx = context.Background()
+			msg = MetricsDataMsg{}
+		)
 
 		cycles, err := client.Cycle.List(ctx, &whoop.ListParams{Limit: 1})
 		if err != nil {

@@ -147,8 +147,10 @@ func (m *Model) View() tea.View {
 }
 
 func (m *Model) overlayStrings(base, overlay string) string {
-	baseLines := strings.Split(base, "\n")
-	overlayLines := strings.Split(overlay, "\n")
+	var (
+		baseLines    = strings.Split(base, "\n")
+		overlayLines = strings.Split(overlay, "\n")
+	)
 
 	maxLines := len(baseLines)
 	if len(overlayLines) > maxLines {
@@ -157,7 +159,10 @@ func (m *Model) overlayStrings(base, overlay string) string {
 
 	result := make([]string, maxLines)
 	for i := range maxLines {
-		var baseLine, overlayLine string
+		var (
+			baseLine    string
+			overlayLine string
+		)
 		if i < len(baseLines) {
 			baseLine = baseLines[i]
 		}
@@ -165,8 +170,10 @@ func (m *Model) overlayStrings(base, overlay string) string {
 			overlayLine = overlayLines[i]
 		}
 
-		baseRunes := []rune(baseLine)
-		overlayRunes := []rune(overlayLine)
+		var (
+			baseRunes    = []rune(baseLine)
+			overlayRunes = []rune(overlayLine)
+		)
 
 		maxLen := len(baseRunes)
 		if len(overlayRunes) > maxLen {
@@ -175,7 +182,10 @@ func (m *Model) overlayStrings(base, overlay string) string {
 
 		merged := make([]rune, maxLen)
 		for j := 0; j < maxLen; j++ {
-			baseChar, overlayChar := ' ', ' '
+			var (
+				baseChar    = ' '
+				overlayChar = ' '
+			)
 			if j < len(baseRunes) {
 				baseChar = baseRunes[j]
 			}

@@ -62,9 +62,11 @@ func NewGauge(value *float64, max float64, label string, c color.Color, opts ...
 func (g Gauge) Render() string {
 	canvas := drawille.NewCanvas()
 
-	centerX := float64(gaugeDotsWidth) / 2
-	centerY := float64(gaugeDotsHeight) / 2
-	radius := float64(gaugeDotsWidth)/2 - 1
+	var (
+		centerX = float64(gaugeDotsWidth) / 2
+		centerY = float64(gaugeDotsHeight) / 2
+		radius  = float64(gaugeDotsWidth)/2 - 1
+	)
 
 	var percentage float64
 	if g.Value != nil && g.Max > 0 {
@@ -104,8 +106,10 @@ func (g Gauge) Render() string {
 		Foreground(g.TextColor).
 		Bold(true)
 
-	arcHeight := lipgloss.Height(combinedArc)
-	arcWidth := lipgloss.Width(combinedArc)
+	var (
+		arcHeight = lipgloss.Height(combinedArc)
+		arcWidth  = lipgloss.Width(combinedArc)
+	)
 
 	styledValue := valueStyle.Render(valueStr)
 	centeredValue := lipgloss.Place(
@@ -169,13 +173,13 @@ const (
 // overlayArcsRaw combines background and filled arcs with their respective colors.
 // This applies lipgloss styling per-line segment rather than per-character to avoid ANSI corruption.
 func overlayArcsRaw(bgStr, fillStr string, bgColor, fillColor color.Color) string {
-	bgLines := strings.Split(bgStr, "\n")
-	fillLines := strings.Split(fillStr, "\n")
-
-	var result []string
-
-	bgStyle := lipgloss.NewStyle().Foreground(bgColor)
-	fillStyle := lipgloss.NewStyle().Foreground(fillColor)
+	var (
+		bgLines   = strings.Split(bgStr, "\n")
+		fillLines = strings.Split(fillStr, "\n")
+		result    []string
+		bgStyle   = lipgloss.NewStyle().Foreground(bgColor)
+		fillStyle = lipgloss.NewStyle().Foreground(fillColor)
+	)
 
 	for i := range len(bgLines) {
 		bgRunes := []rune(bgLines[i])
@@ -212,15 +216,18 @@ func overlayArcsRaw(bgStr, fillStr string, bgColor, fillColor color.Color) strin
 // the foreground text has a solid background that covers the background content.
 // we preserve the arc on either side of the centered value.
 func overlayWithBackground(background, foreground string) string {
-	bgLines := strings.Split(background, "\n")
-	fgLines := strings.Split(foreground, "\n")
-
-	maxLines := max(len(bgLines), len(fgLines))
-
-	result := make([]string, maxLines)
+	var (
+		bgLines  = strings.Split(background, "\n")
+		fgLines  = strings.Split(foreground, "\n")
+		maxLines = max(len(bgLines), len(fgLines))
+		result   = make([]string, maxLines)
+	)
 
 	for i := range maxLines {
-		var bgLine, fgLine string
+		var (
+			bgLine string
+			fgLine string
+		)
 		if i < len(bgLines) {
 			bgLine = bgLines[i]
 		}

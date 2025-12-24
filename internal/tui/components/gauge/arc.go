@@ -33,9 +33,11 @@ func drawArc(canvas *drawille.Canvas, centerX, centerY, radius float64, startAng
 // midpointCircleArc draws an arc using the midpoint circle algorithm.
 // we use integer arithmetic to avoid floating-point gaps.
 func midpointCircleArc(canvas *drawille.Canvas, cx, cy, radius int, startAngle, endAngle float64) {
-	x := radius
-	y := 0
-	d := 1 - radius // decision parameter
+	var (
+		x = radius
+		y = 0
+		d = 1 - radius // decision parameter
+	)
 
 	for x >= y {
 		// draw the 8 symmetric points, filtered by angle
@@ -77,8 +79,10 @@ func drawOctantPoints(canvas *drawille.Canvas, cx, cy, x, y int, startAngle, end
 func isInArcRange(cx, cy, px, py int, startAngle, endAngle float64) bool {
 	// calculate angle of point from center
 	// in screen coords, Y increases downward, so we use (py-cy) directly
-	dx := float64(px - cx)
-	dy := float64(py - cy)
+	var (
+		dx = float64(px - cx)
+		dy = float64(py - cy)
+	)
 
 	// atan2 returns angle in radians from -π to π
 	angle := math.Atan2(dy, dx) * 180 / math.Pi
