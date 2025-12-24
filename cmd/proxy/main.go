@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,15 +12,26 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/proxy"
+	"github.com/garrettladley/thoop/internal/xslog"
+)
+
+const (
+	keyPort  = "port"
+	keyError = "error"
 )
 
 func main() {
-	if err := run(); err != nil {
-		log.Fatal(err)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
+	ctx := context.Background()
+	if err := run(ctx, logger); err != nil {
+		logger.ErrorContext(ctx, "fatal error", slog.Any(keyError, err))
+		os.Exit(1)
 	}
 }
 
-func run() error {
+func run(ctx context.Context, logger *slog.Logger) error {
 	cfg, err := proxy.ReadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
@@ -37,9 +48,17 @@ func run() error {
 		_, _ = w.Write([]byte("ok"))
 	})
 
+	wrapped := proxy.Chain(mux,
+		proxy.Recovery(logger),
+		proxy.RequestID,
+		proxy.Logging(logger),
+		proxy.RateLimit(cfg.RateLimit, cfg.RateBurst),
+		proxy.SecurityHeaders,
+	)
+
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           mux,
+		Handler:           wrapped,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -50,22 +69,22 @@ func run() error {
 	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("Starting proxy server on :%s", cfg.Port)
+		logger.InfoContext(ctx, "starting proxy server", slog.String(keyPort, cfg.Port))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Printf("Server error: %v", err)
+			logger.ErrorContext(ctx, "server error", xslog.Error(err))
 		}
 	}()
 
 	<-done
-	log.Println("Shutting down server...")
+	logger.InfoContext(ctx, "shutting down server")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("server shutdown failed: %w", err)
 	}
 
-	log.Println("Server stopped")
+	logger.InfoContext(ctx, "server stopped")
 	return nil
 }
