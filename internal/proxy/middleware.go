@@ -6,11 +6,10 @@ import (
 	"net/http"
 	"runtime/debug"
 	"slices"
-	"sync"
 	"time"
 
+	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/google/uuid"
-	"golang.org/x/time/rate"
 )
 
 const (
@@ -102,53 +101,26 @@ func SecurityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-type ipRateLimiter struct {
-	limiters map[string]*rate.Limiter
-	mu       sync.RWMutex
-	rate     rate.Limit
-	burst    int
-}
-
-func newIPRateLimiter(r float64, b int) *ipRateLimiter {
-	return &ipRateLimiter{
-		limiters: make(map[string]*rate.Limiter),
-		rate:     rate.Limit(r),
-		burst:    b,
-	}
-}
-
-func (l *ipRateLimiter) getLimiter(ip string) *rate.Limiter {
-	l.mu.RLock()
-	limiter, exists := l.limiters[ip]
-	l.mu.RUnlock()
-
-	if exists {
-		return limiter
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	limiter, exists = l.limiters[ip]
-	if exists {
-		return limiter
-	}
-
-	limiter = rate.NewLimiter(l.rate, l.burst)
-	l.limiters[ip] = limiter
-	return limiter
-}
-
-func RateLimit(ratePerSec float64, burst int) func(http.Handler) http.Handler {
-	limiter := newIPRateLimiter(ratePerSec, burst)
-
+func RateLimitWithBackend(backend storage.RateLimiter, logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ip := getIP(r)
-			if !limiter.getLimiter(ip).Allow() {
+
+			allowed, err := backend.Allow(r.Context(), ip)
+			if err != nil {
+				logger.ErrorContext(r.Context(), "rate limit check failed",
+					slog.Any(keyError, err),
+					slog.String(keyIP, ip),
+				)
+				http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+				return
+			}
+
+			if !allowed {
 				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
 				return
 			}
+
 			next.ServeHTTP(w, r)
 		})
 	}

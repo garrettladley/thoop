@@ -2,65 +2,29 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/oauth"
+	"github.com/garrettladley/thoop/internal/storage"
 	"golang.org/x/oauth2"
 )
 
-type stateEntry struct {
-	localPort string
-	createdAt time.Time
-}
+const stateTTL = 5 * time.Minute
 
 type Handler struct {
-	config      *oauth2.Config
-	states      map[string]stateEntry
-	statesMu    sync.RWMutex
-	stateTTL    time.Duration
-	cleanupDone chan struct{}
+	config  *oauth2.Config
+	storage storage.StateStore
 }
 
-func NewHandler(cfg Config) *Handler {
-	h := &Handler{
-		config:      oauth.NewConfig(cfg),
-		states:      make(map[string]stateEntry),
-		stateTTL:    10 * time.Minute,
-		cleanupDone: make(chan struct{}),
-	}
-
-	go h.cleanupExpiredStates()
-
-	return h
-}
-
-func (h *Handler) Close() {
-	close(h.cleanupDone)
-}
-
-func (h *Handler) cleanupExpiredStates() {
-	ticker := time.NewTicker(time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			h.statesMu.Lock()
-			now := time.Now()
-			for state, entry := range h.states {
-				if now.Sub(entry.createdAt) > h.stateTTL {
-					delete(h.states, state)
-				}
-			}
-			h.statesMu.Unlock()
-		case <-h.cleanupDone:
-			return
-		}
+func NewHandler(cfg Config, store storage.StateStore) *Handler {
+	return &Handler{
+		config:  oauth.NewConfig(cfg),
+		storage: store,
 	}
 }
 
@@ -77,12 +41,15 @@ func (h *Handler) HandleAuthStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.statesMu.Lock()
-	h.states[state] = stateEntry{
-		localPort: localPort,
-		createdAt: time.Now(),
+	entry := storage.StateEntry{
+		LocalPort: localPort,
+		CreatedAt: time.Now(),
 	}
-	h.statesMu.Unlock()
+
+	if err := h.storage.Set(r.Context(), state, entry, stateTTL); err != nil {
+		http.Error(w, "failed to store state", http.StatusInternalServerError)
+		return
+	}
 
 	authURL := h.config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
@@ -95,21 +62,19 @@ func (h *Handler) HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.statesMu.Lock()
-	entry, ok := h.states[state]
-	if ok {
-		delete(h.states, state)
-	}
-	h.statesMu.Unlock()
-
-	if !ok {
+	entry, err := h.storage.GetAndDelete(r.Context(), state)
+	if errors.Is(err, storage.ErrNotFound) {
 		http.Error(w, "invalid or expired state parameter", http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		http.Error(w, "failed to retrieve state", http.StatusInternalServerError)
 		return
 	}
 
 	if errParam := r.URL.Query().Get("error"); errParam != "" {
 		errDesc := r.URL.Query().Get("error_description")
-		redirectWithError(w, r, entry.localPort, errParam, errDesc)
+		redirectWithError(w, r, entry.LocalPort, errParam, errDesc)
 		return
 	}
 
@@ -128,7 +93,7 @@ func (h *Handler) HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	redirectWithToken(w, r, entry.localPort, token)
+	redirectWithToken(w, r, entry.LocalPort, token)
 }
 
 func redirectWithToken(w http.ResponseWriter, r *http.Request, localPort string, token *oauth2.Token) {
