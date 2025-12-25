@@ -16,7 +16,6 @@ type RateLimitInfo struct {
 }
 
 const (
-	// Header keys use canonical form (http.CanonicalHeaderKey)
 	limitHeaderKey     = "X-Ratelimit-Limit"
 	remainingHeaderKey = "X-Ratelimit-Remaining"
 	resetHeaderKey     = "X-Ratelimit-Reset"

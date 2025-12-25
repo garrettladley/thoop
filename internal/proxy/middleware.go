@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	// Header keys use canonical form (http.CanonicalHeaderKey)
 	headerXForwardedFor    = "X-Forwarded-For"
 	headerXRequestID       = "X-Request-Id"
 	headerXContentTypeOpts = "X-Content-Type-Options"
