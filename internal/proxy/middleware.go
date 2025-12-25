@@ -22,14 +22,16 @@ const (
 )
 
 const (
-	keyRequestID = "request_id"
-	keyMethod    = "method"
-	keyPath      = "path"
-	keyStatus    = "status"
-	keyDuration  = "duration"
-	keyIP        = "ip"
-	keyError     = "error"
-	keyStack     = "stack"
+	keyRequestID   = "request_id"
+	keyMethod      = "method"
+	keyPath        = "path"
+	keyStatus      = "status"
+	keyDuration    = "duration"
+	keyIP          = "ip"
+	keyError       = "error"
+	keyStack       = "stack"
+	keyWhoopUserID = "whoop_user_id"
+	keyURL         = "url"
 )
 
 func RequestID(next http.Handler) http.Handler {
