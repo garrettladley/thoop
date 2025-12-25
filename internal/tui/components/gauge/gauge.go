@@ -196,8 +196,7 @@ func overlayArcsRaw(bgStr, fillStr string, bgColor, fillColor color.Color) strin
 				fillChar = fillRunes[j]
 			}
 
-			// ff fill char is not empty braille, use fill color
-			// empty braille is \u2800
+			// if fill char is not empty braille, use fill color
 			if fillChar != ' ' && fillChar != emptyBraille {
 				lineBuilder.WriteString(fillStyle.Render(string(fillChar)))
 			} else if bgChar != ' ' && bgChar != emptyBraille {
