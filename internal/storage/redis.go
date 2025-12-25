@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	json "github.com/goccy/go-json"
+	go_json "github.com/goccy/go-json"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -51,7 +51,7 @@ func (r *RedisBackend) Allow(ctx context.Context, key string) (bool, error) {
 }
 
 func (r *RedisBackend) Set(ctx context.Context, state string, entry StateEntry, ttl time.Duration) error {
-	data, err := json.Marshal(entry)
+	data, err := go_json.Marshal(entry)
 	if err != nil {
 		return fmt.Errorf("failed to marshal state entry: %w", err)
 	}
@@ -75,7 +75,7 @@ func (r *RedisBackend) GetAndDelete(ctx context.Context, state string) (StateEnt
 	}
 
 	var entry StateEntry
-	if err := json.Unmarshal(data, &entry); err != nil {
+	if err := go_json.Unmarshal(data, &entry); err != nil {
 		return StateEntry{}, fmt.Errorf("failed to unmarshal state entry: %w", err)
 	}
 

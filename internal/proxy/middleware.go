@@ -11,6 +11,7 @@ import (
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/version"
+	"github.com/garrettladley/thoop/internal/xslog"
 	go_json "github.com/goccy/go-json"
 	"github.com/google/uuid"
 )
@@ -117,7 +118,7 @@ func RateLimitWithBackend(backend storage.RateLimiter, logger *slog.Logger) func
 			allowed, err := backend.Allow(r.Context(), ip)
 			if err != nil {
 				logger.ErrorContext(r.Context(), "rate limit check failed",
-					slog.Any(keyError, err),
+					xslog.Error(err),
 					slog.String(keyIP, ip),
 				)
 				http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
