@@ -18,7 +18,7 @@ const (
 )
 
 type RedisConfig struct {
-	URL string `env:"URL"`
+	Client *redis.Client
 }
 
 type RedisBackend struct {
@@ -28,22 +28,8 @@ type RedisBackend struct {
 }
 
 func NewRedisBackend(cfg RedisConfig, rateLimit int) (*RedisBackend, error) {
-	opt, err := redis.ParseURL(cfg.URL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse redis URL: %w", err)
-	}
-
-	client := redis.NewClient(opt)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("failed to connect to redis: %w", err)
-	}
-
 	return &RedisBackend{
-		client:     client,
+		client:     cfg.Client,
 		rateLimit:  rateLimit,
 		rateWindow: time.Second,
 	}, nil
