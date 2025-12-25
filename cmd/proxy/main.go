@@ -11,17 +11,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/env"
 	"github.com/garrettladley/thoop/internal/proxy"
 	xredis "github.com/garrettladley/thoop/internal/redis"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/xslog"
+	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
 
 const (
 	keyPort          = "port"
-	keyEnv           = "env"
 	keyPerUserMinute = "per_user_minute"
 	keyPerUserDay    = "per_user_day"
 	keyGlobalMinute  = "global_minute"
@@ -29,6 +28,8 @@ const (
 )
 
 func main() {
+	_ = godotenv.Load()
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
@@ -60,12 +61,8 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		}
 	}()
 
-	whoopLimiter, err := initWhoopLimiter(ctx, cfg, redisClient, logger)
-	if err != nil {
-		return fmt.Errorf("failed to initialize WHOOP rate limiter: %w", err)
-	}
-
-	tokenCache := initTokenCache(ctx, cfg, redisClient, logger)
+	whoopLimiter := initWhoopLimiter(ctx, cfg, redisClient, logger)
+	tokenCache := initTokenCache(ctx, redisClient, logger)
 	tokenValidator := proxy.NewTokenValidator(tokenCache, logger)
 
 	handler := proxy.NewHandler(cfg, backend)
@@ -135,20 +132,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 }
 
 func initBackend(ctx context.Context, cfg proxy.Config, redisClient *redis.Client, logger *slog.Logger) (storage.Backend, error) {
-	switch cfg.Env {
-	case env.Production:
-		logger.InfoContext(ctx, "using Redis backend")
-		return storage.NewRedisBackend(storage.RedisConfig{Client: redisClient}, int(cfg.RateLimit.Limit))
-	case env.Development:
-		logger.InfoContext(ctx, "using in-memory backend (local development)")
-		return storage.NewMemoryBackend(cfg.RateLimit.Limit, cfg.RateLimit.Burst), nil
-	default:
-		logger.InfoContext(ctx, "using in-memory backend (unknown environment)", slog.String(keyEnv, string(cfg.Env)))
-		return storage.NewMemoryBackend(cfg.RateLimit.Limit, cfg.RateLimit.Burst), nil
-	}
+	logger.InfoContext(ctx, "initializing Redis backend")
+	return storage.NewRedisBackend(storage.RedisConfig{Client: redisClient}, int(cfg.RateLimit.Limit))
 }
 
-func initWhoopLimiter(ctx context.Context, cfg proxy.Config, redisClient *redis.Client, logger *slog.Logger) (storage.WhoopRateLimiter, error) {
+func initWhoopLimiter(ctx context.Context, cfg proxy.Config, redisClient *redis.Client, logger *slog.Logger) storage.WhoopRateLimiter {
 	whoopCfg := storage.WhoopRateLimiterConfig{
 		PerUserMinuteLimit: cfg.WhoopRateLimit.PerUserMinuteLimit,
 		PerUserDayLimit:    cfg.WhoopRateLimit.PerUserDayLimit,
@@ -156,38 +144,16 @@ func initWhoopLimiter(ctx context.Context, cfg proxy.Config, redisClient *redis.
 		GlobalDayLimit:     cfg.WhoopRateLimit.GlobalDayLimit,
 	}
 
-	switch cfg.Env {
-	case env.Production:
-		logger.InfoContext(ctx, "using Redis WHOOP rate limiter",
-			slog.Int(keyPerUserMinute, whoopCfg.PerUserMinuteLimit),
-			slog.Int(keyPerUserDay, whoopCfg.PerUserDayLimit),
-			slog.Int(keyGlobalMinute, whoopCfg.GlobalMinuteLimit),
-			slog.Int(keyGlobalDay, whoopCfg.GlobalDayLimit))
+	logger.InfoContext(ctx, "initializing WHOOP rate limiter",
+		slog.Int(keyPerUserMinute, whoopCfg.PerUserMinuteLimit),
+		slog.Int(keyPerUserDay, whoopCfg.PerUserDayLimit),
+		slog.Int(keyGlobalMinute, whoopCfg.GlobalMinuteLimit),
+		slog.Int(keyGlobalDay, whoopCfg.GlobalDayLimit))
 
-		return storage.NewWhoopRedisLimiter(storage.RedisConfig{Client: redisClient}, whoopCfg), nil
-	case env.Development:
-		logger.InfoContext(ctx, "using in-memory WHOOP rate limiter",
-			slog.Int(keyPerUserMinute, whoopCfg.PerUserMinuteLimit),
-			slog.Int(keyPerUserDay, whoopCfg.PerUserDayLimit),
-			slog.Int(keyGlobalMinute, whoopCfg.GlobalMinuteLimit),
-			slog.Int(keyGlobalDay, whoopCfg.GlobalDayLimit))
-		return storage.NewWhoopMemoryLimiter(whoopCfg), nil
-	default:
-		logger.InfoContext(ctx, "using in-memory WHOOP rate limiter (unknown environment)", slog.String(keyEnv, string(cfg.Env)))
-		return storage.NewWhoopMemoryLimiter(whoopCfg), nil
-	}
+	return storage.NewWhoopRedisLimiter(storage.RedisConfig{Client: redisClient}, whoopCfg)
 }
 
-func initTokenCache(ctx context.Context, cfg proxy.Config, redisClient *redis.Client, logger *slog.Logger) storage.TokenCache {
-	switch cfg.Env {
-	case env.Production:
-		logger.InfoContext(ctx, "using Redis token cache")
-		return storage.NewRedisTokenCache(storage.RedisConfig{Client: redisClient})
-	case env.Development:
-		logger.InfoContext(ctx, "using in-memory token cache")
-		return storage.NewMemoryTokenCache(time.Minute)
-	default:
-		logger.InfoContext(ctx, "using in-memory token cache (unknown environment)", slog.String(keyEnv, string(cfg.Env)))
-		return storage.NewMemoryTokenCache(time.Minute)
-	}
+func initTokenCache(ctx context.Context, redisClient *redis.Client, logger *slog.Logger) storage.TokenCache {
+	logger.InfoContext(ctx, "initializing token cache")
+	return storage.NewRedisTokenCache(storage.RedisConfig{Client: redisClient})
 }

@@ -111,3 +111,21 @@ sqlc/verify: sqlc/generate
 		exit 1; \
 	fi
 	@echo 'sqlc code is up to date'
+
+# Redis
+## redis: start Redis container for local dev
+.PHONY: redis
+redis:
+	@docker compose up -d redis
+	@echo 'Redis running on localhost:6379'
+
+## redis/stop: stop Redis container
+.PHONY: redis/stop
+redis/stop:
+	@docker compose down
+
+# Proxy
+## proxy: run proxy server (requires .env.proxy or env vars)
+.PHONY: proxy
+proxy:
+	@go run ./cmd/proxy

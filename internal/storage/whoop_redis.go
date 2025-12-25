@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -114,33 +115,18 @@ func (w *WhoopRedisLimiter) CheckAndIncrement(ctx context.Context, userKey strin
 }
 
 func (w *WhoopRedisLimiter) UpdateFromHeaders(ctx context.Context, headers http.Header) error {
-	limitStr := headers.Get("X-RateLimit-Limit")
-	remainingStr := headers.Get("X-RateLimit-Remaining")
-	resetStr := headers.Get("X-RateLimit-Reset")
-
-	if limitStr == "" || remainingStr == "" || resetStr == "" {
+	info, err := whoop.ParseRateLimitHeaders(headers)
+	if err != nil {
+		return fmt.Errorf("failed to parse rate limit headers: %w", err)
+	}
+	if info == nil {
 		return nil
-	}
-
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
-		return fmt.Errorf("failed to parse X-RateLimit-Limit: %w", err)
-	}
-
-	remaining, err := strconv.Atoi(remainingStr)
-	if err != nil {
-		return fmt.Errorf("failed to parse X-RateLimit-Remaining: %w", err)
-	}
-
-	resetTimestamp, err := strconv.ParseInt(resetStr, 10, 64)
-	if err != nil {
-		return fmt.Errorf("failed to parse X-RateLimit-Reset: %w", err)
 	}
 
 	// determine which window based on limit value
 	// WHOOP returns either 100 (minute) or 10000 (day)
 	var key string
-	switch limit {
+	switch info.Limit {
 	case 100:
 		key = whoopGlobalKeyPrefix + ":minute"
 	case 10_000:
@@ -149,7 +135,7 @@ func (w *WhoopRedisLimiter) UpdateFromHeaders(ctx context.Context, headers http.
 		return nil
 	}
 
-	used := limit - remaining
+	used := info.Limit - info.Remaining
 
 	timeResult, err := w.client.Time(ctx).Result()
 	if err != nil {
@@ -169,9 +155,8 @@ func (w *WhoopRedisLimiter) UpdateFromHeaders(ctx context.Context, headers http.
 		pipe.ZAdd(ctx, key, redis.Z{Score: float64(now), Member: member})
 	}
 
-	// set expiration based on reset timestamp
-	resetTime := time.Unix(resetTimestamp, 0)
-	ttl := time.Until(resetTime) + time.Minute // add margin
+	// set expiration based on reset duration
+	ttl := info.Reset + time.Minute // add margin
 	if ttl > 0 {
 		pipe.Expire(ctx, key, ttl)
 	}

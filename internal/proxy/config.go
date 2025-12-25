@@ -2,18 +2,16 @@ package proxy
 
 import (
 	"github.com/caarlos0/env/v11"
-	appenv "github.com/garrettladley/thoop/internal/env"
 	"github.com/garrettladley/thoop/internal/oauth"
 )
 
 type Config struct {
-	Port           string             `env:"PORT" envDefault:"8080"`
-	Env            appenv.Environment `env:"ENV" envDefault:"development"`
-	BaseURL        string             `env:"BASE_URL,required"`
-	Whoop          Whoop              `envPrefix:"WHOOP_"`
-	RateLimit      RateLimit          `envPrefix:"RATE_"`
-	WhoopRateLimit WhoopRateLimit     `envPrefix:"WHOOP_RATE_LIMIT_"`
-	Redis          Redis              `envPrefix:"REDIS_"`
+	Port           string         `env:"PORT" envDefault:"8080"`
+	BaseURL        string         `env:"BASE_URL,required"`
+	Whoop          Whoop          `envPrefix:"WHOOP_"`
+	RateLimit      RateLimit      `envPrefix:"RATE_"`
+	WhoopRateLimit WhoopRateLimit `envPrefix:"WHOOP_RATE_LIMIT_"`
+	Redis          Redis          `envPrefix:"REDIS_"`
 }
 
 type Redis struct {

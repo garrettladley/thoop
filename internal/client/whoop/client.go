@@ -51,6 +51,12 @@ func WithHTTPClient(hc *http.Client) Option {
 	return func(c *Client) { c.httpClient = hc }
 }
 
+// WithBaseURL sets a custom base URL for API requests.
+// Use this to route requests through a proxy server.
+func WithBaseURL(baseURL string) Option {
+	return func(c *Client) { c.baseURL = baseURL }
+}
+
 func (c *Client) do(ctx context.Context, method string, path string, query url.Values, result any) error {
 	token, err := c.tokenSource.Token()
 	if err != nil {
