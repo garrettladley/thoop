@@ -21,21 +21,21 @@ type DashboardState struct {
 
 func (m *Model) DashboardView() string {
 	var (
-		sleepGauge = gauge.NewGauge(
+		sleepGauge = gauge.New(
 			m.state.dashboard.SleepScore,
 			100,
 			"SLEEP",
 			theme.ColorSleep,
 		)
 
-		recoveryGauge = gauge.NewGauge(
+		recoveryGauge = gauge.New(
 			m.state.dashboard.RecoveryScore,
 			100,
 			"RECOVERY",
 			m.recoveryColor(),
 		)
 
-		strainGauge = gauge.NewGauge(
+		strainGauge = gauge.New(
 			m.state.dashboard.StrainScore,
 			21,
 			"STRAIN",
