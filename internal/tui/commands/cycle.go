@@ -9,7 +9,7 @@ import (
 	"github.com/garrettladley/thoop/internal/client/whoop"
 )
 
-func FetchCycleCmd(client *whoop.Client) tea.Cmd {
+func FetchCycleCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 	if client == nil {
 		return func() tea.Msg {
 			return CycleMsg{Cycle: nil}
@@ -17,7 +17,7 @@ func FetchCycleCmd(client *whoop.Client) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 		defer cancel()
 		cycles, err := client.Cycle.List(ctx, &whoop.ListParams{Limit: 1})
 		if err != nil {

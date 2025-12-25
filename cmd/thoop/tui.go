@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -42,7 +43,12 @@ func tuiCmd() *cobra.Command {
 
 			client := whoop.New(tokenSource)
 
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+
 			deps := tui.Deps{
+				Ctx:          ctx,
+				Cancel:       cancel,
 				TokenChecker: tokenSource,
 				WhoopClient:  client,
 			}
