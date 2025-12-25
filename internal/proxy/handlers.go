@@ -11,6 +11,7 @@ import (
 
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/storage"
+	"github.com/garrettladley/thoop/internal/version"
 	"golang.org/x/oauth2"
 )
 
@@ -40,7 +41,7 @@ func (h *Handler) HandleAuthStart(w http.ResponseWriter, r *http.Request) {
 		clientVersion = "unknown"
 	}
 
-	if verr := CheckVersionCompatibility(clientVersion); verr != nil {
+	if verr := version.CheckCompatibility(clientVersion); verr != nil {
 		redirectWithError(w, r, localPort, oauth.ErrorCodeIncompatibleVersion, verr.Error(), map[string]string{
 			oauth.ParamMinVersion: verr.MinVersion,
 		})

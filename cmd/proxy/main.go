@@ -14,6 +14,7 @@ import (
 	"github.com/garrettladley/thoop/internal/proxy"
 	xredis "github.com/garrettladley/thoop/internal/redis"
 	"github.com/garrettladley/thoop/internal/storage"
+	"github.com/garrettladley/thoop/internal/xhttp/middleware"
 	"github.com/garrettladley/thoop/internal/xslog"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
@@ -74,8 +75,8 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	whoopMux := http.NewServeMux()
 	whoopMux.HandleFunc("/api/whoop/", whoopHandler.HandleWhoopProxy)
-	whoopWrapped := proxy.Chain(whoopMux,
-		proxy.VersionCheck(logger),
+	whoopWrapped := middleware.Chain(whoopMux,
+		middleware.VersionCheck(logger),
 		proxy.WhoopAuth(tokenValidator, logger),
 	)
 	mux.Handle("/api/whoop/", whoopWrapped)
@@ -91,12 +92,12 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	wrapped := proxy.Chain(mux,
-		proxy.Recovery(logger),
-		proxy.RequestID,
-		proxy.Logging(logger),
+	wrapped := middleware.Chain(mux,
+		middleware.Recovery(logger),
+		middleware.RequestID(),
+		middleware.Logging(logger),
 		proxy.RateLimitWithBackend(backend, logger),
-		proxy.SecurityHeaders,
+		middleware.SecurityHeaders,
 	)
 
 	server := &http.Server{
