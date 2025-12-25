@@ -293,10 +293,12 @@ func overlayWithBackground(background, foreground string) string {
 // extractStyledSegment extracts characters from start to end position from a styled string,
 // preserving the ANSI styling for those characters.
 func extractStyledSegment(styledStr string, start, end int) string {
-	var result strings.Builder
-	visibleIdx := 0
-	inEscape := false
-	pendingEscape := strings.Builder{}
+	var (
+		result        strings.Builder
+		visibleIdx    = 0
+		inEscape      = false
+		pendingEscape strings.Builder
+	)
 
 	for _, r := range styledStr {
 		if r == ansiEscape {
@@ -333,8 +335,11 @@ func extractStyledSegment(styledStr string, start, end int) string {
 
 // stripAnsi removes ANSI escape sequences from a string.
 func stripAnsi(s string) string {
-	var result strings.Builder
-	inEscape := false
+	var (
+		result   strings.Builder
+		inEscape = false
+	)
+
 	for _, r := range s {
 		if r == ansiEscape {
 			inEscape = true
