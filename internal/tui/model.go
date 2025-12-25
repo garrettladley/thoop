@@ -52,8 +52,8 @@ func (m *Model) Init() tea.Cmd {
 		tea.Tick(splashDuration, func(t time.Time) tea.Msg {
 			return SplashTickMsg{}
 		}),
-		commands.CheckAuthCmd(m.deps.TokenChecker),
-		commands.FetchCycleCmd(m.deps.WhoopClient),
+		commands.CheckAuthCmd(m.deps.Ctx, m.deps.TokenChecker),
+		commands.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
 	)
 }
 
@@ -67,6 +67,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
+			m.deps.Cancel()
 			return m, tea.Quit
 		}
 
@@ -90,8 +91,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state.dashboard.StrainScore = &msg.Cycle.Score.Strain
 			}
 			return m, tea.Batch(
-				commands.FetchSleepCmd(m.deps.WhoopClient, msg.Cycle.ID),
-				commands.FetchRecoveryCmd(m.deps.WhoopClient, msg.Cycle.ID),
+				commands.FetchSleepCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
+				commands.FetchRecoveryCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
 			)
 		}
 		return m, nil
