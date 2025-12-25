@@ -17,7 +17,7 @@ func FetchSleepCmd(ctx context.Context, client *whoop.Client, cycleID int64) tea
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		sleep, err := client.Cycle.GetSleep(ctx, cycleID)
 		return SleepMsg{Sleep: sleep, Err: err}

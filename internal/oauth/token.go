@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/garrettladley/thoop/internal/sqlc"
 	"golang.org/x/oauth2"
@@ -42,7 +43,9 @@ func (s *DBTokenSource) Token() (*oauth2.Token, error) {
 		return s.token, nil
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	dbToken, err := s.querier.GetToken(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
