@@ -19,6 +19,7 @@ linters:
     - misspell
     - nolintlint
     - paralleltest
+    - canonicalheader
 
   settings:
     sloglint:
