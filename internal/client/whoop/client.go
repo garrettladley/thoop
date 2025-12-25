@@ -51,6 +51,10 @@ func WithHTTPClient(hc *http.Client) Option {
 	return func(c *Client) { c.httpClient = hc }
 }
 
+func WithBaseURL(baseURL string) Option {
+	return func(c *Client) { c.baseURL = baseURL }
+}
+
 func (c *Client) do(ctx context.Context, method string, path string, query url.Values, result any) error {
 	token, err := c.tokenSource.Token()
 	if err != nil {

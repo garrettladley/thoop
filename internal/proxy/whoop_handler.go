@@ -87,7 +87,7 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
 		if state.Reason != nil && *state.Reason != "" {
-			w.Header().Set("X-RateLimit-Reason", string(*state.Reason))
+			w.Header().Set("X-Ratelimit-Reason", string(*state.Reason))
 		}
 		w.WriteHeader(http.StatusTooManyRequests)
 
