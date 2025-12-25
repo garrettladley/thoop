@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/tui/commands"
+	"github.com/garrettladley/thoop/internal/tui/components/footer"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
@@ -153,21 +154,17 @@ func (m *Model) View() tea.View {
 			m.DashboardView(),
 		)
 
-		// place auth indicator at absolute bottom right
-		authIndicator := lipgloss.NewStyle().
-			PaddingRight(2).
-			PaddingBottom(1).
-			Render(m.AuthIndicatorView())
+		f := footer.New(m.AuthIndicatorView(), m.viewportWidth)
 
-		authOverlay := lipgloss.Place(
+		footerOverlay := lipgloss.Place(
 			m.viewportWidth,
 			m.viewportHeight,
-			lipgloss.Right,
+			lipgloss.Left,
 			lipgloss.Bottom,
-			authIndicator,
+			f.Render(),
 		)
 
-		content = m.overlayStrings(gauges, authOverlay)
+		content = m.overlayStrings(gauges, footerOverlay)
 	}
 
 	view.SetContent(content)
@@ -180,10 +177,7 @@ func (m *Model) overlayStrings(base, overlay string) string {
 		overlayLines = strings.Split(overlay, "\n")
 	)
 
-	maxLines := len(baseLines)
-	if len(overlayLines) > maxLines {
-		maxLines = len(overlayLines)
-	}
+	maxLines := max(len(overlayLines), len(baseLines))
 
 	result := make([]string, maxLines)
 	for i := range maxLines {
@@ -203,13 +197,10 @@ func (m *Model) overlayStrings(base, overlay string) string {
 			overlayRunes = []rune(overlayLine)
 		)
 
-		maxLen := len(baseRunes)
-		if len(overlayRunes) > maxLen {
-			maxLen = len(overlayRunes)
-		}
+		maxLen := max(len(overlayRunes), len(baseRunes))
 
 		merged := make([]rune, maxLen)
-		for j := 0; j < maxLen; j++ {
+		for j := range maxLen {
 			var (
 				baseChar    = ' '
 				overlayChar = ' '

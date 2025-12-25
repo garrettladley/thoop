@@ -8,7 +8,10 @@ import (
 	"slices"
 	"time"
 
+	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/storage"
+	"github.com/garrettladley/thoop/internal/version"
+	go_json "github.com/goccy/go-json"
 	"github.com/google/uuid"
 )
 
@@ -22,16 +25,19 @@ const (
 )
 
 const (
-	keyRequestID   = "request_id"
-	keyMethod      = "method"
-	keyPath        = "path"
-	keyStatus      = "status"
-	keyDuration    = "duration"
-	keyIP          = "ip"
-	keyError       = "error"
-	keyStack       = "stack"
-	keyWhoopUserID = "whoop_user_id"
-	keyURL         = "url"
+	keyRequestID     = "request_id"
+	keyMethod        = "method"
+	keyPath          = "path"
+	keyStatus        = "status"
+	keyDuration      = "duration"
+	keyIP            = "ip"
+	keyError         = "error"
+	keyStack         = "stack"
+	keyWhoopUserID   = "whoop_user_id"
+	keyURL           = "url"
+	keyClientVersion = "client_version"
+	keyProxyVersion  = "proxy_version"
+	keyMinVersion    = "min_version"
 )
 
 func RequestID(next http.Handler) http.Handler {
@@ -139,6 +145,37 @@ func getIP(r *http.Request) string {
 		return ip
 	}
 	return r.RemoteAddr
+}
+
+func VersionCheck(logger *slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			clientVersion := r.Header.Get(version.Header)
+			if clientVersion == "" {
+				clientVersion = "unknown"
+			}
+
+			if verr := CheckVersionCompatibility(clientVersion); verr != nil {
+				logger.WarnContext(r.Context(), "client version incompatible",
+					slog.String(keyClientVersion, clientVersion),
+					slog.String(keyProxyVersion, verr.ProxyVersion),
+					slog.String(keyMinVersion, verr.MinVersion),
+					slog.String(keyPath, r.URL.Path))
+
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUpgradeRequired)
+
+				_ = go_json.NewEncoder(w).Encode(map[string]any{
+					"error":       string(oauth.ErrorCodeIncompatibleVersion),
+					"message":     verr.Error(),
+					"min_version": verr.MinVersion,
+				})
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func Chain(h http.Handler, middleware ...func(http.Handler) http.Handler) http.Handler {

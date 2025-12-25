@@ -1,3 +1,6 @@
+VERSION ?= devel
+LDFLAGS := -s -w -X github.com/garrettladley/thoop/internal/version.version=$(VERSION)
+
 ## help: print this help message
 .PHONY: help
 help:
@@ -40,10 +43,41 @@ lint:
 lint/fix:
 	@golangci-lint run --path-mode=abs --config=".golangci.yml" --timeout=5m --fix
 
+## build: build all binaries with version (dev mode, shows version in footer)
+.PHONY: build
+build:
+	@echo "Building with version: $(VERSION)"
+	@go build -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
+	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-proxy ./cmd/proxy
+	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
+
+## build/release: build all binaries for release (no dev footer)
+.PHONY: build/release
+build/release:
+	@echo "Building release with version: $(VERSION)"
+	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
+	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop-proxy ./cmd/proxy
+	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
+
+## build/thoop: build TUI client with version
+.PHONY: build/thoop
+build/thoop:
+	@go build -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
+
+## build/proxy: build proxy server with version
+.PHONY: build/proxy
+build/proxy:
+	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-proxy ./cmd/proxy
+
+## version: print current version
+.PHONY: version
+version:
+	@echo $(VERSION)
+
 ## thoop: run main CLI
 .PHONY: thoop
 thoop:
-	@go run ./cmd/thoop
+	@go run -ldflags="$(LDFLAGS)" ./cmd/thoop
 
 ## db: run database CLI
 .PHONY: db
@@ -128,4 +162,4 @@ redis/stop:
 ## proxy: run proxy server (requires .env.proxy or env vars)
 .PHONY: proxy
 proxy:
-	@go run ./cmd/proxy
+	@go run -ldflags="$(LDFLAGS)" ./cmd/proxy

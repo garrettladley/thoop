@@ -30,7 +30,7 @@ const (
 func main() {
 	_ = godotenv.Load()
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger := xslog.NewLoggerFromEnv(os.Stdout)
 	slog.SetDefault(logger)
 
 	ctx := context.Background()
@@ -75,6 +75,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	whoopMux := http.NewServeMux()
 	whoopMux.HandleFunc("/api/whoop/", whoopHandler.HandleWhoopProxy)
 	whoopWrapped := proxy.Chain(whoopMux,
+		proxy.VersionCheck(logger),
 		proxy.WhoopAuth(tokenValidator, logger),
 	)
 	mux.Handle("/api/whoop/", whoopWrapped)
@@ -111,7 +112,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		logger.InfoContext(ctx, "starting proxy server", slog.String(keyPort, cfg.Port))
+		logger.InfoContext(ctx, "starting proxy server",
+			xslog.Version(),
+			slog.String(keyPort, cfg.Port))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.ErrorContext(ctx, "server error", xslog.Error(err))
 		}

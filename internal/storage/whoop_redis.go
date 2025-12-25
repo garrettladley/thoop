@@ -69,7 +69,7 @@ func (w *WhoopRedisLimiter) CheckAndIncrement(ctx context.Context, userKey strin
 		return nil, fmt.Errorf("failed to run WHOOP rate limit script: %w", err)
 	}
 
-	resultSlice, ok := result.([]interface{})
+	resultSlice, ok := result.([]any)
 	if !ok || len(resultSlice) < 2 {
 		return nil, fmt.Errorf("unexpected result format from rate limit script")
 	}
