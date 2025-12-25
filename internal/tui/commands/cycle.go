@@ -17,7 +17,7 @@ func FetchCycleCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		cycles, err := client.Cycle.List(ctx, &whoop.ListParams{Limit: 1})
 		if err != nil {

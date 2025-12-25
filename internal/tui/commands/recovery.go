@@ -17,7 +17,7 @@ func FetchRecoveryCmd(ctx context.Context, client *whoop.Client, cycleID int64) 
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		recovery, err := client.Cycle.GetRecovery(ctx, cycleID)
 		return RecoveryMsg{Recovery: recovery, Err: err}

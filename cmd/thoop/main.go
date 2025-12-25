@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"syscall"
 
 	"github.com/charmbracelet/fang"
 	"github.com/joho/godotenv"
@@ -21,7 +22,7 @@ func main() {
 	rootCmd.AddCommand(testCmd())
 	rootCmd.AddCommand(tuiCmd())
 
-	if err := fang.Execute(context.Background(), rootCmd); err != nil {
+	if err := fang.Execute(context.Background(), rootCmd, fang.WithNotifySignal(os.Interrupt, syscall.SIGTERM)); err != nil {
 		os.Exit(1)
 	}
 }
