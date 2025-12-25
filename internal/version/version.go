@@ -8,22 +8,27 @@ import (
 
 const Header = "X-Client-Version"
 
+const (
+	versionDevel   = "devel"
+	versionUnknown = "unknown"
+)
+
 // version is set via ldflags at build time.
 // falls back to debug.ReadBuildInfo for go install.
-var version = "devel"
+var version = versionDevel
 
 var once sync.Once
 
 func Get() string {
 	once.Do(func() {
-		if version != "devel" {
+		if version != versionDevel {
 			return
 		}
 		info, ok := debug.ReadBuildInfo()
 		if !ok {
 			return
 		}
-		if v := info.Main.Version; v != "" && v != "(devel)" {
+		if v := info.Main.Version; v != "" && v != "("+versionDevel+")" {
 			version = v
 		}
 	})
@@ -32,7 +37,7 @@ func Get() string {
 
 // IsDevelopment returns true for versions that should skip compatibility checks.
 func IsDevelopment(v string) bool {
-	return v == "devel" || v == "unknown" || v == "" ||
+	return v == versionDevel || v == versionUnknown || v == "" ||
 		strings.Contains(v, "dirty") ||
 		strings.Contains(v, "-0.")
 }
