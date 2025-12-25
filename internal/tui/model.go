@@ -9,6 +9,7 @@ import (
 
 	"github.com/garrettladley/thoop/internal/tui/commands"
 	"github.com/garrettladley/thoop/internal/tui/theme"
+	"github.com/garrettladley/thoop/internal/version"
 )
 
 var _ tea.Model = (*Model)(nil)
@@ -153,21 +154,40 @@ func (m *Model) View() tea.View {
 			m.DashboardView(),
 		)
 
-		// place auth indicator at absolute bottom right
-		authIndicator := lipgloss.NewStyle().
-			PaddingRight(2).
-			PaddingBottom(1).
-			Render(m.AuthIndicatorView())
+		// build footer bar with version (left) and auth indicator (right)
+		var leftContent string
+		if version.IsDevelopment(version.Get()) {
+			leftContent = lipgloss.NewStyle().
+				Foreground(theme.ColorDim).
+				Render(version.Get())
+		}
 
-		authOverlay := lipgloss.Place(
+		rightContent := m.AuthIndicatorView()
+
+		// calculate spacing between left and right
+		leftWidth := lipgloss.Width(leftContent)
+		rightWidth := lipgloss.Width(rightContent)
+		padding := 2 // padding on each side
+		spacerWidth := m.viewportWidth - leftWidth - rightWidth - (padding * 2)
+		if spacerWidth < 0 {
+			spacerWidth = 0
+		}
+
+		footer := lipgloss.NewStyle().
+			PaddingLeft(padding).
+			PaddingRight(padding).
+			PaddingBottom(1).
+			Render(leftContent + strings.Repeat(" ", spacerWidth) + rightContent)
+
+		footerOverlay := lipgloss.Place(
 			m.viewportWidth,
 			m.viewportHeight,
-			lipgloss.Right,
+			lipgloss.Left,
 			lipgloss.Bottom,
-			authIndicator,
+			footer,
 		)
 
-		content = m.overlayStrings(gauges, authOverlay)
+		content = m.overlayStrings(gauges, footerOverlay)
 	}
 
 	view.SetContent(content)

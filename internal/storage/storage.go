@@ -14,8 +14,9 @@ type RateLimiter interface {
 }
 
 type StateEntry struct {
-	LocalPort string    `json:"local_port"`
-	CreatedAt time.Time `json:"created_at"`
+	LocalPort     string    `json:"local_port"`
+	ClientVersion string    `json:"client_version"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type StateStore interface {

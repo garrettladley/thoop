@@ -29,9 +29,20 @@ func NewHandler(cfg Config, store storage.StateStore) *Handler {
 }
 
 func (h *Handler) HandleAuthStart(w http.ResponseWriter, r *http.Request) {
-	localPort := r.URL.Query().Get("local_port")
+	localPort := r.URL.Query().Get(oauth.ParamLocalPort)
 	if !isValidPort(localPort) {
 		http.Error(w, "invalid local_port parameter", http.StatusBadRequest)
+		return
+	}
+
+	clientVersion := r.URL.Query().Get(oauth.ParamClientVersion)
+	if clientVersion == "" {
+		clientVersion = "unknown"
+	}
+
+	if verr := CheckVersionCompatibility(clientVersion); verr != nil {
+		redirectWithError(w, r, localPort, oauth.ErrorCodeIncompatibleVersion, verr.Error(),
+			oauth.ParamMinVersion, verr.MinVersion)
 		return
 	}
 
@@ -42,8 +53,9 @@ func (h *Handler) HandleAuthStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entry := storage.StateEntry{
-		LocalPort: localPort,
-		CreatedAt: time.Now(),
+		LocalPort:     localPort,
+		ClientVersion: clientVersion,
+		CreatedAt:     time.Now(),
 	}
 
 	if err := h.storage.Set(r.Context(), state, entry, stateTTL); err != nil {
@@ -72,9 +84,9 @@ func (h *Handler) HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if errParam := r.URL.Query().Get("error"); errParam != "" {
-		errDesc := r.URL.Query().Get("error_description")
-		redirectWithError(w, r, entry.LocalPort, errParam, errDesc)
+	if errParam := r.URL.Query().Get(oauth.ParamError); errParam != "" {
+		errDesc := r.URL.Query().Get(oauth.ParamErrorDescription)
+		redirectWithError(w, r, entry.LocalPort, oauth.ErrorCode(errParam), errDesc)
 		return
 	}
 
@@ -112,13 +124,18 @@ func redirectWithToken(w http.ResponseWriter, r *http.Request, localPort string,
 	http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
 }
 
-func redirectWithError(w http.ResponseWriter, r *http.Request, localPort string, errCode string, errDesc string) {
+func redirectWithError(w http.ResponseWriter, r *http.Request, localPort string, errCode oauth.ErrorCode, errDesc string, extra ...string) {
 	callbackURL := fmt.Sprintf("http://localhost:%s/callback", localPort)
 
 	u, _ := url.Parse(callbackURL)
 	q := u.Query()
-	q.Set("error", errCode)
-	q.Set("error_description", errDesc)
+	q.Set(oauth.ParamError, string(errCode))
+	q.Set(oauth.ParamErrorDescription, errDesc)
+
+	for i := 0; i+1 < len(extra); i += 2 {
+		q.Set(extra[i], extra[i+1])
+	}
+
 	u.RawQuery = q.Encode()
 
 	http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)

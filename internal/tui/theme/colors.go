@@ -5,6 +5,7 @@ import "charm.land/lipgloss/v2"
 var (
 	ColorBlack = lipgloss.Color("#000000")
 	ColorWhite = lipgloss.Color("#FFFFFF")
+	ColorDim   = lipgloss.Color("#666666")
 )
 
 var (

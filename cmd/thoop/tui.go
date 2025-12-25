@@ -14,6 +14,7 @@ import (
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
 	"github.com/garrettladley/thoop/internal/tui"
+	"github.com/garrettladley/thoop/internal/xslog"
 )
 
 func tuiCmd() *cobra.Command {
@@ -46,9 +47,13 @@ func tuiCmd() *cobra.Command {
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
 
+			logger := xslog.NewLoggerFromEnv(os.Stderr)
+			logger.InfoContext(ctx, "starting thoop", xslog.Version())
+
 			deps := tui.Deps{
 				Ctx:          ctx,
 				Cancel:       cancel,
+				Logger:       logger,
 				TokenChecker: tokenSource,
 				WhoopClient:  client,
 			}

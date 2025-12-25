@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/sqlc"
+	"github.com/garrettladley/thoop/internal/version"
 	"golang.org/x/oauth2"
 )
 
@@ -58,7 +61,10 @@ func (f *ProxyFlow) Run(ctx context.Context) (*oauth2.Token, error) {
 }
 
 func (f *ProxyFlow) authURL(port string) string {
-	return fmt.Sprintf("%s/auth/start?local_port=%s", f.proxyURL, port)
+	return fmt.Sprintf("%s/auth/start?%s=%s&%s=%s",
+		f.proxyURL,
+		ParamLocalPort, port,
+		ParamClientVersion, url.QueryEscape(version.Get()))
 }
 
 type DirectFlow struct {
@@ -205,8 +211,17 @@ func startCallbackServer(handler callbackHandler, resultCh chan<- tokenResult) (
 }
 
 func proxyCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Token, error) {
-	if errParam := r.URL.Query().Get("error"); errParam != "" {
-		errDesc := r.URL.Query().Get("error_description")
+	if errParam := r.URL.Query().Get(ParamError); errParam != "" {
+		errDesc := r.URL.Query().Get(ParamErrorDescription)
+
+		if ErrorCode(errParam) == ErrorCodeIncompatibleVersion {
+			minVersion := r.URL.Query().Get(ParamMinVersion)
+			writeVersionErrorHTML(w, errDesc, minVersion)
+			fmt.Fprintf(os.Stderr, "\nVersion incompatibility: %s\n", errDesc)
+			fmt.Fprintf(os.Stderr, "Please upgrade: go install github.com/garrettladley/thoop/cmd/thoop@latest\n\n")
+			return nil, fmt.Errorf("version incompatibility: %s", errDesc)
+		}
+
 		http.Error(w, fmt.Sprintf("OAuth error: %s", errDesc), http.StatusBadRequest)
 		return nil, fmt.Errorf("oauth error: %s - %s", errParam, errDesc)
 	}
@@ -235,6 +250,22 @@ func proxyCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Token
 		RefreshToken: r.URL.Query().Get("refresh_token"),
 		Expiry:       expiry,
 	}, nil
+}
+
+func writeVersionErrorHTML(w http.ResponseWriter, errDesc, minVersion string) {
+	w.Header().Set("Content-Type", "text/html")
+	upgradeCmd := "go install github.com/garrettladley/thoop/cmd/thoop@latest"
+	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head><title>Version Incompatibility</title></head>
+<body>
+<h1>Version Incompatibility</h1>
+<p>%s</p>
+<p>Please upgrade to v%s or later:</p>
+<pre>%s</pre>
+<p>Then return to the terminal and try again.</p>
+</body>
+</html>`, errDesc, minVersion, upgradeCmd)
 }
 
 func saveToken(ctx context.Context, querier sqlc.Querier, token *oauth2.Token) error {
