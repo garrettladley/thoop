@@ -44,7 +44,7 @@ func WithTextColor(c color.Color) Option {
 	}
 }
 
-func NewGauge(value *float64, max float64, label string, c color.Color, opts ...Option) Gauge {
+func New(value *float64, max float64, label string, c color.Color, opts ...Option) Gauge {
 	g := Gauge{
 		Value:     value,
 		Max:       max,
