@@ -11,6 +11,11 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type TokenChecker interface {
+	HasToken(ctx context.Context) (bool, error)
+}
+
+var _ TokenChecker = (*DBTokenSource)(nil)
 var _ oauth2.TokenSource = (*DBTokenSource)(nil)
 
 type DBTokenSource struct {
@@ -109,10 +114,6 @@ func dbTokenToOAuth2(t sqlc.Token) *oauth2.Token {
 	}
 
 	return token
-}
-
-type TokenChecker interface {
-	HasToken(ctx context.Context) (bool, error)
 }
 
 var (
