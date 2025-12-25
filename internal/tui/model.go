@@ -68,6 +68,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		default:
+			// skip splash on any keypress
+			if m.page == splashPage {
+				m.page = dashboardPage
+			}
 		}
 
 	// splash timer expired - transition to dashboard
