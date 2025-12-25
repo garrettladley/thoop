@@ -41,8 +41,9 @@ func (h *Handler) HandleAuthStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verr := CheckVersionCompatibility(clientVersion); verr != nil {
-		redirectWithError(w, r, localPort, oauth.ErrorCodeIncompatibleVersion, verr.Error(),
-			oauth.ParamMinVersion, verr.MinVersion)
+		redirectWithError(w, r, localPort, oauth.ErrorCodeIncompatibleVersion, verr.Error(), map[string]string{
+			oauth.ParamMinVersion: verr.MinVersion,
+		})
 		return
 	}
 
@@ -86,7 +87,7 @@ func (h *Handler) HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	if errParam := r.URL.Query().Get(oauth.ParamError); errParam != "" {
 		errDesc := r.URL.Query().Get(oauth.ParamErrorDescription)
-		redirectWithError(w, r, entry.LocalPort, oauth.ErrorCode(errParam), errDesc)
+		redirectWithError(w, r, entry.LocalPort, oauth.ErrorCode(errParam), errDesc, nil)
 		return
 	}
 
@@ -124,7 +125,7 @@ func redirectWithToken(w http.ResponseWriter, r *http.Request, localPort string,
 	http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
 }
 
-func redirectWithError(w http.ResponseWriter, r *http.Request, localPort string, errCode oauth.ErrorCode, errDesc string, extra ...string) {
+func redirectWithError(w http.ResponseWriter, r *http.Request, localPort string, errCode oauth.ErrorCode, errDesc string, extra map[string]string) {
 	callbackURL := fmt.Sprintf("http://localhost:%s/callback", localPort)
 
 	u, _ := url.Parse(callbackURL)
@@ -132,8 +133,8 @@ func redirectWithError(w http.ResponseWriter, r *http.Request, localPort string,
 	q.Set(oauth.ParamError, string(errCode))
 	q.Set(oauth.ParamErrorDescription, errDesc)
 
-	for i := 0; i+1 < len(extra); i += 2 {
-		q.Set(extra[i], extra[i+1])
+	for k, v := range extra {
+		q.Set(k, v)
 	}
 
 	u.RawQuery = q.Encode()

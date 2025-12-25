@@ -75,6 +75,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	whoopMux := http.NewServeMux()
 	whoopMux.HandleFunc("/api/whoop/", whoopHandler.HandleWhoopProxy)
 	whoopWrapped := proxy.Chain(whoopMux,
+		proxy.VersionCheck(logger),
 		proxy.WhoopAuth(tokenValidator, logger),
 	)
 	mux.Handle("/api/whoop/", whoopWrapped)

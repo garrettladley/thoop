@@ -2,14 +2,12 @@ package footer
 
 import "charm.land/lipgloss/v2"
 
-// Footer renders a footer bar with optional left content and required right content.
 type Footer struct {
 	rightContent string
 	width        int
 	padding      int
 }
 
-// New creates a footer with the given right content and viewport width.
 func New(rightContent string, width int) Footer {
 	return Footer{
 		rightContent: rightContent,

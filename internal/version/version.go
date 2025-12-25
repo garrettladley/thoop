@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+const Header = "X-Client-Version"
+
 // version is set via ldflags at build time.
 // falls back to debug.ReadBuildInfo for go install.
 var version = "devel"

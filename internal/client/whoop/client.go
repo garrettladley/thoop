@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/garrettladley/thoop/internal/version"
 	go_json "github.com/goccy/go-json"
 	"golang.org/x/oauth2"
 )
@@ -73,6 +74,7 @@ func (c *Client) do(ctx context.Context, method string, path string, query url.V
 
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set(version.Header, version.Get())
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
