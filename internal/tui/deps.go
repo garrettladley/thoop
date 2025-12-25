@@ -1,16 +1,11 @@
 package tui
 
 import (
-	"context"
-
 	"github.com/garrettladley/thoop/internal/client/whoop"
+	"github.com/garrettladley/thoop/internal/oauth"
 )
 
-type TokenChecker interface {
-	HasToken(ctx context.Context) (bool, error)
-}
-
 type Deps struct {
-	TokenChecker TokenChecker
+	TokenChecker oauth.TokenChecker
 	WhoopClient  *whoop.Client
 }

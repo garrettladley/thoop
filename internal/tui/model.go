@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/garrettladley/thoop/internal/tui/commands"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
@@ -51,8 +52,8 @@ func (m *Model) Init() tea.Cmd {
 		tea.Tick(splashDuration, func(t time.Time) tea.Msg {
 			return SplashTickMsg{}
 		}),
-		checkAuthCmd(m.deps.TokenChecker),
-		fetchMetricsCmd(m.deps.WhoopClient),
+		commands.CheckAuthCmd(m.deps.TokenChecker),
+		commands.FetchCycleCmd(m.deps.WhoopClient),
 	)
 }
 
@@ -73,18 +74,39 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SplashTickMsg:
 		m.page = dashboardPage
 
-	case AuthStatusMsg:
+	case commands.AuthStatusMsg:
 		m.state.dashboard.AuthIndicator.Checked = true
 		if msg.Err == nil {
 			m.state.dashboard.AuthIndicator.Authenticated = msg.HasToken
 		}
 
-	case MetricsDataMsg:
-		if msg.Err == nil {
-			m.state.dashboard.SleepScore = msg.Sleep
-			m.state.dashboard.RecoveryScore = msg.Recovery
-			m.state.dashboard.StrainScore = msg.Strain
+	case commands.CycleMsg:
+		if msg.Err != nil {
+			return m, nil
 		}
+		if msg.Cycle != nil {
+			m.state.dashboard.CycleID = msg.Cycle.ID
+			if msg.Cycle.Score != nil {
+				m.state.dashboard.StrainScore = &msg.Cycle.Score.Strain
+			}
+			return m, tea.Batch(
+				commands.FetchSleepCmd(m.deps.WhoopClient, msg.Cycle.ID),
+				commands.FetchRecoveryCmd(m.deps.WhoopClient, msg.Cycle.ID),
+			)
+		}
+		return m, nil
+
+	case commands.SleepMsg:
+		if msg.Err == nil && msg.Sleep != nil && msg.Sleep.Score != nil {
+			m.state.dashboard.SleepScore = &msg.Sleep.Score.SleepPerformancePercentage
+		}
+		return m, nil
+
+	case commands.RecoveryMsg:
+		if msg.Err == nil && msg.Recovery != nil && msg.Recovery.Score != nil {
+			m.state.dashboard.RecoveryScore = &msg.Recovery.Score.RecoveryScore
+		}
+		return m, nil
 	}
 
 	return m, nil

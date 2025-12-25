@@ -111,6 +111,10 @@ func dbTokenToOAuth2(t sqlc.Token) *oauth2.Token {
 	return token
 }
 
+type TokenChecker interface {
+	HasToken(ctx context.Context) (bool, error)
+}
+
 var (
 	ErrNoToken      = errors.New("no token found - please authenticate first")
 	ErrTokenExpired = errors.New("token expired and no refresh token available")

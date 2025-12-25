@@ -13,6 +13,7 @@ import (
 type DashboardState struct {
 	AuthIndicator auth.Indicator
 
+	CycleID       int64
 	SleepScore    *float64 // 0-100%
 	RecoveryScore *float64 // 0-100%
 	StrainScore   *float64 // 0-21
