@@ -16,7 +16,6 @@ func New(rightContent string, width int) Footer {
 	}
 }
 
-// Render returns the styled footer string.
 func (f Footer) Render() string {
 	leftContent := f.leftContent()
 
