@@ -1,6 +1,7 @@
 package version
 
 import (
+	"fmt"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -50,4 +51,38 @@ func ParseMajor(v string) string {
 		return v[:idx]
 	}
 	return "0"
+}
+
+type VersionError struct {
+	ClientVersion string
+	ProxyVersion  string
+	MinVersion    string
+}
+
+func (e VersionError) Error() string {
+	return fmt.Sprintf("client version %s incompatible with proxy version %s (requires v%s.x)",
+		e.ClientVersion, e.ProxyVersion, e.MinVersion)
+}
+
+func CheckCompatibility(clientVersion string) *VersionError {
+	proxyVersion := Get()
+
+	if IsDevelopment(clientVersion) || IsDevelopment(proxyVersion) {
+		return nil
+	}
+
+	var (
+		clientMajor = ParseMajor(clientVersion)
+		proxyMajor  = ParseMajor(proxyVersion)
+	)
+
+	if clientMajor == proxyMajor {
+		return nil
+	}
+
+	return &VersionError{
+		ClientVersion: clientVersion,
+		ProxyVersion:  proxyVersion,
+		MinVersion:    proxyMajor,
+	}
 }
