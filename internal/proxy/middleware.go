@@ -25,16 +25,19 @@ const (
 )
 
 const (
-	keyRequestID   = "request_id"
-	keyMethod      = "method"
-	keyPath        = "path"
-	keyStatus      = "status"
-	keyDuration    = "duration"
-	keyIP          = "ip"
-	keyError       = "error"
-	keyStack       = "stack"
-	keyWhoopUserID = "whoop_user_id"
-	keyURL         = "url"
+	keyRequestID     = "request_id"
+	keyMethod        = "method"
+	keyPath          = "path"
+	keyStatus        = "status"
+	keyDuration      = "duration"
+	keyIP            = "ip"
+	keyError         = "error"
+	keyStack         = "stack"
+	keyWhoopUserID   = "whoop_user_id"
+	keyURL           = "url"
+	keyClientVersion = "client_version"
+	keyProxyVersion  = "proxy_version"
+	keyMinVersion    = "min_version"
 )
 
 func RequestID(next http.Handler) http.Handler {
@@ -154,9 +157,9 @@ func VersionCheck(logger *slog.Logger) func(http.Handler) http.Handler {
 
 			if verr := CheckVersionCompatibility(clientVersion); verr != nil {
 				logger.WarnContext(r.Context(), "client version incompatible",
-					slog.String("client_version", clientVersion),
-					slog.String("proxy_version", verr.ProxyVersion),
-					slog.String("min_version", verr.MinVersion),
+					slog.String(keyClientVersion, clientVersion),
+					slog.String(keyProxyVersion, verr.ProxyVersion),
+					slog.String(keyMinVersion, verr.MinVersion),
 					slog.String(keyPath, r.URL.Path))
 
 				w.Header().Set("Content-Type", "application/json")
