@@ -43,13 +43,21 @@ lint:
 lint/fix:
 	@golangci-lint run --path-mode=abs --config=".golangci.yml" --timeout=5m --fix
 
-## build: build all binaries with version
+## build: build all binaries with version (dev mode, shows version in footer)
 .PHONY: build
 build:
 	@echo "Building with version: $(VERSION)"
 	@go build -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
 	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-proxy ./cmd/proxy
 	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
+
+## build/release: build all binaries for release (no dev footer)
+.PHONY: build/release
+build/release:
+	@echo "Building release with version: $(VERSION)"
+	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
+	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop-proxy ./cmd/proxy
+	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
 
 ## build/thoop: build TUI client with version
 .PHONY: build/thoop

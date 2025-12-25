@@ -1,6 +1,5 @@
 package oauth
 
-// ErrorCode represents OAuth error codes used in client-proxy communication.
 type ErrorCode string
 
 const (
@@ -9,7 +8,6 @@ const (
 	ErrorCodeInvalidRequest      ErrorCode = "invalid_request"
 )
 
-// Query parameter keys for OAuth flow.
 const (
 	ParamError            = "error"
 	ParamErrorDescription = "error_description"

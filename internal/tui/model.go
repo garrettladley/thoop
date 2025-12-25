@@ -8,8 +8,8 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/tui/commands"
+	"github.com/garrettladley/thoop/internal/tui/components/footer"
 	"github.com/garrettladley/thoop/internal/tui/theme"
-	"github.com/garrettladley/thoop/internal/version"
 )
 
 var _ tea.Model = (*Model)(nil)
@@ -154,37 +154,14 @@ func (m *Model) View() tea.View {
 			m.DashboardView(),
 		)
 
-		// build footer bar with version (left) and auth indicator (right)
-		var leftContent string
-		if version.IsDevelopment(version.Get()) {
-			leftContent = lipgloss.NewStyle().
-				Foreground(theme.ColorDim).
-				Render(version.Get())
-		}
-
-		rightContent := m.AuthIndicatorView()
-
-		// calculate spacing between left and right
-		leftWidth := lipgloss.Width(leftContent)
-		rightWidth := lipgloss.Width(rightContent)
-		padding := 2 // padding on each side
-		spacerWidth := m.viewportWidth - leftWidth - rightWidth - (padding * 2)
-		if spacerWidth < 0 {
-			spacerWidth = 0
-		}
-
-		footer := lipgloss.NewStyle().
-			PaddingLeft(padding).
-			PaddingRight(padding).
-			PaddingBottom(1).
-			Render(leftContent + strings.Repeat(" ", spacerWidth) + rightContent)
+		f := footer.New(m.AuthIndicatorView(), m.viewportWidth)
 
 		footerOverlay := lipgloss.Place(
 			m.viewportWidth,
 			m.viewportHeight,
 			lipgloss.Left,
 			lipgloss.Bottom,
-			footer,
+			f.Render(),
 		)
 
 		content = m.overlayStrings(gauges, footerOverlay)
@@ -200,10 +177,7 @@ func (m *Model) overlayStrings(base, overlay string) string {
 		overlayLines = strings.Split(overlay, "\n")
 	)
 
-	maxLines := len(baseLines)
-	if len(overlayLines) > maxLines {
-		maxLines = len(overlayLines)
-	}
+	maxLines := max(len(overlayLines), len(baseLines))
 
 	result := make([]string, maxLines)
 	for i := range maxLines {
@@ -223,13 +197,10 @@ func (m *Model) overlayStrings(base, overlay string) string {
 			overlayRunes = []rune(overlayLine)
 		)
 
-		maxLen := len(baseRunes)
-		if len(overlayRunes) > maxLen {
-			maxLen = len(overlayRunes)
-		}
+		maxLen := max(len(overlayRunes), len(baseRunes))
 
 		merged := make([]rune, maxLen)
-		for j := 0; j < maxLen; j++ {
+		for j := range maxLen {
 			var (
 				baseChar    = ' '
 				overlayChar = ' '

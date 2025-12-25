@@ -6,7 +6,6 @@ import (
 	"github.com/garrettladley/thoop/internal/version"
 )
 
-// VersionError contains information about version incompatibility.
 type VersionError struct {
 	ClientVersion string
 	ProxyVersion  string
@@ -18,8 +17,6 @@ func (e VersionError) Error() string {
 		e.ClientVersion, e.ProxyVersion, e.MinVersion)
 }
 
-// CheckVersionCompatibility validates that client and proxy have the same major version.
-// Development versions (devel, dirty, go install timestamps) are always allowed.
 func CheckVersionCompatibility(clientVersion string) *VersionError {
 	proxyVersion := version.Get()
 
@@ -27,8 +24,10 @@ func CheckVersionCompatibility(clientVersion string) *VersionError {
 		return nil
 	}
 
-	clientMajor := version.ParseMajor(clientVersion)
-	proxyMajor := version.ParseMajor(proxyVersion)
+	var (
+		clientMajor = version.ParseMajor(clientVersion)
+		proxyMajor  = version.ParseMajor(proxyVersion)
+	)
 
 	if clientMajor == proxyMajor {
 		return nil
