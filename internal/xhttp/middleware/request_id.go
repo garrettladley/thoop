@@ -18,9 +18,9 @@ var defaultRequestIDMiddleware = &RequestIDMiddleware{
 	},
 }
 
-type Option func(*RequestIDMiddleware)
+type RequestIDOption func(*RequestIDMiddleware)
 
-func RequestID(opts ...Option) func(http.Handler) http.Handler {
+func RequestID(opts ...RequestIDOption) func(http.Handler) http.Handler {
 	middleware := defaultRequestIDMiddleware
 
 	for _, opt := range opts {
