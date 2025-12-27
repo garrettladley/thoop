@@ -64,10 +64,10 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	whoopLimiter := initWhoopLimiter(ctx, cfg, redisClient, logger)
 	tokenCache := initTokenCache(ctx, redisClient, logger)
-	tokenValidator := proxy.NewTokenValidator(tokenCache, logger)
+	tokenValidator := proxy.NewTokenValidator(tokenCache)
 
 	handler := proxy.NewHandler(cfg, backend)
-	whoopHandler := proxy.NewWhoopHandler(cfg, whoopLimiter, logger)
+	whoopHandler := proxy.NewWhoopHandler(cfg, whoopLimiter)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /auth/start", handler.HandleAuthStart)
@@ -76,27 +76,22 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	whoopMux := http.NewServeMux()
 	whoopMux.HandleFunc("/api/whoop/", whoopHandler.HandleWhoopProxy)
 	whoopWrapped := middleware.Chain(whoopMux,
-		middleware.VersionCheck(logger),
-		proxy.WhoopAuth(tokenValidator, logger),
+		middleware.VersionCheck,
+		proxy.WhoopAuth(tokenValidator),
 	)
 	mux.Handle("/api/whoop/", whoopWrapped)
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		if err := backend.Ping(r.Context()); err != nil {
-			logger.ErrorContext(r.Context(), "health check failed", xslog.Error(err))
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte("unhealthy"))
-			return
-		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
 
 	wrapped := middleware.Chain(mux,
-		middleware.Recovery(logger),
+		middleware.Recovery,
+		middleware.Logging,
+		middleware.Logger(logger),
 		middleware.RequestID(),
-		middleware.Logging(logger),
-		proxy.RateLimitWithBackend(backend, logger),
+		proxy.RateLimitWithBackend(backend),
 		middleware.SecurityHeaders,
 	)
 

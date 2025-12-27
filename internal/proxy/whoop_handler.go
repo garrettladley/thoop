@@ -16,49 +16,56 @@ import (
 
 const whoopAPIURL = "https://api.prod.whoop.com/developer"
 
+const (
+	keyAllowed         = "allowed"
+	keyMinuteRemaining = "minute_remaining"
+	keyDayRemaining    = "day_remaining"
+	keyReason          = "reason"
+	keyURL             = "url"
+)
+
 type WhoopHandler struct {
 	config       Config
 	whoopLimiter storage.WhoopRateLimiter
-	logger       *slog.Logger
 }
 
-func NewWhoopHandler(cfg Config, whoopLimiter storage.WhoopRateLimiter, logger *slog.Logger) *WhoopHandler {
+func NewWhoopHandler(cfg Config, whoopLimiter storage.WhoopRateLimiter) *WhoopHandler {
 	return &WhoopHandler{
 		config:       cfg,
 		whoopLimiter: whoopLimiter,
-		logger:       logger,
 	}
 }
 
 func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	logger := xslog.FromContext(ctx)
 
 	whoopUserID, ok := GetWhoopUserID(ctx)
 	if !ok || whoopUserID == "" {
-		h.logger.WarnContext(ctx, "missing user key in context")
+		logger.WarnContext(ctx, "missing user key in context")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	state, err := h.whoopLimiter.CheckAndIncrement(ctx, whoopUserID)
 	if err != nil {
-		h.logger.ErrorContext(ctx, "failed to check rate limit",
-			xslog.Error(err),
-			slog.String(keyWhoopUserID, whoopUserID))
+		logger.ErrorContext(ctx, "failed to check rate limit",
+			xslog.ErrorGroup(err),
+			xslog.UserGroup(whoopUserID))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	logAttrs := []any{
-		slog.String("whoop_user_id", whoopUserID),
-		slog.Bool("allowed", state.Allowed),
-		slog.Int("minute_remaining", state.MinuteRemaining),
-		slog.Int("day_remaining", state.DayRemaining),
+		xslog.UserGroup(whoopUserID),
+		slog.Bool(keyAllowed, state.Allowed),
+		slog.Int(keyMinuteRemaining, state.MinuteRemaining),
+		slog.Int(keyDayRemaining, state.DayRemaining),
 	}
 	if state.Reason != nil {
-		logAttrs = append(logAttrs, slog.String("reason", string(*state.Reason)))
+		logAttrs = append(logAttrs, slog.String(keyReason, string(*state.Reason)))
 	}
-	h.logger.InfoContext(ctx, "rate limit check", logAttrs...)
+	logger.InfoContext(ctx, "rate limit check", logAttrs...)
 
 	if !state.Allowed {
 		var (
@@ -97,9 +104,9 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 			"reason":      state.Reason,
 			"retry_after": retryAfter,
 		}); err != nil {
-			h.logger.ErrorContext(ctx, "failed to encode rate limit response",
-				xslog.Error(err),
-				slog.String(keyPath, r.URL.Path))
+			logger.ErrorContext(ctx, "failed to encode rate limit response",
+				xslog.ErrorGroup(err),
+				xslog.RequestPath(r))
 		}
 		return
 	}
@@ -113,9 +120,9 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 
 	whoopURL, err := url.Parse(whoopAPIURL + whoopPath)
 	if err != nil {
-		h.logger.ErrorContext(ctx, "failed to parse WHOOP URL",
-			xslog.Error(err),
-			slog.String(keyPath, whoopPath))
+		logger.ErrorContext(ctx, "failed to parse WHOOP URL",
+			xslog.ErrorGroup(err),
+			xslog.RequestPath(r))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -123,8 +130,8 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 
 	proxyReq, err := http.NewRequestWithContext(ctx, r.Method, whoopURL.String(), r.Body)
 	if err != nil {
-		h.logger.ErrorContext(ctx, "failed to create proxy request",
-			xslog.Error(err))
+		logger.ErrorContext(ctx, "failed to create proxy request",
+			xslog.ErrorGroup(err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -146,8 +153,8 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 
 	resp, err := client.Do(proxyReq)
 	if err != nil {
-		h.logger.ErrorContext(ctx, "failed to proxy request to WHOOP API",
-			xslog.Error(err),
+		logger.ErrorContext(ctx, "failed to proxy request to WHOOP API",
+			xslog.ErrorGroup(err),
 			slog.String(keyURL, whoopURL.String()))
 		http.Error(w, "Bad Gateway", http.StatusBadGateway)
 		return
@@ -155,15 +162,15 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 	defer func() { _ = resp.Body.Close() }()
 
 	if err := h.whoopLimiter.UpdateFromHeaders(ctx, resp.Header); err != nil {
-		h.logger.WarnContext(ctx, "failed to update rate limit from headers",
-			xslog.Error(err))
+		logger.WarnContext(ctx, "failed to update rate limit from headers",
+			xslog.ErrorGroup(err))
 	}
 
-	h.logger.InfoContext(ctx, "proxied request to WHOOP API",
-		slog.String(keyMethod, r.Method),
-		slog.String(keyPath, whoopPath),
-		slog.Int(keyStatus, resp.StatusCode),
-		slog.String(keyWhoopUserID, whoopUserID))
+	logger.InfoContext(ctx, "proxied request to WHOOP API",
+		xslog.RequestMethod(r),
+		xslog.RequestPath(r),
+		xslog.HTTPStatus(resp.StatusCode),
+		xslog.UserGroup(whoopUserID))
 
 	for name, values := range resp.Header {
 		for _, value := range values {
@@ -174,6 +181,6 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(resp.StatusCode)
 
 	if _, err := io.Copy(w, resp.Body); err != nil {
-		h.logger.ErrorContext(ctx, "failed to copy response body", xslog.Error(err))
+		logger.ErrorContext(ctx, "failed to copy response body", xslog.ErrorGroup(err))
 	}
 }

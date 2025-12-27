@@ -23,9 +23,5 @@ func New(ctx context.Context, cfg Config) (*redis.Client, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("failed to connect to redis: %w", err)
-	}
-
-	return client, nil
+	return client, client.Ping(ctx).Err()
 }
