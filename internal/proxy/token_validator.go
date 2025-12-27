@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,20 +27,20 @@ const defaultTokenCacheTTL = 5 * time.Minute
 type TokenValidator struct {
 	cache      storage.TokenCache
 	httpClient *http.Client
-	logger     *slog.Logger
 	ttl        time.Duration
 }
 
-func NewTokenValidator(cache storage.TokenCache, logger *slog.Logger) *TokenValidator {
+func NewTokenValidator(cache storage.TokenCache) *TokenValidator {
 	return &TokenValidator{
 		cache:      cache,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
-		logger:     logger,
 		ttl:        defaultTokenCacheTTL,
 	}
 }
 
 func (v *TokenValidator) ValidateAndGetUserID(ctx context.Context, authHeader string) (string, error) {
+	logger := xslog.FromContext(ctx)
+
 	token, err := extractBearerToken(authHeader)
 	if err != nil {
 		return "", err
@@ -51,14 +50,14 @@ func (v *TokenValidator) ValidateAndGetUserID(ctx context.Context, authHeader st
 
 	userID, err := v.cache.GetUserID(ctx, tokenHash)
 	if err == nil {
-		v.logger.DebugContext(ctx, "token cache hit")
+		logger.DebugContext(ctx, "token cache hit")
 		return userID, nil
 	}
 	if !errors.Is(err, storage.ErrNotFound) {
-		v.logger.WarnContext(ctx, "token cache error", xslog.Error(err))
+		logger.WarnContext(ctx, "token cache error", xslog.ErrorGroup(err))
 	}
 
-	v.logger.DebugContext(ctx, "token cache miss, validating with WHOOP API")
+	logger.DebugContext(ctx, "token cache miss, validating with WHOOP API")
 
 	userID, err = v.validateWithWhoopAPI(ctx, token)
 	if err != nil {
@@ -66,7 +65,7 @@ func (v *TokenValidator) ValidateAndGetUserID(ctx context.Context, authHeader st
 	}
 
 	if cacheErr := v.cache.SetUserID(ctx, tokenHash, userID, v.ttl); cacheErr != nil {
-		v.logger.WarnContext(ctx, "failed to cache token", xslog.Error(cacheErr))
+		logger.WarnContext(ctx, "failed to cache token", xslog.ErrorGroup(cacheErr))
 	}
 
 	return userID, nil

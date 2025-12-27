@@ -15,6 +15,7 @@ import (
 
 	"github.com/garrettladley/thoop/internal/sqlc"
 	"github.com/garrettladley/thoop/internal/version"
+	"github.com/garrettladley/thoop/internal/xhttp"
 	"golang.org/x/oauth2"
 )
 
@@ -253,7 +254,7 @@ func proxyCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Token
 }
 
 func writeVersionErrorHTML(w http.ResponseWriter, errDesc, minVersion string) {
-	w.Header().Set("Content-Type", "text/html")
+	xhttp.SetHeaderContentTypeTextHTML(w)
 	upgradeCmd := "go install github.com/garrettladley/thoop/cmd/thoop@latest"
 	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
 <html>
@@ -283,7 +284,7 @@ func saveToken(ctx context.Context, querier sqlc.Querier, token *oauth2.Token) e
 }
 
 func writeSuccessHTML(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "text/html")
+	xhttp.SetHeaderContentTypeTextHTML(w)
 	_, _ = fmt.Fprint(w, `<!DOCTYPE html>
 <html>
 <head><title>Authorization Successful</title></head>

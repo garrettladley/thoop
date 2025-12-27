@@ -2,26 +2,28 @@ package proxy
 
 import (
 	"errors"
-	"log/slog"
 	"net/http"
 
+	"github.com/garrettladley/thoop/internal/xcontext"
+	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 )
 
 // WhoopAuth validates bearer tokens and sets the verified user ID in context.
 // Validates tokens with WHOOP API (with caching) instead of trusting client headers.
-func WhoopAuth(validator *TokenValidator, logger *slog.Logger) func(http.Handler) http.Handler {
+func WhoopAuth(validator *TokenValidator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			logger := xslog.FromContext(r.Context())
 			authHeader := r.Header.Get("Authorization")
 
 			userID, err := validator.ValidateAndGetUserID(r.Context(), authHeader)
 			if err != nil {
 				logger.WarnContext(r.Context(), "token validation failed",
-					slog.String(keyPath, r.URL.Path),
-					xslog.Error(err))
+					xslog.RequestPath(r),
+					xslog.ErrorGroup(err))
 
-				w.Header().Set("Content-Type", "application/json")
+				xhttp.SetHeaderContentTypeApplicationJSON(w)
 
 				switch {
 				case errors.Is(err, ErrMissingToken):
@@ -37,7 +39,7 @@ func WhoopAuth(validator *TokenValidator, logger *slog.Logger) func(http.Handler
 				return
 			}
 
-			ctx := SetWhoopUserID(r.Context(), userID)
+			ctx := xcontext.SetWhoopUserID(r.Context(), userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

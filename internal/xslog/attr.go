@@ -6,6 +6,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/garrettladley/thoop/internal/version"
 	"github.com/garrettladley/thoop/internal/xhttp"
 )
 
@@ -58,6 +59,11 @@ func IP(ip string) slog.Attr {
 
 func RequestIP(r *http.Request) slog.Attr {
 	return IP(xhttp.GetRequestIP(r))
+}
+
+func Version() slog.Attr {
+	const versionKey = "version"
+	return slog.String(versionKey, version.Get())
 }
 
 func ClientVersion(clientVersion string) slog.Attr {
