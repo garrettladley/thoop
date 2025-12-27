@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/garrettladley/thoop/internal/xcontext"
+	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 )
 
@@ -21,7 +23,7 @@ func WhoopAuth(validator *TokenValidator) func(http.Handler) http.Handler {
 					xslog.RequestPath(r),
 					xslog.ErrorGroup(err))
 
-				w.Header().Set("Content-Type", "application/json")
+				xhttp.SetHeaderContentTypeApplicationJSON(w)
 
 				switch {
 				case errors.Is(err, ErrMissingToken):
@@ -37,7 +39,7 @@ func WhoopAuth(validator *TokenValidator) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := SetWhoopUserID(r.Context(), userID)
+			ctx := xcontext.SetWhoopUserID(r.Context(), userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

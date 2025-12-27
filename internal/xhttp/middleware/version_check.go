@@ -5,6 +5,7 @@ import (
 
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/version"
+	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 	go_json "github.com/goccy/go-json"
 )
@@ -28,7 +29,7 @@ func VersionCheck(next http.Handler) http.Handler {
 				xslog.RequestPath(r),
 			)
 
-			w.Header().Set("Content-Type", "application/json")
+			xhttp.SetHeaderContentTypeApplicationJSON(w)
 			w.WriteHeader(http.StatusUpgradeRequired)
 
 			if err := go_json.NewEncoder(w).Encode(map[string]any{

@@ -31,7 +31,7 @@ func RequestID(opts ...RequestIDOption) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id := middleware.IDFunc(r)
 			ctx := xcontext.SetRequestID(r.Context(), id)
-			w.Header().Set(xhttp.XRequestID, id)
+			xhttp.SetHeaderRequestID(w, id)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

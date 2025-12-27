@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/storage"
+	"github.com/garrettladley/thoop/internal/xcontext"
 	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 	go_json "github.com/goccy/go-json"
@@ -41,7 +42,7 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	logger := xslog.FromContext(ctx)
 
-	whoopUserID, ok := GetWhoopUserID(ctx)
+	whoopUserID, ok := xcontext.GetWhoopUserID(ctx)
 	if !ok || whoopUserID == "" {
 		logger.WarnContext(ctx, "missing user key in context")
 		xhttp.Error(w, http.StatusUnauthorized)
@@ -70,30 +71,30 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 
 	if !state.Allowed {
 		var (
-			retryAfter int
+			retryAfter time.Duration
 			message    string
 		)
 
 		switch *state.Reason {
 		case storage.WhoopRateLimitReasonPerUserMinute:
-			retryAfter = int(time.Until(state.MinuteReset).Seconds())
+			retryAfter = time.Until(state.MinuteReset)
 			message = fmt.Sprintf("Per-user rate limit exceeded (%d requests/minute)", h.config.WhoopRateLimit.PerUserMinuteLimit)
 		case storage.WhoopRateLimitReasonPerUserDay:
-			retryAfter = int(time.Until(state.DayReset).Seconds())
+			retryAfter = time.Until(state.DayReset)
 			message = fmt.Sprintf("Per-user rate limit exceeded (%d requests/day)", h.config.WhoopRateLimit.PerUserDayLimit)
 		case storage.WhoopRateLimitReasonGlobalMinute:
-			retryAfter = int(time.Until(state.MinuteReset).Seconds())
+			retryAfter = time.Until(state.MinuteReset)
 			message = "Global rate limit exceeded (app quota exhausted for this minute)"
 		case storage.WhoopRateLimitReasonGlobalDay:
-			retryAfter = int(time.Until(state.DayReset).Seconds())
+			retryAfter = time.Until(state.DayReset)
 			message = "Global rate limit exceeded (app quota exhausted for today)"
 		default:
 			retryAfter = 60
 			message = "Rate limit exceeded"
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
+		xhttp.SetHeaderContentTypeApplicationJSON(w)
+		xhttp.SetHeaderRetryAfter(w, retryAfter)
 		if state.Reason != nil && *state.Reason != "" {
 			w.Header().Set("X-Ratelimit-Reason", string(*state.Reason))
 		}
