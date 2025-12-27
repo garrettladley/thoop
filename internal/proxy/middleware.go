@@ -21,12 +21,12 @@ func RateLimitWithBackend(backend storage.RateLimiter) func(http.Handler) http.H
 					xslog.ErrorGroup(err),
 					xslog.IP(ip),
 				)
-				http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+				xhttp.Error(w, http.StatusServiceUnavailable)
 				return
 			}
 
 			if !allowed {
-				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+				xhttp.Error(w, http.StatusTooManyRequests)
 				return
 			}
 

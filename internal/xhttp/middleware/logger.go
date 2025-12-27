@@ -8,7 +8,6 @@ import (
 	"github.com/garrettladley/thoop/internal/xslog"
 )
 
-// Logger injects an enriched logger into request context.
 // Must run AFTER RequestID middleware.
 func Logger(base *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

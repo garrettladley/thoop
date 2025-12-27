@@ -9,7 +9,6 @@ import (
 	go_json "github.com/goccy/go-json"
 )
 
-// VersionCheck validates client version compatibility.
 func VersionCheck(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := xslog.FromContext(r.Context())
@@ -37,7 +36,9 @@ func VersionCheck(next http.Handler) http.Handler {
 				"message":     verr.Error(),
 				"min_version": verr.MinVersion,
 			}); err != nil {
-				logger.ErrorContext(r.Context(), "failed to encode version error response",
+				logger.ErrorContext(
+					r.Context(),
+					"failed to encode version error response",
 					xslog.ErrorGroup(err),
 					xslog.RequestPath(r),
 				)

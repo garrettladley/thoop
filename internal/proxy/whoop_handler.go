@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/storage"
+	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 	go_json "github.com/goccy/go-json"
 )
@@ -43,7 +44,7 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 	whoopUserID, ok := GetWhoopUserID(ctx)
 	if !ok || whoopUserID == "" {
 		logger.WarnContext(ctx, "missing user key in context")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		xhttp.Error(w, http.StatusUnauthorized)
 		return
 	}
 
@@ -52,7 +53,7 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 		logger.ErrorContext(ctx, "failed to check rate limit",
 			xslog.ErrorGroup(err),
 			xslog.UserGroup(whoopUserID))
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		xhttp.Error(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -123,7 +124,7 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 		logger.ErrorContext(ctx, "failed to parse WHOOP URL",
 			xslog.ErrorGroup(err),
 			xslog.RequestPath(r))
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		xhttp.Error(w, http.StatusInternalServerError)
 		return
 	}
 	whoopURL.RawQuery = r.URL.RawQuery
@@ -132,7 +133,7 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to create proxy request",
 			xslog.ErrorGroup(err))
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		xhttp.Error(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -156,7 +157,7 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 		logger.ErrorContext(ctx, "failed to proxy request to WHOOP API",
 			xslog.ErrorGroup(err),
 			slog.String(keyURL, whoopURL.String()))
-		http.Error(w, "Bad Gateway", http.StatusBadGateway)
+		xhttp.Error(w, http.StatusBadGateway)
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()

@@ -29,9 +29,8 @@ const (
 	keyValue      = "value"
 )
 
-// RequestGroup returns all request metadata as a group.
 func RequestGroup(r *http.Request) slog.Attr {
-	attrs := []any{
+	attrs := []slog.Attr{
 		RequestMethod(r),
 		RequestPath(r),
 		RequestIP(r),
@@ -45,23 +44,9 @@ func RequestGroup(r *http.Request) slog.Attr {
 	if r.URL.RawQuery != "" {
 		attrs = append(attrs, slog.String(keyQuery, r.URL.RawQuery))
 	}
-	return slog.Group(groupRequest, attrs...)
+	return slog.GroupAttrs(groupRequest, attrs...)
 }
 
-// RequestGroupMinimal returns essential request fields only.
-func RequestGroupMinimal(r *http.Request) slog.Attr {
-	attrs := []any{
-		RequestMethod(r),
-		RequestPath(r),
-		RequestIP(r),
-	}
-	if id, ok := xcontext.GetRequestID(r.Context()); ok {
-		attrs = append(attrs, slog.String(keyID, id))
-	}
-	return slog.Group(groupRequest, attrs...)
-}
-
-// ResponseGroup returns response metadata as a group.
 func ResponseGroup(status int, duration time.Duration) slog.Attr {
 	return slog.Group(groupResponse,
 		HTTPStatus(status),
@@ -71,7 +56,6 @@ func ResponseGroup(status int, duration time.Duration) slog.Attr {
 	)
 }
 
-// ErrorGroup returns error info as a group.
 func ErrorGroup(err error) slog.Attr {
 	if err == nil {
 		return slog.Group(groupError)
@@ -82,7 +66,6 @@ func ErrorGroup(err error) slog.Attr {
 	)
 }
 
-// ErrorGroupWithStack returns error + stack trace (for panics).
 func ErrorGroupWithStack(err any) slog.Attr {
 	return slog.Group(groupError,
 		slog.Any(keyValue, err),
@@ -91,7 +74,6 @@ func ErrorGroupWithStack(err any) slog.Attr {
 	)
 }
 
-// UserGroup returns user context as a group.
 func UserGroup(userID string) slog.Attr {
 	return slog.Group(groupUser,
 		slog.String(keyID, userID),
