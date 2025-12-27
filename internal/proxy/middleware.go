@@ -8,7 +8,6 @@ import (
 	"github.com/garrettladley/thoop/internal/xslog"
 )
 
-// RateLimitWithBackend applies IP-based rate limiting.
 func RateLimitWithBackend(backend storage.RateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
