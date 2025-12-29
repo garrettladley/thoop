@@ -13,8 +13,11 @@ import (
 	"github.com/garrettladley/thoop/internal/db"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
+	"github.com/garrettladley/thoop/internal/repository"
+	"github.com/garrettladley/thoop/internal/session"
 	"github.com/garrettladley/thoop/internal/tui"
 	"github.com/garrettladley/thoop/internal/xslog"
+	"github.com/garrettladley/thoop/internal/xsync"
 )
 
 func tuiCmd() *cobra.Command {
@@ -28,6 +31,14 @@ func tuiCmd() *cobra.Command {
 				return fmt.Errorf("failed to read config: %w", err)
 			}
 
+			if _, err := paths.EnsureDir(); err != nil {
+				return err
+			}
+
+			if _, err := paths.EnsureLogsDir(); err != nil {
+				return err
+			}
+
 			dbPath, err := paths.DB()
 			if err != nil {
 				return err
@@ -39,17 +50,45 @@ func tuiCmd() *cobra.Command {
 			}
 			defer func() { _ = sqlDB.Close() }()
 
+			sessionID := session.NewID()
+			logPath, err := paths.LogFile(sessionID)
+			if err != nil {
+				return err
+			}
+			logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600) //nolint:gosec // logPath is from trusted paths package
+			if err != nil {
+				return fmt.Errorf("failed to open log file: %w", err)
+			}
+			defer func() { _ = logFile.Close() }()
+
 			oauthCfg := oauth.NewConfig(cfg.Whoop)
 			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
 			authFlow := oauth.NewProxyFlowWithURL(cfg.ProxyURL, querier)
 
-			client := whoop.New(tokenSource, whoop.WithBaseURL(cfg.ProxyURL+"/api/whoop"))
+			client := whoop.New(tokenSource, whoop.WithProxyURL(cfg.ProxyURL+"/api/whoop"), whoop.WithSessionID(sessionID))
 
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
 
-			logger := xslog.NewLoggerFromEnv(os.Stderr)
+			baseLogger := xslog.NewTextLoggerFromEnv(logFile)
+			logger := baseLogger.With(xslog.SessionID(sessionID))
 			logger.InfoContext(ctx, "starting thoop", xslog.Version())
+
+			repo := repository.New(querier)
+			syncSvc := xsync.NewService(client, repo, logger)
+			dataFetcher := xsync.NewFetcher(client, repo, logger)
+
+			if hasToken, _ := tokenSource.HasToken(ctx); hasToken {
+				if err := syncSvc.RefreshCurrent(ctx); err != nil {
+					logger.WarnContext(ctx, "failed to refresh current data", xslog.Error(err))
+				}
+
+				if complete, err := syncSvc.IsBackfillComplete(ctx); err == nil && !complete {
+					if err := syncSvc.StartBackfill(ctx); err != nil {
+						logger.WarnContext(ctx, "failed to start backfill", xslog.Error(err))
+					}
+				}
+			}
 
 			deps := tui.Deps{
 				Ctx:          ctx,
@@ -59,6 +98,9 @@ func tuiCmd() *cobra.Command {
 				TokenSource:  tokenSource,
 				AuthFlow:     authFlow,
 				WhoopClient:  client,
+				Repository:   repo,
+				SyncService:  syncSvc,
+				DataFetcher:  dataFetcher,
 			}
 			model := tui.New(deps)
 

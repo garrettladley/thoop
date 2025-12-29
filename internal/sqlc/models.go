@@ -8,10 +8,74 @@ import (
 	"time"
 )
 
+type Cycle struct {
+	ID             int64      `json:"id"`
+	UserID         int64      `json:"user_id"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	Start          time.Time  `json:"start"`
+	End            *time.Time `json:"end"`
+	TimezoneOffset string     `json:"timezone_offset"`
+	ScoreState     string     `json:"score_state"`
+	ScoreJson      *string    `json:"score_json"`
+	FetchedAt      time.Time  `json:"fetched_at"`
+}
+
+type Recovery struct {
+	CycleID    int64     `json:"cycle_id"`
+	SleepID    string    `json:"sleep_id"`
+	UserID     int64     `json:"user_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	ScoreState string    `json:"score_state"`
+	ScoreJson  *string   `json:"score_json"`
+	FetchedAt  time.Time `json:"fetched_at"`
+}
+
+type Sleep struct {
+	ID             string    `json:"id"`
+	CycleID        int64     `json:"cycle_id"`
+	V1ID           *int64    `json:"v1_id"`
+	UserID         int64     `json:"user_id"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	Start          time.Time `json:"start"`
+	End            time.Time `json:"end"`
+	TimezoneOffset string    `json:"timezone_offset"`
+	Nap            int64     `json:"nap"`
+	ScoreState     string    `json:"score_state"`
+	ScoreJson      *string   `json:"score_json"`
+	FetchedAt      time.Time `json:"fetched_at"`
+}
+
+type SyncState struct {
+	ID                int64      `json:"id"`
+	BackfillComplete  int64      `json:"backfill_complete"`
+	BackfillWatermark *time.Time `json:"backfill_watermark"`
+	LastFullSync      *time.Time `json:"last_full_sync"`
+	CreatedAt         *time.Time `json:"created_at"`
+	UpdatedAt         *time.Time `json:"updated_at"`
+}
+
 type Token struct {
 	ID           int64     `json:"id"`
 	AccessToken  string    `json:"access_token"`
 	RefreshToken *string   `json:"refresh_token"`
 	TokenType    string    `json:"token_type"`
 	Expiry       time.Time `json:"expiry"`
+}
+
+type Workout struct {
+	ID             string    `json:"id"`
+	V1ID           *int64    `json:"v1_id"`
+	UserID         int64     `json:"user_id"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	Start          time.Time `json:"start"`
+	End            time.Time `json:"end"`
+	TimezoneOffset string    `json:"timezone_offset"`
+	SportName      string    `json:"sport_name"`
+	ScoreState     string    `json:"score_state"`
+	ScoreJson      *string   `json:"score_json"`
+	FetchedAt      time.Time `json:"fetched_at"`
 }

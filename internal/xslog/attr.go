@@ -80,3 +80,28 @@ func MinVersion(minVersion string) slog.Attr {
 	const minVersionKey = "min_version"
 	return slog.String(minVersionKey, minVersion)
 }
+
+func CycleID(id int64) slog.Attr {
+	const cycleIDKey = "cycle_id"
+	return slog.Int64(cycleIDKey, id)
+}
+
+func Count(count int) slog.Attr {
+	const countKey = "count"
+	return slog.Int(countKey, count)
+}
+
+func Start(t time.Time) slog.Attr {
+	const startKey = "start"
+	return slog.Time(startKey, t)
+}
+
+func End(t time.Time) slog.Attr {
+	const endKey = "end"
+	return slog.Time(endKey, t)
+}
+
+func SessionID(id string) slog.Attr {
+	const sessionIDKey = "session_id"
+	return slog.String(sessionIDKey, id)
+}

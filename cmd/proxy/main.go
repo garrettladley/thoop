@@ -91,6 +91,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		middleware.Logging,
 		middleware.Logger(logger),
 		middleware.RequestID(),
+		middleware.ClientSessionID,
 		proxy.RateLimitWithBackend(backend),
 		middleware.SecurityHeaders,
 	)

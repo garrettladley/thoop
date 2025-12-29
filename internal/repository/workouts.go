@@ -1,0 +1,151 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"time"
+
+	"github.com/garrettladley/thoop/internal/client/whoop"
+	"github.com/garrettladley/thoop/internal/sqlc"
+	go_json "github.com/goccy/go-json"
+)
+
+type workoutRepo struct {
+	q sqlc.Querier
+}
+
+func (r *workoutRepo) Upsert(ctx context.Context, workout *whoop.Workout) error {
+	var scoreJSON *string
+	if workout.Score != nil {
+		data, err := go_json.Marshal(workout.Score)
+		if err != nil {
+			return err
+		}
+		s := string(data)
+		scoreJSON = &s
+	}
+
+	return r.q.UpsertWorkout(ctx, sqlc.UpsertWorkoutParams{
+		ID:             workout.ID,
+		V1ID:           workout.V1ID,
+		UserID:         workout.UserID,
+		CreatedAt:      workout.CreatedAt,
+		UpdatedAt:      workout.UpdatedAt,
+		Start:          workout.Start,
+		End:            workout.End,
+		TimezoneOffset: workout.TimezoneOffset,
+		SportName:      workout.SportName,
+		ScoreState:     string(workout.ScoreState),
+		ScoreJson:      scoreJSON,
+	})
+}
+
+func (r *workoutRepo) UpsertBatch(ctx context.Context, workouts []whoop.Workout) error {
+	for i := range workouts {
+		if err := r.Upsert(ctx, &workouts[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *workoutRepo) Get(ctx context.Context, id string) (*whoop.Workout, error) {
+	row, err := r.q.GetWorkout(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return r.toDomain(row)
+}
+
+func (r *workoutRepo) GetByDateRange(ctx context.Context, start, end time.Time, cursor *CursorParams) (*CursorResult[whoop.Workout], error) {
+	limit := int64(DefaultPageSize)
+	if cursor != nil && cursor.Limit > 0 {
+		limit = int64(cursor.Limit)
+	}
+
+	fetchLimit := limit + 1
+
+	var rows []sqlc.Workout
+	var err error
+
+	if cursor != nil && cursor.Cursor != nil {
+		rows, err = r.q.GetWorkoutsByDateRangeCursor(ctx, sqlc.GetWorkoutsByDateRangeCursorParams{
+			Start:   start,
+			Start_2: end,
+			Start_3: *cursor.Cursor,
+			Limit:   fetchLimit,
+		})
+	} else {
+		rows, err = r.q.GetWorkoutsByDateRange(ctx, sqlc.GetWorkoutsByDateRangeParams{
+			Start:   start,
+			Start_2: end,
+			Limit:   fetchLimit,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine if there are more results
+	hasMore := int64(len(rows)) > limit
+	if hasMore {
+		rows = rows[:limit] // Trim to requested limit
+	}
+
+	workouts, err := r.toDomainSlice(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &CursorResult[whoop.Workout]{
+		Records: workouts,
+	}
+
+	if hasMore && len(workouts) > 0 {
+		lastStart := workouts[len(workouts)-1].Start
+		result.NextCursor = &lastStart
+	}
+
+	return result, nil
+}
+
+func (r *workoutRepo) toDomain(row sqlc.Workout) (*whoop.Workout, error) {
+	workout := &whoop.Workout{
+		ID:             row.ID,
+		V1ID:           row.V1ID,
+		UserID:         row.UserID,
+		CreatedAt:      row.CreatedAt,
+		UpdatedAt:      row.UpdatedAt,
+		Start:          row.Start,
+		End:            row.End,
+		TimezoneOffset: row.TimezoneOffset,
+		SportName:      row.SportName,
+		ScoreState:     whoop.ScoreState(row.ScoreState),
+	}
+
+	if row.ScoreJson != nil {
+		var score whoop.WorkoutScore
+		if err := go_json.Unmarshal([]byte(*row.ScoreJson), &score); err != nil {
+			return nil, err
+		}
+		workout.Score = &score
+	}
+
+	return workout, nil
+}
+
+func (r *workoutRepo) toDomainSlice(rows []sqlc.Workout) ([]whoop.Workout, error) {
+	workouts := make([]whoop.Workout, 0, len(rows))
+	for _, row := range rows {
+		workout, err := r.toDomain(row)
+		if err != nil {
+			return nil, err
+		}
+		workouts = append(workouts, *workout)
+	}
+	return workouts, nil
+}

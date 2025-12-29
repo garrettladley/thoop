@@ -38,7 +38,7 @@ func testCmd() *cobra.Command {
 			oauthCfg := oauth.NewConfig(cfg.Whoop)
 			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
 
-			client := whoop.New(tokenSource, whoop.WithBaseURL(cfg.ProxyURL+"/api/whoop"))
+			client := whoop.New(tokenSource, whoop.WithProxyURL(cfg.ProxyURL+"/api/whoop"))
 
 			var failures int
 
