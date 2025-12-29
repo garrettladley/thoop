@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/server"
 	xredis "github.com/garrettladley/thoop/internal/redis"
+	"github.com/garrettladley/thoop/internal/server"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/xhttp/middleware"
 	"github.com/garrettladley/thoop/internal/xslog"
