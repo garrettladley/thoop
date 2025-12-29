@@ -12,3 +12,9 @@ ON CONFLICT(id) DO UPDATE SET
 
 -- name: DeleteToken :exec
 DELETE FROM tokens WHERE id = 1;
+
+-- name: SetAPIKey :exec
+UPDATE tokens SET api_key = ? WHERE id = 1;
+
+-- name: GetAPIKey :one
+SELECT api_key FROM tokens WHERE id = 1;

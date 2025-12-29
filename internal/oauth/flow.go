@@ -25,16 +25,23 @@ const (
 	defaultProxyURL = "https://thoop.fly.dev"
 )
 
+var (
+	ErrInvalidState       = errors.New("invalid state parameter")
+	ErrMissingAuthCode    = errors.New("missing authorization code")
+	ErrMissingAccessToken = errors.New("missing access_token")
+)
+
 type Flow interface {
 	Run(ctx context.Context) (*oauth2.Token, error)
 }
 
 type tokenResult struct {
-	token *oauth2.Token
-	err   error
+	token  *oauth2.Token
+	apiKey string
+	err    error
 }
 
-type callbackHandler func(w http.ResponseWriter, r *http.Request) (*oauth2.Token, error)
+type callbackHandler func(w http.ResponseWriter, r *http.Request) (*oauth2.Token, string, error)
 
 type ServerFlow struct {
 	serverURL string
@@ -97,31 +104,31 @@ func (f *DirectFlow) authURL(_ string) string {
 }
 
 func (f *DirectFlow) callbackHandler() callbackHandler {
-	return func(w http.ResponseWriter, r *http.Request) (*oauth2.Token, error) {
+	return func(w http.ResponseWriter, r *http.Request) (*oauth2.Token, string, error) {
 		if !ValidateState(f.state, r.URL.Query().Get("state")) {
 			http.Error(w, "Invalid state parameter", http.StatusBadRequest)
-			return nil, errors.New("invalid state parameter")
+			return nil, "", ErrInvalidState
 		}
 
 		if errParam := r.URL.Query().Get("error"); errParam != "" {
 			errDesc := r.URL.Query().Get("error_description")
 			http.Error(w, fmt.Sprintf("OAuth error: %s", errDesc), http.StatusBadRequest)
-			return nil, fmt.Errorf("oauth error: %s - %s", errParam, errDesc)
+			return nil, "", fmt.Errorf("oauth error: %s - %s", errParam, errDesc)
 		}
 
 		code := r.URL.Query().Get("code")
 		if code == "" {
 			http.Error(w, "Missing authorization code", http.StatusBadRequest)
-			return nil, errors.New("missing authorization code")
+			return nil, "", ErrMissingAuthCode
 		}
 
 		token, err := f.config.Exchange(r.Context(), code)
 		if err != nil {
 			http.Error(w, "Failed to exchange authorization code", http.StatusInternalServerError)
-			return nil, fmt.Errorf("failed to exchange code: %w", err)
+			return nil, "", fmt.Errorf("failed to exchange code: %w", err)
 		}
 
-		return token, nil
+		return token, "", nil
 	}
 }
 
@@ -164,6 +171,12 @@ func runFlow(
 			return nil, fmt.Errorf("failed to save token: %w", err)
 		}
 
+		if result.apiKey != "" {
+			if err := querier.SetAPIKey(ctx, &result.apiKey); err != nil {
+				return nil, fmt.Errorf("failed to save API key: %w", err)
+			}
+		}
+
 		return result.token, nil
 
 	case <-ctx.Done():
@@ -180,13 +193,13 @@ func startCallbackServer(handler callbackHandler, resultCh chan<- tokenResult) (
 	mux := http.NewServeMux()
 
 	mux.HandleFunc(callbackPath, func(w http.ResponseWriter, r *http.Request) {
-		token, err := handler(w, r)
+		token, apiKey, err := handler(w, r)
 		if err != nil {
 			resultCh <- tokenResult{err: err}
 			return
 		}
 		writeSuccessHTML(w)
-		resultCh <- tokenResult{token: token}
+		resultCh <- tokenResult{token: token, apiKey: apiKey}
 	})
 
 	listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", "0"))
@@ -210,7 +223,7 @@ func startCallbackServer(handler callbackHandler, resultCh chan<- tokenResult) (
 	return server, port, nil
 }
 
-func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Token, error) {
+func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Token, string, error) {
 	if errParam := r.URL.Query().Get(ParamError); errParam != "" {
 		errDesc := r.URL.Query().Get(ParamErrorDescription)
 
@@ -219,17 +232,23 @@ func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Toke
 			writeVersionErrorHTML(w, errDesc, minVersion)
 			fmt.Fprintf(os.Stderr, "\nVersion incompatibility: %s\n", errDesc)
 			fmt.Fprintf(os.Stderr, "Please upgrade: go install github.com/garrettladley/thoop/cmd/thoop@latest\n\n")
-			return nil, fmt.Errorf("version incompatibility: %s", errDesc)
+			return nil, "", fmt.Errorf("version incompatibility: %s", errDesc)
+		}
+
+		if ErrorCode(errParam) == ErrorCodeAccountBanned {
+			writeAccountBannedHTML(w)
+			fmt.Fprintf(os.Stderr, "\nAccount banned: %s\n", errDesc)
+			return nil, "", fmt.Errorf("account banned: %s", errDesc)
 		}
 
 		http.Error(w, fmt.Sprintf("OAuth error: %s", errDesc), http.StatusBadRequest)
-		return nil, fmt.Errorf("oauth error: %s - %s", errParam, errDesc)
+		return nil, "", fmt.Errorf("oauth error: %s - %s", errParam, errDesc)
 	}
 
 	accessToken := r.URL.Query().Get("access_token")
 	if accessToken == "" {
 		http.Error(w, "Missing access token", http.StatusBadRequest)
-		return nil, errors.New("missing access_token")
+		return nil, "", ErrMissingAccessToken
 	}
 
 	tokenType := r.URL.Query().Get("token_type")
@@ -244,12 +263,14 @@ func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Toke
 		}
 	}
 
+	apiKey := r.URL.Query().Get("api_key")
+
 	return &oauth2.Token{
 		AccessToken:  accessToken,
 		TokenType:    tokenType,
 		RefreshToken: r.URL.Query().Get("refresh_token"),
 		Expiry:       expiry,
-	}, nil
+	}, apiKey, nil
 }
 
 func writeVersionErrorHTML(w http.ResponseWriter, errDesc string, minVersion string) {
@@ -266,6 +287,19 @@ func writeVersionErrorHTML(w http.ResponseWriter, errDesc string, minVersion str
 <p>Then return to the terminal and try again.</p>
 </body>
 </html>`, errDesc, minVersion, upgradeCmd)
+}
+
+func writeAccountBannedHTML(w http.ResponseWriter) {
+	xhttp.SetHeaderContentTypeTextHTML(w)
+	_, _ = fmt.Fprint(w, `<!DOCTYPE html>
+<html>
+<head><title>Account Banned</title></head>
+<body>
+<h1>Account Banned</h1>
+<p>Your account has been banned from using this service.</p>
+<p>You can close this window.</p>
+</body>
+</html>`)
 }
 
 func saveToken(ctx context.Context, querier sqlitec.Querier, token *oauth2.Token) error {

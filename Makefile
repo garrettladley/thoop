@@ -146,17 +146,24 @@ sqlc/verify: sqlc/generate
 	fi
 	@echo 'sqlc code is up to date'
 
-# Redis
-## redis: start Redis container for local dev
-.PHONY: redis
-redis:
-	@docker compose up -d redis
-	@echo 'Redis running on localhost:6379'
+# Docker Compose
+## up: start all services (redis, postgres)
+.PHONY: up
+up:
+	@docker compose up -d
+	@echo 'Services running:'
+	@echo '  Redis:    localhost:6379'
+	@echo '  Postgres: localhost:6767 (user: thoop, pass: thoop, db: thoop)'
 
-## redis/stop: stop Redis container
-.PHONY: redis/stop
-redis/stop:
+## down: stop all services
+.PHONY: down
+down:
 	@docker compose down
+
+## psql: connect to local postgres
+.PHONY: psql
+psql:
+	@docker compose exec postgres psql -U thoop -d thoop
 
 # Server
 ## server: run server (requires .env or env vars)

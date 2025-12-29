@@ -15,6 +15,7 @@ import (
 	"github.com/garrettladley/thoop/internal/migrations/postgres"
 	xredis "github.com/garrettladley/thoop/internal/redis"
 	"github.com/garrettladley/thoop/internal/server"
+	pgc "github.com/garrettladley/thoop/internal/sqlc/postgres"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/xhttp/middleware"
 	"github.com/garrettladley/thoop/internal/xslog"
@@ -79,7 +80,8 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	tokenValidator := server.NewTokenValidator(tokenCache, whoopLimiter)
 	notificationStore := initNotificationStore(ctx, redisClient, logger)
 
-	handler := server.NewHandler(cfg, backend)
+	queries := pgc.New(pool)
+	handler := server.NewHandler(cfg, backend, queries)
 	whoopHandler := server.NewWhoopHandler(cfg, whoopLimiter)
 	webhookHandler := server.NewWebhookHandler(cfg.Whoop.ClientSecret, notificationStore)
 	sseHandler := server.NewSSEHandler(notificationStore)

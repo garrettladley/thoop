@@ -19,8 +19,19 @@ func (q *Queries) DeleteToken(ctx context.Context) error {
 	return err
 }
 
+const getAPIKey = `-- name: GetAPIKey :one
+SELECT api_key FROM tokens WHERE id = 1
+`
+
+func (q *Queries) GetAPIKey(ctx context.Context) (*string, error) {
+	row := q.db.QueryRowContext(ctx, getAPIKey)
+	var api_key *string
+	err := row.Scan(&api_key)
+	return api_key, err
+}
+
 const getToken = `-- name: GetToken :one
-SELECT id, access_token, refresh_token, token_type, expiry FROM tokens WHERE id = 1
+SELECT id, access_token, refresh_token, token_type, expiry, api_key FROM tokens WHERE id = 1
 `
 
 func (q *Queries) GetToken(ctx context.Context) (Token, error) {
@@ -32,8 +43,18 @@ func (q *Queries) GetToken(ctx context.Context) (Token, error) {
 		&i.RefreshToken,
 		&i.TokenType,
 		&i.Expiry,
+		&i.ApiKey,
 	)
 	return i, err
+}
+
+const setAPIKey = `-- name: SetAPIKey :exec
+UPDATE tokens SET api_key = ? WHERE id = 1
+`
+
+func (q *Queries) SetAPIKey(ctx context.Context, apiKey *string) error {
+	_, err := q.db.ExecContext(ctx, setAPIKey, apiKey)
+	return err
 }
 
 const upsertToken = `-- name: UpsertToken :exec
