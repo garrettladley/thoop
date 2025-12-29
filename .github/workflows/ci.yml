@@ -97,8 +97,10 @@ jobs:
       - name: make install
         run: make install
 
-      - name: Run Tests with Coverage
-        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+      - name: Test
+        run: go test -v -json -failfast -race -coverpkg=./... -covermode=atomic -coverprofile=coverage.txt ./... -timeout 5m
 
-      - name: Print Coverage
-        run: go tool cover -func=coverage.txt
+      - uses: codecov/codecov-action@v5
+        with:
+          file: ./coverage.txt
+          token: ${{ secrets.CODECOV_TOKEN }}
