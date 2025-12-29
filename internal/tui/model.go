@@ -1,12 +1,14 @@
 package tui
 
 import (
+	"errors"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/tui/commands"
 	"github.com/garrettladley/thoop/internal/tui/components/footer"
 	"github.com/garrettladley/thoop/internal/tui/theme"
@@ -18,12 +20,20 @@ type page uint
 
 const (
 	splashPage page = iota
+	onboardingPage
 	dashboardPage
 )
 
+const (
+	tokenCheckInterval    = 5 * time.Minute
+	tokenRefreshThreshold = 15 * time.Minute
+)
+
 type state struct {
-	splash    SplashState
-	dashboard DashboardState
+	splash      SplashState
+	onboarding  OnboardingState
+	dashboard   DashboardState
+	authChecked bool
 }
 
 type Model struct {
@@ -42,8 +52,9 @@ func New(deps Deps) Model {
 		theme: theme.New(),
 		deps:  deps,
 		state: state{
-			splash:    SplashState{},
-			dashboard: DashboardState{},
+			splash:     SplashState{},
+			onboarding: OnboardingState{},
+			dashboard:  DashboardState{},
 		},
 	}
 }
@@ -54,7 +65,6 @@ func (m *Model) Init() tea.Cmd {
 			return SplashTickMsg{}
 		}),
 		commands.CheckAuthCmd(m.deps.Ctx, m.deps.TokenChecker),
-		commands.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
 	)
 }
 
@@ -66,26 +76,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
-			m.deps.Cancel()
-			return m, tea.Quit
-		default:
-			// skip splash on any keypress
-			if m.page == splashPage {
-				m.page = dashboardPage
-			}
-		}
+		return m.handleKeyMsg(msg)
 
-	// splash timer expired - transition to dashboard
+	// splash timer expired - transition based on auth state
 	case SplashTickMsg:
-		m.page = dashboardPage
+		return m.handleSplashTick()
 
 	case commands.AuthStatusMsg:
-		m.state.dashboard.AuthIndicator.Checked = true
-		if msg.Err == nil {
-			m.state.dashboard.AuthIndicator.Authenticated = msg.HasToken
-		}
+		return m.handleAuthStatus(msg)
+
+	case commands.AuthFlowResultMsg:
+		return m.handleAuthFlowResult(msg)
+
+	case commands.TokenCheckTickMsg:
+		return m.handleTokenCheckTick()
+
+	case commands.TokenRefreshResultMsg:
+		return m.handleTokenRefreshResult(msg)
 
 	case commands.CycleMsg:
 		if msg.Err != nil {
@@ -119,12 +126,116 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "ctrl+c":
+		m.deps.Cancel()
+		return m, tea.Quit
+	case "enter":
+		// Handle enter key on onboarding page
+		if m.page == onboardingPage {
+			switch m.state.onboarding.Phase {
+			case OnboardingPhaseWelcome, OnboardingPhaseError:
+				// Start auth flow
+				m.state.onboarding.Phase = OnboardingPhaseAuthenticating
+				m.state.onboarding.ErrorMsg = ""
+				return m, commands.StartAuthFlowCmd(m.deps.Ctx, m.deps.AuthFlow)
+			}
+		}
+	default:
+		// skip splash on any keypress (only if auth is checked)
+		if m.page == splashPage && m.state.authChecked {
+			if m.state.dashboard.AuthIndicator.Authenticated {
+				m.page = dashboardPage
+				return m, m.startDashboard()
+			} else {
+				m.page = onboardingPage
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m *Model) handleSplashTick() (tea.Model, tea.Cmd) {
+	// Only transition if auth status is known
+	if !m.state.authChecked {
+		// Auth check still pending, wait a bit more
+		return m, tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
+			return SplashTickMsg{}
+		})
+	}
+
+	if m.state.dashboard.AuthIndicator.Authenticated {
+		m.page = dashboardPage
+		return m, m.startDashboard()
+	}
+
+	m.page = onboardingPage
+	return m, nil
+}
+
+func (m *Model) handleAuthStatus(msg commands.AuthStatusMsg) (tea.Model, tea.Cmd) {
+	m.state.authChecked = true
+	m.state.dashboard.AuthIndicator.Checked = true
+
+	if msg.Err == nil {
+		m.state.dashboard.AuthIndicator.Authenticated = msg.HasToken
+	}
+
+	return m, nil
+}
+
+func (m *Model) handleAuthFlowResult(msg commands.AuthFlowResultMsg) (tea.Model, tea.Cmd) {
+	if msg.Err != nil {
+		m.state.onboarding.Phase = OnboardingPhaseError
+		m.state.onboarding.ErrorMsg = msg.Err.Error()
+		return m, nil
+	}
+
+	// Auth successful, transition to dashboard
+	m.state.dashboard.AuthIndicator.Authenticated = true
+	m.page = dashboardPage
+	return m, m.startDashboard()
+}
+
+func (m *Model) handleTokenCheckTick() (tea.Model, tea.Cmd) {
+	// Only check if we're on the dashboard
+	if m.page != dashboardPage {
+		return m, nil
+	}
+
+	return m, commands.RefreshTokenIfNeededCmd(m.deps.Ctx, m.deps.TokenSource, tokenRefreshThreshold)
+}
+
+func (m *Model) handleTokenRefreshResult(msg commands.TokenRefreshResultMsg) (tea.Model, tea.Cmd) {
+	if msg.Err != nil {
+		// Token refresh failed, check if it's a fatal error
+		if errors.Is(msg.Err, oauth.ErrNoToken) || errors.Is(msg.Err, oauth.ErrTokenExpired) {
+			// Need to re-authenticate
+			m.state.dashboard.AuthIndicator.Authenticated = false
+			m.page = onboardingPage
+			m.state.onboarding.Phase = OnboardingPhaseWelcome
+			return m, nil
+		}
+	}
+
+	// Continue the token check ticker
+	return m, commands.TokenCheckTickCmd(tokenCheckInterval)
+}
+
+func (m *Model) startDashboard() tea.Cmd {
+	return tea.Batch(
+		commands.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
+		commands.TokenCheckTickCmd(tokenCheckInterval),
+	)
+}
+
 func (m *Model) View() tea.View {
 	view := tea.NewView("")
 	view.AltScreen = true
 
-	// splash uses pure black BG, everything else uses default dark
-	if m.page == splashPage {
+	// splash and onboarding use pure black BG, dashboard uses default dark
+	if m.page == splashPage || m.page == onboardingPage {
 		view.BackgroundColor = theme.ColorBlack
 	} else {
 		view.BackgroundColor = m.theme.Background()
@@ -138,6 +249,15 @@ func (m *Model) View() tea.View {
 	switch m.page {
 	case splashPage:
 		content = m.SplashView()
+		content = lipgloss.Place(
+			m.viewportWidth,
+			m.viewportHeight,
+			lipgloss.Center,
+			lipgloss.Center,
+			content,
+		)
+	case onboardingPage:
+		content = m.OnboardingView()
 		content = lipgloss.Place(
 			m.viewportWidth,
 			m.viewportHeight,

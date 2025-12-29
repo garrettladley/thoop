@@ -11,7 +11,7 @@ import (
 )
 
 func authCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "auth",
 		Short: "Authenticate with WHOOP",
 		Long:  "Opens browser to authenticate with WHOOP and stores the token locally.",
@@ -49,6 +49,46 @@ func authCmd() *cobra.Command {
 
 			fmt.Printf("Authentication successful!\n")
 			fmt.Printf("Token expires: %s\n", token.Expiry.Format("2006-01-02 15:04:05"))
+
+			return nil
+		},
+	}
+
+	cmd.AddCommand(purgeCmd())
+
+	return cmd
+}
+
+func purgeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "purge",
+		Short: "Remove stored authentication token",
+		Long:  "Deletes the locally stored WHOOP authentication token from the database.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			if _, err := paths.EnsureDir(); err != nil {
+				return err
+			}
+
+			dbPath, err := paths.DB()
+			if err != nil {
+				return err
+			}
+
+			sqlDB, querier, err := db.Open(dbPath)
+			if err != nil {
+				return fmt.Errorf("failed to open database: %w", err)
+			}
+			defer func() {
+				_ = sqlDB.Close()
+			}()
+
+			if err := querier.DeleteToken(ctx); err != nil {
+				return fmt.Errorf("failed to delete token: %w", err)
+			}
+
+			fmt.Println("Authentication token removed successfully.")
 
 			return nil
 		},
