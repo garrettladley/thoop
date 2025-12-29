@@ -10,7 +10,7 @@ import (
 
 const Duration = 1500 * time.Millisecond
 
-const Logo = `
+const logo = `
  ▄▄▄▄▄▄▄▄  ▄▄    ▄▄    ▄▄▄▄      ▄▄▄▄    ▄▄▄▄▄▄
  ▀▀▀██▀▀▀  ██    ██   ██▀▀██    ██▀▀██   ██▀▀▀▀█▄
     ██     ██    ██  ██    ██  ██    ██  ██    ██
@@ -24,7 +24,7 @@ type TickMsg struct{}
 type State struct{}
 
 func LogoView(t theme.Theme) string {
-	return t.TextAccent().Render(Logo)
+	return t.TextAccent().Render(logo)
 }
 
 func View(t theme.Theme, width, height int) string {
