@@ -15,6 +15,7 @@ import (
 	"github.com/garrettladley/thoop/internal/migrations/postgres"
 	xredis "github.com/garrettladley/thoop/internal/redis"
 	"github.com/garrettladley/thoop/internal/server"
+	"github.com/garrettladley/thoop/internal/service/user"
 	pgc "github.com/garrettladley/thoop/internal/sqlc/postgres"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/xhttp/middleware"
@@ -81,7 +82,8 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	notificationStore := initNotificationStore(ctx, redisClient, logger)
 
 	queries := pgc.New(pool)
-	handler := server.NewHandler(cfg, backend, queries, whoopLimiter)
+	userService := user.NewPostgresService(queries)
+	handler := server.NewHandler(cfg, backend, userService, whoopLimiter)
 	whoopHandler := server.NewWhoopHandler(cfg, whoopLimiter)
 	webhookHandler := server.NewWebhookHandler(cfg.Whoop.ClientSecret, notificationStore)
 	sseHandler := server.NewSSEHandler(notificationStore)
@@ -89,7 +91,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	mux := http.NewServeMux()
 
-	// Unauthenticated routes - protected by global IP rate limiter
+	// unauthenticated routes - protected by global IP rate limiter
 	unauthedMux := http.NewServeMux()
 	unauthedMux.HandleFunc("GET /auth/start", handler.HandleAuthStart)
 	unauthedMux.HandleFunc("GET /auth/callback", handler.HandleAuthCallback)
@@ -105,11 +107,12 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	mux.Handle("/webhooks/", unauthedWrapped)
 	mux.Handle("/health", unauthedWrapped)
 
-	// Authenticated routes - protected by per-user WHOOP rate limiter
+	// authenticated routes - protected by API key + WHOOP token + rate limiter
 	whoopMux := http.NewServeMux()
 	whoopMux.HandleFunc("/api/whoop/", whoopHandler.HandleWhoopProxy)
 	whoopWrapped := middleware.Chain(whoopMux,
 		middleware.VersionCheck,
+		server.APIKeyAuth(userService),
 		server.WhoopAuth(tokenValidator),
 	)
 	mux.Handle("/api/whoop/", whoopWrapped)
@@ -118,6 +121,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	notificationsMux.HandleFunc("GET /api/notifications", notificationsHandler.HandlePoll)
 	notificationsMux.HandleFunc("GET /api/notifications/stream", sseHandler.HandleStream)
 	notificationsWrapped := middleware.Chain(notificationsMux,
+		server.APIKeyAuth(userService),
 		server.WhoopAuth(tokenValidator),
 	)
 	mux.Handle("/api/notifications", notificationsWrapped)

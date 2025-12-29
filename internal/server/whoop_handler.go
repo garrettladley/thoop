@@ -136,7 +136,8 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 	for name, values := range r.Header {
 		if name == "Connection" || name == "Keep-Alive" || name == "Proxy-Authenticate" ||
 			name == "Proxy-Authorization" || name == "Te" || name == "Trailer" ||
-			name == "Transfer-Encoding" || name == "Upgrade" || name == "X-Forwarded-For" {
+			name == "Transfer-Encoding" || name == "Upgrade" || name == "X-Forwarded-For" ||
+			name == xhttp.XAPIKey {
 			continue
 		}
 		for _, value := range values {

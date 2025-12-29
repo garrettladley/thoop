@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -48,7 +46,7 @@ func (v *TokenValidator) ValidateAndGetUserID(ctx context.Context, authHeader st
 		return 0, err
 	}
 
-	tokenHash := hashToken(token)
+	tokenHash := HashSecret(token)
 
 	userID, err := v.cache.GetUserID(ctx, tokenHash)
 	if err == nil {
@@ -89,11 +87,6 @@ func extractBearerToken(authHeader string) (string, error) {
 	}
 
 	return token, nil
-}
-
-func hashToken(token string) string {
-	h := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(h[:])
 }
 
 type staticTokenSource struct {
