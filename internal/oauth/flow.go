@@ -22,7 +22,7 @@ import (
 const (
 	callbackPath    = "/callback"
 	shutdownTime    = 5 * time.Second
-	defaultProxyURL = "https://thoop-proxy.fly.dev"
+	defaultProxyURL = "https://thoop.fly.dev"
 )
 
 type Flow interface {
@@ -36,34 +36,34 @@ type tokenResult struct {
 
 type callbackHandler func(w http.ResponseWriter, r *http.Request) (*oauth2.Token, error)
 
-type ProxyFlow struct {
-	proxyURL string
-	querier  sqlc.Querier
+type ServerFlow struct {
+	serverURL string
+	querier   sqlc.Querier
 }
 
-var _ Flow = (*ProxyFlow)(nil)
+var _ Flow = (*ServerFlow)(nil)
 
-func NewProxyFlow(querier sqlc.Querier) *ProxyFlow {
-	return &ProxyFlow{
-		proxyURL: defaultProxyURL,
-		querier:  querier,
+func NewServerFlow(querier sqlc.Querier) *ServerFlow {
+	return &ServerFlow{
+		serverURL: defaultProxyURL,
+		querier:   querier,
 	}
 }
 
-func NewProxyFlowWithURL(proxyURL string, querier sqlc.Querier) *ProxyFlow {
-	return &ProxyFlow{
-		proxyURL: proxyURL,
-		querier:  querier,
+func NewServerFlowWithURL(serverURL string, querier sqlc.Querier) *ServerFlow {
+	return &ServerFlow{
+		serverURL: serverURL,
+		querier:   querier,
 	}
 }
 
-func (f *ProxyFlow) Run(ctx context.Context) (*oauth2.Token, error) {
-	return runFlow(ctx, f.querier, f.authURL, proxyCallbackHandler)
+func (f *ServerFlow) Run(ctx context.Context) (*oauth2.Token, error) {
+	return runFlow(ctx, f.querier, f.authURL, serverCallbackHandler)
 }
 
-func (f *ProxyFlow) authURL(port string) string {
+func (f *ServerFlow) authURL(port string) string {
 	return fmt.Sprintf("%s/auth/start?%s=%s&%s=%s",
-		f.proxyURL,
+		f.serverURL,
 		ParamLocalPort, port,
 		ParamClientVersion, url.QueryEscape(version.Get()))
 }
@@ -210,7 +210,7 @@ func startCallbackServer(handler callbackHandler, resultCh chan<- tokenResult) (
 	return server, port, nil
 }
 
-func proxyCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Token, error) {
+func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Token, error) {
 	if errParam := r.URL.Query().Get(ParamError); errParam != "" {
 		errDesc := r.URL.Query().Get(ParamErrorDescription)
 

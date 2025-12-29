@@ -2,5 +2,5 @@
 .env
 /bin/
 /thoop
-/proxy
+/server
 /tmp/

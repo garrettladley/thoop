@@ -75,9 +75,9 @@ func ClientVersion(clientVersion string) slog.Attr {
 	return slog.String(clientVersionKey, clientVersion)
 }
 
-func ProxyVersion(proxyVersion string) slog.Attr {
-	const proxyVersionKey = "proxy_version"
-	return slog.String(proxyVersionKey, proxyVersion)
+func ServerVersion(serverVersion string) slog.Attr {
+	const serverVersionKey = "server_version"
+	return slog.String(serverVersionKey, serverVersion)
 }
 
 func MinVersion(minVersion string) slog.Attr {

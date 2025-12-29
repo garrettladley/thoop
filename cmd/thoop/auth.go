@@ -45,7 +45,7 @@ func authCmd() *cobra.Command {
 				_ = sqlDB.Close()
 			}()
 
-			flow := oauth.NewProxyFlowWithURL(cfg.ProxyURL, querier)
+			flow := oauth.NewServerFlowWithURL(cfg.ProxyURL, querier)
 
 			token, err := flow.Run(ctx)
 			if err != nil {

@@ -48,7 +48,7 @@ lint/fix:
 build:
 	@echo "Building with version: $(VERSION)"
 	@go build -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
-	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-proxy ./cmd/proxy
+	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
 	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
 
 ## build/release: build all binaries for release (no dev footer)
@@ -56,7 +56,7 @@ build:
 build/release:
 	@echo "Building release with version: $(VERSION)"
 	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
-	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop-proxy ./cmd/proxy
+	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
 	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
 
 ## build/thoop: build TUI client with version
@@ -64,10 +64,10 @@ build/release:
 build/thoop:
 	@go build -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
 
-## build/proxy: build proxy server with version
-.PHONY: build/proxy
-build/proxy:
-	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-proxy ./cmd/proxy
+## build/server: build server with version
+.PHONY: build/server
+build/server:
+	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
 
 ## version: print current version
 .PHONY: version
@@ -158,8 +158,8 @@ redis:
 redis/stop:
 	@docker compose down
 
-# Proxy
-## proxy: run proxy server (requires .env.proxy or env vars)
-.PHONY: proxy
-proxy:
-	@go run -ldflags="$(LDFLAGS)" ./cmd/proxy
+# Server
+## server: run server (requires .env or env vars)
+.PHONY: server
+server:
+	@go run -ldflags="$(LDFLAGS)" ./cmd/server

@@ -24,7 +24,7 @@ func VersionCheck(next http.Handler) http.Handler {
 				r.Context(),
 				"client version incompatible",
 				xslog.ClientVersion(verr.ClientVersion),
-				xslog.ProxyVersion(verr.ProxyVersion),
+				xslog.ServerVersion(verr.ServerVersion),
 				xslog.MinVersion(verr.MinVersion),
 				xslog.RequestPath(r),
 			)
