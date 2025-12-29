@@ -7,6 +7,7 @@ const (
 	ErrorCodeAccessDenied        ErrorCode = "access_denied"
 	ErrorCodeInvalidRequest      ErrorCode = "invalid_request"
 	ErrorCodeAccountBanned       ErrorCode = "account_banned"
+	ErrorCodeRateLimited         ErrorCode = "rate_limited"
 )
 
 const (

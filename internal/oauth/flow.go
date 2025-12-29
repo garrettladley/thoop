@@ -241,6 +241,12 @@ func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Toke
 			return nil, "", fmt.Errorf("account banned: %s", errDesc)
 		}
 
+		if ErrorCode(errParam) == ErrorCodeRateLimited {
+			writeRateLimitedHTML(w)
+			fmt.Fprintf(os.Stderr, "\nRate limited: %s\n", errDesc)
+			return nil, "", fmt.Errorf("rate limited: %s", errDesc)
+		}
+
 		http.Error(w, fmt.Sprintf("OAuth error: %s", errDesc), http.StatusBadRequest)
 		return nil, "", fmt.Errorf("oauth error: %s - %s", errParam, errDesc)
 	}
@@ -297,6 +303,19 @@ func writeAccountBannedHTML(w http.ResponseWriter) {
 <body>
 <h1>Account Banned</h1>
 <p>Your account has been banned from using this service.</p>
+<p>You can close this window.</p>
+</body>
+</html>`)
+}
+
+func writeRateLimitedHTML(w http.ResponseWriter) {
+	xhttp.SetHeaderContentTypeTextHTML(w)
+	_, _ = fmt.Fprint(w, `<!DOCTYPE html>
+<html>
+<head><title>Rate Limited</title></head>
+<body>
+<h1>Rate Limited</h1>
+<p>Too many requests. Please wait a moment and try again.</p>
 <p>You can close this window.</p>
 </body>
 </html>`)

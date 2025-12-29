@@ -81,7 +81,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	notificationStore := initNotificationStore(ctx, redisClient, logger)
 
 	queries := pgc.New(pool)
-	handler := server.NewHandler(cfg, backend, queries)
+	handler := server.NewHandler(cfg, backend, queries, whoopLimiter)
 	whoopHandler := server.NewWhoopHandler(cfg, whoopLimiter)
 	webhookHandler := server.NewWebhookHandler(cfg.Whoop.ClientSecret, notificationStore)
 	sseHandler := server.NewSSEHandler(notificationStore)
