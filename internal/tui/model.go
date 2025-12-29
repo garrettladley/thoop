@@ -9,20 +9,15 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/oauth"
-	"github.com/garrettladley/thoop/internal/tui/commands"
 	"github.com/garrettladley/thoop/internal/tui/components/footer"
+	"github.com/garrettladley/thoop/internal/tui/page"
+	"github.com/garrettladley/thoop/internal/tui/page/dashboard"
+	"github.com/garrettladley/thoop/internal/tui/page/onboarding"
+	"github.com/garrettladley/thoop/internal/tui/page/splash"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
 var _ tea.Model = (*Model)(nil)
-
-type page uint
-
-const (
-	splashPage page = iota
-	onboardingPage
-	dashboardPage
-)
 
 const (
 	tokenCheckInterval    = 5 * time.Minute
@@ -30,15 +25,15 @@ const (
 )
 
 type state struct {
-	splash      SplashState
-	onboarding  OnboardingState
-	dashboard   DashboardState
+	splash      splash.State
+	onboarding  onboarding.State
+	dashboard   dashboard.State
 	authChecked bool
 }
 
 type Model struct {
 	ready          bool
-	page           page
+	page           page.ID
 	viewportWidth  int
 	viewportHeight int
 	theme          theme.Theme
@@ -48,23 +43,23 @@ type Model struct {
 
 func New(deps Deps) Model {
 	return Model{
-		page:  splashPage,
+		page:  page.Splash,
 		theme: theme.New(),
 		deps:  deps,
 		state: state{
-			splash:     SplashState{},
-			onboarding: OnboardingState{},
-			dashboard:  DashboardState{},
+			splash:     splash.State{},
+			onboarding: onboarding.State{},
+			dashboard:  dashboard.State{},
 		},
 	}
 }
 
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
-		tea.Tick(splashDuration, func(t time.Time) tea.Msg {
-			return SplashTickMsg{}
+		tea.Tick(splash.Duration, func(t time.Time) tea.Msg {
+			return splash.TickMsg{}
 		}),
-		commands.CheckAuthCmd(m.deps.Ctx, m.deps.TokenChecker),
+		onboarding.CheckAuthCmd(m.deps.Ctx, m.deps.TokenChecker),
 	)
 }
 
@@ -78,22 +73,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 
-	case SplashTickMsg:
+	case splash.TickMsg:
 		return m.handleSplashTick()
 
-	case commands.AuthStatusMsg:
+	case onboarding.AuthStatusMsg:
 		return m.handleAuthStatus(msg)
 
-	case commands.AuthFlowResultMsg:
+	case onboarding.AuthFlowResultMsg:
 		return m.handleAuthFlowResult(msg)
 
-	case commands.TokenCheckTickMsg:
+	case onboarding.TokenCheckTickMsg:
 		return m.handleTokenCheckTick()
 
-	case commands.TokenRefreshResultMsg:
+	case onboarding.TokenRefreshResultMsg:
 		return m.handleTokenRefreshResult(msg)
 
-	case commands.CycleMsg:
+	case dashboard.CycleMsg:
 		if msg.Err != nil {
 			return m, nil
 		}
@@ -103,19 +98,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state.dashboard.StrainScore = &msg.Cycle.Score.Strain
 			}
 			return m, tea.Batch(
-				commands.FetchSleepCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
-				commands.FetchRecoveryCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
+				dashboard.FetchSleepCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
+				dashboard.FetchRecoveryCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
 			)
 		}
 		return m, nil
 
-	case commands.SleepMsg:
+	case dashboard.SleepMsg:
 		if msg.Err == nil && msg.Sleep != nil && msg.Sleep.Score != nil {
 			m.state.dashboard.SleepScore = &msg.Sleep.Score.SleepPerformancePercentage
 		}
 		return m, nil
 
-	case commands.RecoveryMsg:
+	case dashboard.RecoveryMsg:
 		if msg.Err == nil && msg.Recovery != nil && msg.Recovery.Score != nil {
 			m.state.dashboard.RecoveryScore = &msg.Recovery.Score.RecoveryScore
 		}
@@ -132,22 +127,24 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "enter":
 		switch m.page {
-		case onboardingPage:
+		case page.Onboarding:
 			switch m.state.onboarding.Phase {
-			case OnboardingPhaseWelcome, OnboardingPhaseError:
-				m.state.onboarding.Phase = OnboardingPhaseAuthenticating
+			case onboarding.PhaseWelcome, onboarding.PhaseError:
+				m.state.onboarding.Phase = onboarding.PhaseAuthenticating
 				m.state.onboarding.ErrorMsg = ""
-				return m, commands.StartAuthFlowCmd(m.deps.Ctx, m.deps.AuthFlow)
+				return m, onboarding.StartAuthFlowCmd(m.deps.Ctx, m.deps.AuthFlow)
+			default:
 			}
+		default:
 		}
 	default:
 		// skip splash on any keypress (only if auth is checked)
-		if m.page == splashPage && m.state.authChecked {
+		if m.page == page.Splash && m.state.authChecked {
 			if m.state.dashboard.AuthIndicator.Authenticated {
-				m.page = dashboardPage
+				m.page = page.Dashboard
 				return m, m.startDashboard()
 			} else {
-				m.page = onboardingPage
+				m.page = page.Onboarding
 			}
 		}
 	}
@@ -159,20 +156,20 @@ func (m *Model) handleSplashTick() (tea.Model, tea.Cmd) {
 	if !m.state.authChecked {
 		// auth check still pending, wait a bit more
 		return m, tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
-			return SplashTickMsg{}
+			return splash.TickMsg{}
 		})
 	}
 
 	if m.state.dashboard.AuthIndicator.Authenticated {
-		m.page = dashboardPage
+		m.page = page.Dashboard
 		return m, m.startDashboard()
 	}
 
-	m.page = onboardingPage
+	m.page = page.Onboarding
 	return m, nil
 }
 
-func (m *Model) handleAuthStatus(msg commands.AuthStatusMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleAuthStatus(msg onboarding.AuthStatusMsg) (tea.Model, tea.Cmd) {
 	m.state.authChecked = true
 	m.state.dashboard.AuthIndicator.Checked = true
 
@@ -183,43 +180,43 @@ func (m *Model) handleAuthStatus(msg commands.AuthStatusMsg) (tea.Model, tea.Cmd
 	return m, nil
 }
 
-func (m *Model) handleAuthFlowResult(msg commands.AuthFlowResultMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleAuthFlowResult(msg onboarding.AuthFlowResultMsg) (tea.Model, tea.Cmd) {
 	if msg.Err != nil {
-		m.state.onboarding.Phase = OnboardingPhaseError
+		m.state.onboarding.Phase = onboarding.PhaseError
 		m.state.onboarding.ErrorMsg = msg.Err.Error()
 		return m, nil
 	}
 
 	m.state.dashboard.AuthIndicator.Authenticated = true
-	m.page = dashboardPage
+	m.page = page.Dashboard
 	return m, m.startDashboard()
 }
 
 func (m *Model) handleTokenCheckTick() (tea.Model, tea.Cmd) {
-	if m.page != dashboardPage {
+	if m.page != page.Dashboard {
 		return m, nil
 	}
 
-	return m, commands.RefreshTokenIfNeededCmd(m.deps.Ctx, m.deps.TokenSource, tokenRefreshThreshold)
+	return m, onboarding.RefreshTokenIfNeededCmd(m.deps.Ctx, m.deps.TokenSource, tokenRefreshThreshold)
 }
 
-func (m *Model) handleTokenRefreshResult(msg commands.TokenRefreshResultMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleTokenRefreshResult(msg onboarding.TokenRefreshResultMsg) (tea.Model, tea.Cmd) {
 	if msg.Err != nil {
 		if errors.Is(msg.Err, oauth.ErrNoToken) || errors.Is(msg.Err, oauth.ErrTokenExpired) {
 			m.state.dashboard.AuthIndicator.Authenticated = false
-			m.page = onboardingPage
-			m.state.onboarding.Phase = OnboardingPhaseWelcome
+			m.page = page.Onboarding
+			m.state.onboarding.Phase = onboarding.PhaseWelcome
 			return m, nil
 		}
 	}
 
-	return m, commands.TokenCheckTickCmd(tokenCheckInterval)
+	return m, onboarding.TokenCheckTickCmd(tokenCheckInterval)
 }
 
 func (m *Model) startDashboard() tea.Cmd {
 	return tea.Batch(
-		commands.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
-		commands.TokenCheckTickCmd(tokenCheckInterval),
+		dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
+		onboarding.TokenCheckTickCmd(tokenCheckInterval),
 	)
 }
 
@@ -228,9 +225,10 @@ func (m *Model) View() tea.View {
 	view.AltScreen = true
 
 	// splash and onboarding use pure black BG, dashboard uses default dark
-	if m.page == splashPage || m.page == onboardingPage {
+	switch m.page {
+	case page.Splash, page.Onboarding:
 		view.BackgroundColor = theme.ColorBlack
-	} else {
+	default:
 		view.BackgroundColor = m.theme.Background()
 	}
 
@@ -240,34 +238,14 @@ func (m *Model) View() tea.View {
 
 	var content string
 	switch m.page {
-	case splashPage:
-		content = m.SplashView()
-		content = lipgloss.Place(
-			m.viewportWidth,
-			m.viewportHeight,
-			lipgloss.Center,
-			lipgloss.Center,
-			content,
-		)
-	case onboardingPage:
-		content = m.OnboardingView()
-		content = lipgloss.Place(
-			m.viewportWidth,
-			m.viewportHeight,
-			lipgloss.Center,
-			lipgloss.Center,
-			content,
-		)
-	case dashboardPage:
-		gauges := lipgloss.Place(
-			m.viewportWidth,
-			m.viewportHeight,
-			lipgloss.Center,
-			lipgloss.Center,
-			m.DashboardView(),
-		)
+	case page.Splash:
+		content = splash.View(m.theme, m.viewportWidth, m.viewportHeight)
+	case page.Onboarding:
+		content = onboarding.View(m.theme, m.state.onboarding, m.viewportWidth, m.viewportHeight)
+	case page.Dashboard:
+		gauges := dashboard.View(m.state.dashboard, m.viewportWidth, m.viewportHeight)
 
-		f := footer.New(m.AuthIndicatorView(), m.viewportWidth)
+		f := footer.New(dashboard.AuthIndicatorView(m.state.dashboard), m.viewportWidth)
 
 		footerOverlay := lipgloss.Place(
 			m.viewportWidth,

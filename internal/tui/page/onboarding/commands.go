@@ -1,13 +1,31 @@
-package commands
+package onboarding
 
 import (
 	"context"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"golang.org/x/oauth2"
 
 	"github.com/garrettladley/thoop/internal/oauth"
 )
+
+type AuthStatusMsg struct {
+	HasToken bool
+	Err      error
+}
+
+type AuthFlowResultMsg struct {
+	Token *oauth2.Token
+	Err   error
+}
+
+type TokenCheckTickMsg struct{}
+
+type TokenRefreshResultMsg struct {
+	Refreshed bool
+	Err       error
+}
 
 func CheckAuthCmd(ctx context.Context, checker oauth.TokenChecker) tea.Cmd {
 	return func() tea.Msg {

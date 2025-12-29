@@ -1,39 +1,47 @@
-package tui
+package onboarding
 
 import (
 	"charm.land/lipgloss/v2"
+
+	"github.com/garrettladley/thoop/internal/tui/page/splash"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
-type OnboardingPhase uint
+type Phase uint
 
 const (
-	OnboardingPhaseWelcome OnboardingPhase = iota
-	OnboardingPhaseAuthenticating
-	OnboardingPhaseError
+	PhaseWelcome Phase = iota
+	PhaseAuthenticating
+	PhaseError
 )
 
-type OnboardingState struct {
-	Phase    OnboardingPhase
+type State struct {
+	Phase    Phase
 	ErrorMsg string
 }
 
-func (m *Model) OnboardingView() string {
+func View(t theme.Theme, state State, width, height int) string {
 	var content string
 
-	switch m.state.onboarding.Phase {
-	case OnboardingPhaseWelcome:
-		content = m.onboardingWelcomeView()
-	case OnboardingPhaseAuthenticating:
-		content = m.onboardingAuthenticatingView()
-	case OnboardingPhaseError:
-		content = m.onboardingErrorView()
+	switch state.Phase {
+	case PhaseWelcome:
+		content = welcomeView(t)
+	case PhaseAuthenticating:
+		content = authenticatingView(t)
+	case PhaseError:
+		content = errorView(t, state.ErrorMsg)
 	}
 
-	return content
+	return lipgloss.Place(
+		width,
+		height,
+		lipgloss.Center,
+		lipgloss.Center,
+		content,
+	)
 }
 
-func (m *Model) onboardingWelcomeView() string {
+func welcomeView(t theme.Theme) string {
 	titleStyle := lipgloss.NewStyle().
 		Foreground(theme.ColorTeal).
 		Bold(true)
@@ -50,7 +58,7 @@ func (m *Model) onboardingWelcomeView() string {
 		Padding(0, 2).
 		Bold(true)
 
-	logo := m.LogoView()
+	logo := splash.LogoView(t)
 
 	title := titleStyle.Render("Connect to WHOOP")
 	subtitle := subtitleStyle.Render("Authenticate to view your health data")
@@ -75,7 +83,7 @@ func (m *Model) onboardingWelcomeView() string {
 	return content
 }
 
-func (m *Model) onboardingAuthenticatingView() string {
+func authenticatingView(t theme.Theme) string {
 	titleStyle := lipgloss.NewStyle().
 		Foreground(theme.ColorTeal).
 		Bold(true)
@@ -86,7 +94,7 @@ func (m *Model) onboardingAuthenticatingView() string {
 	hintStyle := lipgloss.NewStyle().
 		Foreground(theme.ColorDim)
 
-	logo := m.LogoView()
+	logo := splash.LogoView(t)
 
 	title := titleStyle.Render("Authenticating...")
 	subtitle := subtitleStyle.Render("Complete the login in your browser")
@@ -108,7 +116,7 @@ func (m *Model) onboardingAuthenticatingView() string {
 	return content
 }
 
-func (m *Model) onboardingErrorView() string {
+func errorView(t theme.Theme, errorMsg string) string {
 	titleStyle := lipgloss.NewStyle().
 		Foreground(theme.ColorLowRecovery).
 		Bold(true)
@@ -122,11 +130,11 @@ func (m *Model) onboardingErrorView() string {
 	hintStyle := lipgloss.NewStyle().
 		Foreground(theme.ColorDim)
 
-	logo := m.LogoView()
+	logo := splash.LogoView(t)
 
 	title := titleStyle.Render("Authentication Failed")
 	subtitle := subtitleStyle.Render("Something went wrong")
-	errorMsg := errorStyle.Render(m.state.onboarding.ErrorMsg)
+	errorText := errorStyle.Render(errorMsg)
 	hint := hintStyle.Render("Press Enter to try again, or q to quit")
 
 	content := lipgloss.JoinVertical(
@@ -138,7 +146,7 @@ func (m *Model) onboardingErrorView() string {
 		"",
 		subtitle,
 		"",
-		errorMsg,
+		errorText,
 		"",
 		hint,
 	)

@@ -1,4 +1,4 @@
-package tui
+package dashboard
 
 import (
 	"image/color"
@@ -10,7 +10,7 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
-type DashboardState struct {
+type State struct {
 	AuthIndicator auth.Indicator
 
 	CycleID       int64
@@ -19,31 +19,30 @@ type DashboardState struct {
 	StrainScore   *float64 // 0-21
 }
 
-func (m *Model) DashboardView() string {
+func View(state State, width, height int) string {
 	var (
 		sleepGauge = gauge.New(
-			m.state.dashboard.SleepScore,
+			state.SleepScore,
 			100,
 			"SLEEP",
 			theme.ColorSleep,
 		)
 
 		recoveryGauge = gauge.New(
-			m.state.dashboard.RecoveryScore,
+			state.RecoveryScore,
 			100,
 			"RECOVERY",
-			m.recoveryColor(),
+			recoveryColor(state.RecoveryScore),
 		)
 
 		strainGauge = gauge.New(
-			m.state.dashboard.StrainScore,
+			state.StrainScore,
 			21,
 			"STRAIN",
 			theme.ColorStrain,
 		)
 	)
 
-	// render gauges side by side with spacing
 	gaugeSpacing := "    "
 	gaugesRow := lipgloss.JoinHorizontal(
 		lipgloss.Top,
@@ -54,23 +53,29 @@ func (m *Model) DashboardView() string {
 		strainGauge.Render(),
 	)
 
-	return gaugesRow
+	return lipgloss.Place(
+		width,
+		height,
+		lipgloss.Center,
+		lipgloss.Center,
+		gaugesRow,
+	)
 }
 
-func (m *Model) AuthIndicatorView() string {
-	return m.state.dashboard.AuthIndicator.Render()
+func AuthIndicatorView(state State) string {
+	return state.AuthIndicator.Render()
 }
 
-func (m *Model) recoveryColor() color.Color {
-	if m.state.dashboard.RecoveryScore == nil {
-		return theme.ColorRecoveryBlue // neutral color when no data
+func recoveryColor(score *float64) color.Color {
+	if score == nil {
+		return theme.ColorRecoveryBlue
 	}
 
-	score := *m.state.dashboard.RecoveryScore
+	s := *score
 	switch {
-	case score >= 67:
+	case s >= 67:
 		return theme.ColorHighRecovery
-	case score >= 34:
+	case s >= 34:
 		return theme.ColorMediumRecovery
 	default:
 		return theme.ColorLowRecovery
