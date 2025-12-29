@@ -12,11 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/garrettladley/thoop/internal/migrations/postgres"
 	xredis "github.com/garrettladley/thoop/internal/redis"
 	"github.com/garrettladley/thoop/internal/server"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/xhttp/middleware"
 	"github.com/garrettladley/thoop/internal/xslog"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
@@ -50,6 +52,12 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
+
+	pool, err := initPostgres(ctx, cfg, logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialize postgres: %w", err)
+	}
+	defer pool.Close()
 
 	redisClient, err := xredis.New(ctx, xredis.Config{URL: cfg.Redis.URL})
 	if err != nil {
@@ -198,4 +206,20 @@ func initTokenCache(ctx context.Context, redisClient *redis.Client, logger *slog
 func initNotificationStore(ctx context.Context, redisClient *redis.Client, logger *slog.Logger) storage.NotificationStore {
 	logger.InfoContext(ctx, "initializing notification store")
 	return storage.NewRedisNotificationStore(redisClient)
+}
+
+func initPostgres(ctx context.Context, cfg server.Config, logger *slog.Logger) (*pgxpool.Pool, error) {
+	logger.InfoContext(ctx, "initializing PostgreSQL")
+
+	pool, err := pgxpool.New(ctx, cfg.Database.URL)
+	if err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+
+	if err := postgres.Apply(ctx, pool); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("migrations: %w", err)
+	}
+
+	return pool, nil
 }

@@ -12,6 +12,11 @@ type Config struct {
 	RateLimit      RateLimit      `envPrefix:"RATE_"`
 	WhoopRateLimit WhoopRateLimit `envPrefix:"WHOOP_RATE_LIMIT_"`
 	Redis          Redis          `envPrefix:"REDIS_"`
+	Database       Database       `envPrefix:"DATABASE_"`
+}
+
+type Database struct {
+	URL string `env:"URL,required"`
 }
 
 type Redis struct {
