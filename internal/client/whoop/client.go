@@ -15,8 +15,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const maxRetries = 3
-
 type Client struct {
 	User     UserService
 	Cycle    CycleService

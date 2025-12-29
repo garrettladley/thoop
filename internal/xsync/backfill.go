@@ -79,8 +79,12 @@ func (s *Service) backfillCycles(ctx context.Context, start, end time.Time) erro
 		for _, cycle := range resp.Records {
 			g.Go(func() error {
 				if err := s.backfillRecoveryForCycle(gctx, cycle.ID); err != nil {
-					s.logger.WarnContext(gctx, "failed to backfill recovery",
-						xslog.CycleID(cycle.ID), xslog.Error(err))
+					s.logger.WarnContext(
+						gctx,
+						"failed to backfill recovery",
+						xslog.CycleID(cycle.ID),
+						xslog.Error(err),
+					)
 				}
 				return nil
 			})
