@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,6 +27,9 @@ const (
 	keyPerUserDay    = "per_user_day"
 	keyGlobalMinute  = "global_minute"
 	keyGlobalDay     = "global_day"
+	keyGracePeriod   = "grace_period"
+
+	sseShutdownGracePeriod = 2 * time.Second
 )
 
 func main() {
@@ -113,18 +117,24 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		middleware.Recovery,
 		middleware.Logging,
 		middleware.Logger(logger),
+		middleware.ShutdownContext,
 		middleware.RequestID(),
 		middleware.ClientSessionID,
 		middleware.SecurityHeaders,
 	)
 
-	server := &http.Server{
+	shutdownCoordinator := server.NewShutdownCoordinator(sseShutdownGracePeriod)
+
+	httpServer := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           wrapped,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      0, // disabled for SSE; use SetWriteDeadline per-request
 		IdleTimeout:       60 * time.Second,
+		BaseContext: func(_ net.Listener) context.Context {
+			return shutdownCoordinator.BaseContext()
+		},
 	}
 
 	done := make(chan os.Signal, 1)
@@ -134,18 +144,23 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		logger.InfoContext(ctx, "starting server",
 			xslog.Version(),
 			slog.String(keyPort, cfg.Port))
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.ErrorContext(ctx, "server error", xslog.Error(err))
 		}
 	}()
 
 	<-done
-	logger.InfoContext(ctx, "shutting down server")
+	logger.InfoContext(ctx, "shutdown signal received, initiating graceful shutdown")
+
+	// cancel base context and wait grace period for SSE connections to close
+	shutdownCoordinator.InitiateShutdown()
+	logger.InfoContext(ctx, "SSE grace period complete, shutting down server",
+		slog.Duration(keyGracePeriod, sseShutdownGracePeriod))
 
 	shutdownCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("server shutdown failed: %w", err)
 	}
 

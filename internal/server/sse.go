@@ -84,9 +84,22 @@ func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 	defer heartbeat.Stop()
 
 	for {
+		// check if server is shutting down
+		if ctx.Err() != nil && xcontext.IsShutdownInProgress(ctx) {
+			logger.InfoContext(ctx, "SSE graceful shutdown initiated", xslog.UserID(userID))
+
+			// best effort: send shutdown event to client
+			_ = writeSSEEvent(rc, w, flusher, "shutdown", map[string]string{
+				"reason": "server-restart",
+				"time":   time.Now().Format(time.RFC3339),
+			})
+
+			return
+		}
+
 		select {
 		case <-ctx.Done():
-			logger.InfoContext(ctx, "SSE connection closed", xslog.UserID(userID))
+			logger.InfoContext(ctx, "SSE connection closed by client", xslog.UserID(userID))
 			return
 
 		case notification, ok := <-notifCh:
@@ -112,7 +125,7 @@ func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeSSEEvent(rc *http.ResponseController, w http.ResponseWriter, flusher http.Flusher, event string, data any) error {
-	// Extend write deadline before each write (ignore if not supported)
+	// extend write deadline before each write (ignore if not supported)
 	if err := rc.SetWriteDeadline(time.Now().Add(sseWriteTimeout)); err != nil && !errors.Is(err, http.ErrNotSupported) {
 		return fmt.Errorf("failed to set write deadline: %w", err)
 	}
