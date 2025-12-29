@@ -15,6 +15,7 @@ type Querier interface {
 	DeleteAPIKey(ctx context.Context, id int64) error
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error)
 	GetAPIKeysByUser(ctx context.Context, whoopUserID int64) ([]ApiKey, error)
+	GetOrCreateUser(ctx context.Context, whoopUserID int64) (User, error)
 	GetUser(ctx context.Context, whoopUserID int64) (User, error)
 	RevokeAPIKey(ctx context.Context, id int64) error
 	UnbanUser(ctx context.Context, whoopUserID int64) error

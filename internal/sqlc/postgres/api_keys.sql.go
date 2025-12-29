@@ -7,7 +7,6 @@ package pgc
 
 import (
 	"context"
-	"database/sql"
 )
 
 const createAPIKey = `-- name: CreateAPIKey :one
@@ -17,13 +16,13 @@ RETURNING id, whoop_user_id, key_hash, name, created_at, last_used_at, revoked
 `
 
 type CreateAPIKeyParams struct {
-	WhoopUserID int64          `json:"whoop_user_id"`
-	KeyHash     string         `json:"key_hash"`
-	Name        sql.NullString `json:"name"`
+	WhoopUserID int64   `json:"whoop_user_id"`
+	KeyHash     string  `json:"key_hash"`
+	Name        *string `json:"name"`
 }
 
 func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error) {
-	row := q.db.QueryRowContext(ctx, createAPIKey, arg.WhoopUserID, arg.KeyHash, arg.Name)
+	row := q.db.QueryRow(ctx, createAPIKey, arg.WhoopUserID, arg.KeyHash, arg.Name)
 	var i ApiKey
 	err := row.Scan(
 		&i.ID,
@@ -42,7 +41,7 @@ DELETE FROM api_keys WHERE id = $1
 `
 
 func (q *Queries) DeleteAPIKey(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, deleteAPIKey, id)
+	_, err := q.db.Exec(ctx, deleteAPIKey, id)
 	return err
 }
 
@@ -51,7 +50,7 @@ SELECT id, whoop_user_id, key_hash, name, created_at, last_used_at, revoked FROM
 `
 
 func (q *Queries) GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error) {
-	row := q.db.QueryRowContext(ctx, getAPIKeyByHash, keyHash)
+	row := q.db.QueryRow(ctx, getAPIKeyByHash, keyHash)
 	var i ApiKey
 	err := row.Scan(
 		&i.ID,
@@ -70,7 +69,7 @@ SELECT id, whoop_user_id, key_hash, name, created_at, last_used_at, revoked FROM
 `
 
 func (q *Queries) GetAPIKeysByUser(ctx context.Context, whoopUserID int64) ([]ApiKey, error) {
-	rows, err := q.db.QueryContext(ctx, getAPIKeysByUser, whoopUserID)
+	rows, err := q.db.Query(ctx, getAPIKeysByUser, whoopUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,9 +90,6 @@ func (q *Queries) GetAPIKeysByUser(ctx context.Context, whoopUserID int64) ([]Ap
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -105,7 +101,7 @@ UPDATE api_keys SET revoked = true WHERE id = $1
 `
 
 func (q *Queries) RevokeAPIKey(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, revokeAPIKey, id)
+	_, err := q.db.Exec(ctx, revokeAPIKey, id)
 	return err
 }
 
@@ -114,6 +110,6 @@ UPDATE api_keys SET last_used_at = now() WHERE id = $1
 `
 
 func (q *Queries) UpdateAPIKeyLastUsed(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, updateAPIKeyLastUsed, id)
+	_, err := q.db.Exec(ctx, updateAPIKeyLastUsed, id)
 	return err
 }

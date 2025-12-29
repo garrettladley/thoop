@@ -6,6 +6,7 @@ const (
 	ErrorCodeIncompatibleVersion ErrorCode = "incompatible_version"
 	ErrorCodeAccessDenied        ErrorCode = "access_denied"
 	ErrorCodeInvalidRequest      ErrorCode = "invalid_request"
+	ErrorCodeAccountBanned       ErrorCode = "account_banned"
 )
 
 const (

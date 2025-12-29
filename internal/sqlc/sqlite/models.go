@@ -64,6 +64,7 @@ type Token struct {
 	RefreshToken *string   `json:"refresh_token"`
 	TokenType    string    `json:"token_type"`
 	Expiry       time.Time `json:"expiry"`
+	ApiKey       *string   `json:"api_key"`
 }
 
 type Workout struct {

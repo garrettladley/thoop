@@ -15,6 +15,7 @@ type Querier interface {
 	DeleteSleep(ctx context.Context, id string) error
 	DeleteToken(ctx context.Context) error
 	DeleteWorkout(ctx context.Context, id string) error
+	GetAPIKey(ctx context.Context) (*string, error)
 	GetCycle(ctx context.Context, id int64) (Cycle, error)
 	GetCyclesByDateRange(ctx context.Context, arg GetCyclesByDateRangeParams) ([]Cycle, error)
 	GetCyclesByDateRangeCursor(ctx context.Context, arg GetCyclesByDateRangeCursorParams) ([]Cycle, error)
@@ -35,6 +36,7 @@ type Querier interface {
 	GetWorkoutsByDateRange(ctx context.Context, arg GetWorkoutsByDateRangeParams) ([]Workout, error)
 	GetWorkoutsByDateRangeCursor(ctx context.Context, arg GetWorkoutsByDateRangeCursorParams) ([]Workout, error)
 	MarkBackfillComplete(ctx context.Context) error
+	SetAPIKey(ctx context.Context, apiKey *string) error
 	UpdateBackfillWatermark(ctx context.Context, backfillWatermark *time.Time) error
 	UpdateLastFullSync(ctx context.Context, lastFullSync *time.Time) error
 	UpdateLastNotificationPoll(ctx context.Context, lastNotificationPoll *time.Time) error

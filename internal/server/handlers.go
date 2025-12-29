@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,9 +11,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/oauth"
+	pgc "github.com/garrettladley/thoop/internal/sqlc/postgres"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/version"
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/oauth2"
 )
 
@@ -20,12 +25,14 @@ const stateTTL = 5 * time.Minute
 type Handler struct {
 	config  *oauth2.Config
 	storage storage.StateStore
+	db      pgc.Querier
 }
 
-func NewHandler(cfg Config, store storage.StateStore) *Handler {
+func NewHandler(cfg Config, store storage.StateStore, db pgc.Querier) *Handler {
 	return &Handler{
 		config:  oauth.NewConfig(cfg),
 		storage: store,
+		db:      db,
 	}
 }
 
@@ -98,7 +105,7 @@ func (h *Handler) HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
 	token, err := h.config.Exchange(ctx, code)
@@ -107,10 +114,56 @@ func (h *Handler) HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	redirectWithToken(w, r, entry.LocalPort, token)
+	// Get user profile from WHOOP API
+	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token.AccessToken})
+	whoopClient := whoop.New(tokenSource)
+
+	profile, err := whoopClient.User.GetProfile(ctx)
+	if err != nil {
+		http.Error(w, "failed to get user profile", http.StatusInternalServerError)
+		return
+	}
+
+	var apiKey string
+	user, err := h.db.GetUser(ctx, profile.UserID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		user, err = h.db.CreateUser(ctx, profile.UserID)
+		if err != nil {
+			http.Error(w, "failed to create user", http.StatusInternalServerError)
+			return
+		}
+
+		apiKey, err = generateAPIKey()
+		if err != nil {
+			http.Error(w, "failed to generate API key", http.StatusInternalServerError)
+			return
+		}
+
+		keyHash := hashToken(apiKey)
+		keyName := "default"
+		_, err = h.db.CreateAPIKey(ctx, pgc.CreateAPIKeyParams{
+			WhoopUserID: profile.UserID,
+			KeyHash:     keyHash,
+			Name:        &keyName,
+		})
+		if err != nil {
+			http.Error(w, "failed to create API key", http.StatusInternalServerError)
+			return
+		}
+	} else if err != nil {
+		http.Error(w, "failed to get user", http.StatusInternalServerError)
+		return
+	}
+
+	if user.Banned {
+		redirectWithError(w, r, entry.LocalPort, oauth.ErrorCodeAccountBanned, "your account has been banned", nil)
+		return
+	}
+
+	redirectWithToken(w, r, entry.LocalPort, token, apiKey)
 }
 
-func redirectWithToken(w http.ResponseWriter, r *http.Request, localPort string, token *oauth2.Token) {
+func redirectWithToken(w http.ResponseWriter, r *http.Request, localPort string, token *oauth2.Token, apiKey string) {
 	callbackURL := fmt.Sprintf("http://localhost:%s/callback", localPort)
 
 	u, _ := url.Parse(callbackURL)
@@ -120,6 +173,9 @@ func redirectWithToken(w http.ResponseWriter, r *http.Request, localPort string,
 	q.Set("expires_in", fmt.Sprintf("%d", int(time.Until(token.Expiry).Seconds())))
 	if token.RefreshToken != "" {
 		q.Set("refresh_token", token.RefreshToken)
+	}
+	if apiKey != "" {
+		q.Set("api_key", apiKey)
 	}
 	u.RawQuery = q.Encode()
 
@@ -152,4 +208,17 @@ func isValidPort(s string) bool {
 		return false
 	}
 	return port >= 1 && port <= 65535
+}
+
+const (
+	apiKeyPrefix = "thp_"
+	apiKeyLength = 32
+)
+
+func generateAPIKey() (string, error) {
+	b := make([]byte, apiKeyLength)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return apiKeyPrefix + base64.RawURLEncoding.EncodeToString(b), nil
 }

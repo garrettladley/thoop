@@ -5,22 +5,21 @@
 package pgc
 
 import (
-	"database/sql"
-	"time"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ApiKey struct {
-	ID          int64          `json:"id"`
-	WhoopUserID int64          `json:"whoop_user_id"`
-	KeyHash     string         `json:"key_hash"`
-	Name        sql.NullString `json:"name"`
-	CreatedAt   time.Time      `json:"created_at"`
-	LastUsedAt  time.Time      `json:"last_used_at"`
-	Revoked     bool           `json:"revoked"`
+	ID          int64              `json:"id"`
+	WhoopUserID int64              `json:"whoop_user_id"`
+	KeyHash     string             `json:"key_hash"`
+	Name        *string            `json:"name"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt  pgtype.Timestamptz `json:"last_used_at"`
+	Revoked     bool               `json:"revoked"`
 }
 
 type User struct {
-	WhoopUserID int64     `json:"whoop_user_id"`
-	CreatedAt   time.Time `json:"created_at"`
-	Banned      bool      `json:"banned"`
+	WhoopUserID int64              `json:"whoop_user_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Banned      bool               `json:"banned"`
 }

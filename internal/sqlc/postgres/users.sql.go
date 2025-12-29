@@ -14,7 +14,7 @@ UPDATE users SET banned = true WHERE whoop_user_id = $1
 `
 
 func (q *Queries) BanUser(ctx context.Context, whoopUserID int64) error {
-	_, err := q.db.ExecContext(ctx, banUser, whoopUserID)
+	_, err := q.db.Exec(ctx, banUser, whoopUserID)
 	return err
 }
 
@@ -25,7 +25,21 @@ RETURNING whoop_user_id, created_at, banned
 `
 
 func (q *Queries) CreateUser(ctx context.Context, whoopUserID int64) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser, whoopUserID)
+	row := q.db.QueryRow(ctx, createUser, whoopUserID)
+	var i User
+	err := row.Scan(&i.WhoopUserID, &i.CreatedAt, &i.Banned)
+	return i, err
+}
+
+const getOrCreateUser = `-- name: GetOrCreateUser :one
+INSERT INTO users (whoop_user_id)
+VALUES ($1)
+ON CONFLICT (whoop_user_id) DO UPDATE SET whoop_user_id = EXCLUDED.whoop_user_id
+RETURNING whoop_user_id, created_at, banned
+`
+
+func (q *Queries) GetOrCreateUser(ctx context.Context, whoopUserID int64) (User, error) {
+	row := q.db.QueryRow(ctx, getOrCreateUser, whoopUserID)
 	var i User
 	err := row.Scan(&i.WhoopUserID, &i.CreatedAt, &i.Banned)
 	return i, err
@@ -36,7 +50,7 @@ SELECT whoop_user_id, created_at, banned FROM users WHERE whoop_user_id = $1
 `
 
 func (q *Queries) GetUser(ctx context.Context, whoopUserID int64) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUser, whoopUserID)
+	row := q.db.QueryRow(ctx, getUser, whoopUserID)
 	var i User
 	err := row.Scan(&i.WhoopUserID, &i.CreatedAt, &i.Banned)
 	return i, err
@@ -47,6 +61,6 @@ UPDATE users SET banned = false WHERE whoop_user_id = $1
 `
 
 func (q *Queries) UnbanUser(ctx context.Context, whoopUserID int64) error {
-	_, err := q.db.ExecContext(ctx, unbanUser, whoopUserID)
+	_, err := q.db.Exec(ctx, unbanUser, whoopUserID)
 	return err
 }
