@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: cycles.sql
 
-package sqlc
+package sqlitec
 
 import (
 	"context"

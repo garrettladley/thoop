@@ -7,5 +7,17 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes
 
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "6767:5432"
+    environment:
+      POSTGRES_USER: thoop
+      POSTGRES_PASSWORD: thoop
+      POSTGRES_DB: thoop
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
 volumes:
   redis_data:
+  postgres_data:

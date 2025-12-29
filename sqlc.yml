@@ -1,13 +1,28 @@
 version: "2"
 sql:
+  # SQLite (TUI client)
   - engine: "sqlite"
-    queries: "sqlc/queries"
+    queries: "sqlc/queries/sqlite"
     schema:
       - "internal/migrations/sql/*.sql"
     gen:
       go:
-        package: "sqlc"
-        out: "internal/sqlc"
+        package: "sqlitec"
+        out: "internal/sqlc/sqlite"
+        emit_json_tags: true
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+
+  # PostgreSQL (Server)
+  - engine: "postgresql"
+    queries: "sqlc/queries/postgres"
+    schema:
+      - "internal/migrations/postgres/sql/*.sql"
+    gen:
+      go:
+        package: "pgc"
+        out: "internal/sqlc/postgres"
         emit_json_tags: true
         emit_interface: true
         emit_empty_slices: true

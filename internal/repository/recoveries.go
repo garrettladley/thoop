@@ -6,12 +6,12 @@ import (
 	"errors"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
-	"github.com/garrettladley/thoop/internal/sqlc"
+	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
 	go_json "github.com/goccy/go-json"
 )
 
 type recoveryRepo struct {
-	q sqlc.Querier
+	q sqlitec.Querier
 }
 
 func (r *recoveryRepo) Upsert(ctx context.Context, recovery *whoop.Recovery) error {
@@ -25,7 +25,7 @@ func (r *recoveryRepo) Upsert(ctx context.Context, recovery *whoop.Recovery) err
 		scoreJSON = &s
 	}
 
-	return r.q.UpsertRecovery(ctx, sqlc.UpsertRecoveryParams{
+	return r.q.UpsertRecovery(ctx, sqlitec.UpsertRecoveryParams{
 		CycleID:    recovery.CycleID,
 		SleepID:    recovery.SleepID,
 		UserID:     recovery.UserID,
@@ -68,7 +68,7 @@ func (r *recoveryRepo) GetByCycleIDs(ctx context.Context, cycleIDs []int64) ([]w
 	return r.toDomainSlice(rows)
 }
 
-func (r *recoveryRepo) toDomain(row sqlc.Recovery) (*whoop.Recovery, error) {
+func (r *recoveryRepo) toDomain(row sqlitec.Recovery) (*whoop.Recovery, error) {
 	recovery := &whoop.Recovery{
 		CycleID:    row.CycleID,
 		SleepID:    row.SleepID,
@@ -89,7 +89,7 @@ func (r *recoveryRepo) toDomain(row sqlc.Recovery) (*whoop.Recovery, error) {
 	return recovery, nil
 }
 
-func (r *recoveryRepo) toDomainSlice(rows []sqlc.Recovery) ([]whoop.Recovery, error) {
+func (r *recoveryRepo) toDomainSlice(rows []sqlitec.Recovery) ([]whoop.Recovery, error) {
 	recoveries := make([]whoop.Recovery, 0, len(rows))
 	for _, row := range rows {
 		recovery, err := r.toDomain(row)

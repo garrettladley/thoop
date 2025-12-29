@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/sqlc"
+	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
 	"github.com/garrettladley/thoop/internal/version"
 	"github.com/garrettladley/thoop/internal/xhttp"
 	"golang.org/x/oauth2"
@@ -38,19 +38,19 @@ type callbackHandler func(w http.ResponseWriter, r *http.Request) (*oauth2.Token
 
 type ServerFlow struct {
 	serverURL string
-	querier   sqlc.Querier
+	querier   sqlitec.Querier
 }
 
 var _ Flow = (*ServerFlow)(nil)
 
-func NewServerFlow(querier sqlc.Querier) *ServerFlow {
+func NewServerFlow(querier sqlitec.Querier) *ServerFlow {
 	return &ServerFlow{
 		serverURL: defaultProxyURL,
 		querier:   querier,
 	}
 }
 
-func NewServerFlowWithURL(serverURL string, querier sqlc.Querier) *ServerFlow {
+func NewServerFlowWithURL(serverURL string, querier sqlitec.Querier) *ServerFlow {
 	return &ServerFlow{
 		serverURL: serverURL,
 		querier:   querier,
@@ -70,13 +70,13 @@ func (f *ServerFlow) authURL(port string) string {
 
 type DirectFlow struct {
 	config  *oauth2.Config
-	querier sqlc.Querier
+	querier sqlitec.Querier
 	state   string
 }
 
 var _ Flow = (*DirectFlow)(nil)
 
-func NewDirectFlow(config *oauth2.Config, querier sqlc.Querier) (*DirectFlow, error) {
+func NewDirectFlow(config *oauth2.Config, querier sqlitec.Querier) (*DirectFlow, error) {
 	state, err := GenerateState()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate state: %w", err)
@@ -127,7 +127,7 @@ func (f *DirectFlow) callbackHandler() callbackHandler {
 
 func runFlow(
 	ctx context.Context,
-	querier sqlc.Querier,
+	querier sqlitec.Querier,
 	authURL func(port string) string,
 	handler callbackHandler,
 ) (*oauth2.Token, error) {
@@ -268,8 +268,8 @@ func writeVersionErrorHTML(w http.ResponseWriter, errDesc string, minVersion str
 </html>`, errDesc, minVersion, upgradeCmd)
 }
 
-func saveToken(ctx context.Context, querier sqlc.Querier, token *oauth2.Token) error {
-	params := sqlc.UpsertTokenParams{
+func saveToken(ctx context.Context, querier sqlitec.Querier, token *oauth2.Token) error {
+	params := sqlitec.UpsertTokenParams{
 		AccessToken: token.AccessToken,
 		TokenType:   token.TokenType,
 		Expiry:      token.Expiry,

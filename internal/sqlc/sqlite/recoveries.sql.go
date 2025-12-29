@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: recoveries.sql
 
-package sqlc
+package sqlitec
 
 import (
 	"context"

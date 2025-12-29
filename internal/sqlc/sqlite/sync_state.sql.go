@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: sync_state.sql
 
-package sqlc
+package sqlitec
 
 import (
 	"context"

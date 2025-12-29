@@ -6,17 +6,17 @@ import (
 	"errors"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/sqlc"
+	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
 )
 
 type syncStateRepo struct {
-	q sqlc.Querier
+	q sqlitec.Querier
 }
 
 func (r *syncStateRepo) Get(ctx context.Context) (*SyncState, error) {
 	row, err := r.q.GetSyncState(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
-		if err := r.q.UpsertSyncState(ctx, sqlc.UpsertSyncStateParams{}); err != nil {
+		if err := r.q.UpsertSyncState(ctx, sqlitec.UpsertSyncStateParams{}); err != nil {
 			return nil, err
 		}
 		return &SyncState{}, nil
@@ -39,7 +39,7 @@ func (r *syncStateRepo) Upsert(ctx context.Context, state *SyncState) error {
 		backfillComplete = 1
 	}
 
-	return r.q.UpsertSyncState(ctx, sqlc.UpsertSyncStateParams{
+	return r.q.UpsertSyncState(ctx, sqlitec.UpsertSyncStateParams{
 		BackfillComplete:  backfillComplete,
 		BackfillWatermark: state.BackfillWatermark,
 		LastFullSync:      state.LastFullSync,

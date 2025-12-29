@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: sleeps.sql
 
-package sqlc
+package sqlitec
 
 import (
 	"context"
