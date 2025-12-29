@@ -72,7 +72,6 @@ func (c *Client) Connect(ctx context.Context, handler NotificationHandler) error
 				xslog.Backoff(backoff),
 			)
 
-			// wait before reconnecting using timer to avoid memory leak
 			timer := time.NewTimer(backoff)
 			select {
 			case <-ctx.Done():
@@ -174,6 +173,9 @@ func (c *Client) handleEvent(ctx context.Context, event Event, handler Notificat
 
 	case "connected":
 		c.logger.DebugContext(ctx, "received connected event", xslog.Data(string(event.Data)))
+
+	case "shutdown":
+		c.logger.InfoContext(ctx, "server is shutting down, will reconnect")
 
 	default:
 		c.logger.DebugContext(ctx, "received unknown event type", xslog.Type(event.Type))
