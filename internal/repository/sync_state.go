@@ -23,9 +23,10 @@ func (r *syncStateRepo) Get(ctx context.Context) (*SyncState, error) {
 	}
 
 	return &SyncState{
-		BackfillComplete:  row.BackfillComplete == 1,
-		BackfillWatermark: row.BackfillWatermark,
-		LastFullSync:      row.LastFullSync,
+		BackfillComplete:     row.BackfillComplete == 1,
+		BackfillWatermark:    row.BackfillWatermark,
+		LastFullSync:         row.LastFullSync,
+		LastNotificationPoll: row.LastNotificationPoll,
 	}, nil
 }
 
@@ -52,4 +53,12 @@ func (r *syncStateRepo) UpdateBackfillWatermark(ctx context.Context, watermark t
 
 func (r *syncStateRepo) UpdateLastFullSync(ctx context.Context, syncTime time.Time) error {
 	return r.q.UpdateLastFullSync(ctx, &syncTime)
+}
+
+func (r *syncStateRepo) GetLastNotificationPoll(ctx context.Context) (*time.Time, error) {
+	return r.q.GetLastNotificationPoll(ctx)
+}
+
+func (r *syncStateRepo) UpdateLastNotificationPoll(ctx context.Context, pollTime time.Time) error {
+	return r.q.UpdateLastNotificationPoll(ctx, &pollTime)
 }

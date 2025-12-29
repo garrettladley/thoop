@@ -18,6 +18,7 @@ type Querier interface {
 	GetCycle(ctx context.Context, id int64) (Cycle, error)
 	GetCyclesByDateRange(ctx context.Context, arg GetCyclesByDateRangeParams) ([]Cycle, error)
 	GetCyclesByDateRangeCursor(ctx context.Context, arg GetCyclesByDateRangeCursorParams) ([]Cycle, error)
+	GetLastNotificationPoll(ctx context.Context) (*time.Time, error)
 	GetLatestCycles(ctx context.Context, limit int64) ([]Cycle, error)
 	GetNapsByCycleID(ctx context.Context, cycleID int64) ([]Sleep, error)
 	GetPendingCycles(ctx context.Context) ([]Cycle, error)
@@ -36,6 +37,7 @@ type Querier interface {
 	MarkBackfillComplete(ctx context.Context) error
 	UpdateBackfillWatermark(ctx context.Context, backfillWatermark *time.Time) error
 	UpdateLastFullSync(ctx context.Context, lastFullSync *time.Time) error
+	UpdateLastNotificationPoll(ctx context.Context, lastNotificationPoll *time.Time) error
 	UpsertCycle(ctx context.Context, arg UpsertCycleParams) error
 	UpsertRecovery(ctx context.Context, arg UpsertRecoveryParams) error
 	UpsertSleep(ctx context.Context, arg UpsertSleepParams) error

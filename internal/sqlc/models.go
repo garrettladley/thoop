@@ -49,12 +49,13 @@ type Sleep struct {
 }
 
 type SyncState struct {
-	ID                int64      `json:"id"`
-	BackfillComplete  int64      `json:"backfill_complete"`
-	BackfillWatermark *time.Time `json:"backfill_watermark"`
-	LastFullSync      *time.Time `json:"last_full_sync"`
-	CreatedAt         *time.Time `json:"created_at"`
-	UpdatedAt         *time.Time `json:"updated_at"`
+	ID                   int64      `json:"id"`
+	BackfillComplete     int64      `json:"backfill_complete"`
+	BackfillWatermark    *time.Time `json:"backfill_watermark"`
+	LastFullSync         *time.Time `json:"last_full_sync"`
+	CreatedAt            *time.Time `json:"created_at"`
+	UpdatedAt            *time.Time `json:"updated_at"`
+	LastNotificationPoll *time.Time `json:"last_notification_poll"`
 }
 
 type Token struct {

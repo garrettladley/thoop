@@ -39,9 +39,10 @@ type CursorResult[T any] struct {
 const DefaultPageSize = 50
 
 type SyncState struct {
-	BackfillComplete  bool
-	BackfillWatermark *time.Time
-	LastFullSync      *time.Time
+	BackfillComplete     bool
+	BackfillWatermark    *time.Time
+	LastFullSync         *time.Time
+	LastNotificationPoll *time.Time
 }
 
 type SyncStateRepository interface {
@@ -50,6 +51,8 @@ type SyncStateRepository interface {
 	MarkBackfillComplete(ctx context.Context) error
 	UpdateBackfillWatermark(ctx context.Context, watermark time.Time) error
 	UpdateLastFullSync(ctx context.Context, syncTime time.Time) error
+	GetLastNotificationPoll(ctx context.Context) (*time.Time, error)
+	UpdateLastNotificationPoll(ctx context.Context, pollTime time.Time) error
 }
 
 type CycleRepository interface {
@@ -66,6 +69,7 @@ type RecoveryRepository interface {
 	UpsertBatch(ctx context.Context, recoveries []whoop.Recovery) error
 	Get(ctx context.Context, cycleID int64) (*whoop.Recovery, error)
 	GetByCycleIDs(ctx context.Context, cycleIDs []int64) ([]whoop.Recovery, error)
+	Delete(ctx context.Context, cycleID int64) error
 }
 
 type SleepRepository interface {
@@ -74,6 +78,7 @@ type SleepRepository interface {
 	Get(ctx context.Context, id string) (*whoop.Sleep, error)
 	GetByCycleID(ctx context.Context, cycleID int64) (*whoop.Sleep, error)
 	GetByDateRange(ctx context.Context, start, end time.Time, cursor *CursorParams) (*CursorResult[whoop.Sleep], error)
+	Delete(ctx context.Context, id string) error
 }
 
 type WorkoutRepository interface {
@@ -81,4 +86,5 @@ type WorkoutRepository interface {
 	UpsertBatch(ctx context.Context, workouts []whoop.Workout) error
 	Get(ctx context.Context, id string) (*whoop.Workout, error)
 	GetByDateRange(ctx context.Context, start, end time.Time, cursor *CursorParams) (*CursorResult[whoop.Workout], error)
+	Delete(ctx context.Context, id string) error
 }

@@ -65,13 +65,20 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	whoopLimiter := initWhoopLimiter(ctx, cfg, redisClient, logger)
 	tokenCache := initTokenCache(ctx, redisClient, logger)
 	tokenValidator := proxy.NewTokenValidator(tokenCache, whoopLimiter)
+	notificationStore := initNotificationStore(ctx, redisClient, logger)
 
 	handler := proxy.NewHandler(cfg, backend)
 	whoopHandler := proxy.NewWhoopHandler(cfg, whoopLimiter)
+	webhookHandler := proxy.NewWebhookHandler(cfg.Whoop.ClientSecret, notificationStore)
+	sseHandler := proxy.NewSSEHandler(notificationStore)
+	notificationsHandler := proxy.NewNotificationsHandler(notificationStore)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /auth/start", handler.HandleAuthStart)
 	mux.HandleFunc("GET /auth/callback", handler.HandleAuthCallback)
+
+	// Webhook endpoint (no auth - uses signature verification)
+	mux.HandleFunc("POST /webhooks/whoop", webhookHandler.HandleWebhook)
 
 	whoopMux := http.NewServeMux()
 	whoopMux.HandleFunc("/api/whoop/", whoopHandler.HandleWhoopProxy)
@@ -80,6 +87,16 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		proxy.WhoopAuth(tokenValidator),
 	)
 	mux.Handle("/api/whoop/", whoopWrapped)
+
+	// Notification endpoints (require auth)
+	notificationsMux := http.NewServeMux()
+	notificationsMux.HandleFunc("GET /api/notifications", notificationsHandler.HandlePoll)
+	notificationsMux.HandleFunc("GET /api/notifications/stream", sseHandler.HandleStream)
+	notificationsWrapped := middleware.Chain(notificationsMux,
+		proxy.WhoopAuth(tokenValidator),
+	)
+	mux.Handle("/api/notifications", notificationsWrapped)
+	mux.Handle("/api/notifications/stream", notificationsWrapped)
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -156,4 +173,9 @@ func initWhoopLimiter(ctx context.Context, cfg proxy.Config, redisClient *redis.
 func initTokenCache(ctx context.Context, redisClient *redis.Client, logger *slog.Logger) storage.TokenCache {
 	logger.InfoContext(ctx, "initializing token cache")
 	return storage.NewRedisTokenCache(storage.RedisConfig{Client: redisClient})
+}
+
+func initNotificationStore(ctx context.Context, redisClient *redis.Client, logger *slog.Logger) storage.NotificationStore {
+	logger.InfoContext(ctx, "initializing notification store")
+	return storage.NewRedisNotificationStore(redisClient)
 }

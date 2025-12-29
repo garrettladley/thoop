@@ -18,3 +18,9 @@ UPDATE sync_state SET backfill_watermark = ?, updated_at = CURRENT_TIMESTAMP WHE
 
 -- name: UpdateLastFullSync :exec
 UPDATE sync_state SET last_full_sync = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1;
+
+-- name: GetLastNotificationPoll :one
+SELECT last_notification_poll FROM sync_state WHERE id = 1;
+
+-- name: UpdateLastNotificationPoll :exec
+UPDATE sync_state SET last_notification_poll = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1;

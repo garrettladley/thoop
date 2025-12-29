@@ -80,16 +80,16 @@ func (r *cycleRepo) GetByDateRange(ctx context.Context, start, end time.Time, cu
 
 	if cursor != nil && cursor.Cursor != nil {
 		rows, err = r.q.GetCyclesByDateRangeCursor(ctx, sqlc.GetCyclesByDateRangeCursorParams{
-			Start:   start,
-			Start_2: end,
-			Start_3: *cursor.Cursor,
-			Limit:   fetchLimit,
+			RangeStart: start,
+			RangeEnd:   end,
+			Cursor:     *cursor.Cursor,
+			Limit:      fetchLimit,
 		})
 	} else {
 		rows, err = r.q.GetCyclesByDateRange(ctx, sqlc.GetCyclesByDateRangeParams{
-			Start:   start,
-			Start_2: end,
-			Limit:   fetchLimit,
+			RangeStart: start,
+			RangeEnd:   end,
+			Limit:      fetchLimit,
 		})
 	}
 	if err != nil {

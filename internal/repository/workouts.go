@@ -74,16 +74,16 @@ func (r *workoutRepo) GetByDateRange(ctx context.Context, start, end time.Time, 
 
 	if cursor != nil && cursor.Cursor != nil {
 		rows, err = r.q.GetWorkoutsByDateRangeCursor(ctx, sqlc.GetWorkoutsByDateRangeCursorParams{
-			Start:   start,
-			Start_2: end,
-			Start_3: *cursor.Cursor,
-			Limit:   fetchLimit,
+			RangeStart: start,
+			RangeEnd:   end,
+			Cursor:     *cursor.Cursor,
+			Limit:      fetchLimit,
 		})
 	} else {
 		rows, err = r.q.GetWorkoutsByDateRange(ctx, sqlc.GetWorkoutsByDateRangeParams{
-			Start:   start,
-			Start_2: end,
-			Limit:   fetchLimit,
+			RangeStart: start,
+			RangeEnd:   end,
+			Limit:      fetchLimit,
 		})
 	}
 	if err != nil {
@@ -148,4 +148,8 @@ func (r *workoutRepo) toDomainSlice(rows []sqlc.Workout) ([]whoop.Workout, error
 		workouts = append(workouts, *workout)
 	}
 	return workouts, nil
+}
+
+func (r *workoutRepo) Delete(ctx context.Context, id string) error {
+	return r.q.DeleteWorkout(ctx, id)
 }

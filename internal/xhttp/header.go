@@ -17,7 +17,7 @@ const (
 const (
 	ContentType      = "Content-Type"
 	XRateLimitReason = "X-Ratelimit-Reason"
-	XSessionID       = "X-Session-ID"
+	XSessionID       = "X-Session-Id"
 )
 
 func SetHeaderRequestID(w http.ResponseWriter, requestID string) {

@@ -105,3 +105,53 @@ func SessionID(id string) slog.Attr {
 	const sessionIDKey = "session_id"
 	return slog.String(sessionIDKey, id)
 }
+
+func UserID(id string) slog.Attr {
+	const userIDKey = "user_id"
+	return slog.String(userIDKey, id)
+}
+
+func EntityType(entityType string) slog.Attr {
+	const entityTypeKey = "entity_type"
+	return slog.String(entityTypeKey, entityType)
+}
+
+func EntityID(id string) slog.Attr {
+	const entityIDKey = "entity_id"
+	return slog.String(entityIDKey, id)
+}
+
+func Action(action string) slog.Attr {
+	const actionKey = "action"
+	return slog.String(actionKey, action)
+}
+
+func Timestamp(ts string) slog.Attr {
+	const timestampKey = "timestamp"
+	return slog.String(timestampKey, ts)
+}
+
+func Since(since string) slog.Attr {
+	const sinceKey = "since"
+	return slog.String(sinceKey, since)
+}
+
+func SinceTime(t time.Time) slog.Attr {
+	const sinceKey = "since"
+	return slog.Time(sinceKey, t)
+}
+
+func Data(data string) slog.Attr {
+	const dataKey = "data"
+	return slog.String(dataKey, data)
+}
+
+func Backoff(d time.Duration) slog.Attr {
+	const backoffKey = "backoff"
+	return slog.Duration(backoffKey, d)
+}
+
+func Type(t string) slog.Attr {
+	const typeKey = "type"
+	return slog.String(typeKey, t)
+}

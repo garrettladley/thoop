@@ -100,3 +100,7 @@ func (r *recoveryRepo) toDomainSlice(rows []sqlc.Recovery) ([]whoop.Recovery, er
 	}
 	return recoveries, nil
 }
+
+func (r *recoveryRepo) Delete(ctx context.Context, cycleID int64) error {
+	return r.q.DeleteRecovery(ctx, cycleID)
+}

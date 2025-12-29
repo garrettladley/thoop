@@ -92,16 +92,16 @@ func (r *sleepRepo) GetByDateRange(ctx context.Context, start, end time.Time, cu
 
 	if cursor != nil && cursor.Cursor != nil {
 		rows, err = r.q.GetSleepsByDateRangeCursor(ctx, sqlc.GetSleepsByDateRangeCursorParams{
-			Start:   start,
-			Start_2: end,
-			Start_3: *cursor.Cursor,
-			Limit:   fetchLimit,
+			RangeStart: start,
+			RangeEnd:   end,
+			Cursor:     *cursor.Cursor,
+			Limit:      fetchLimit,
 		})
 	} else {
 		rows, err = r.q.GetSleepsByDateRange(ctx, sqlc.GetSleepsByDateRangeParams{
-			Start:   start,
-			Start_2: end,
-			Limit:   fetchLimit,
+			RangeStart: start,
+			RangeEnd:   end,
+			Limit:      fetchLimit,
 		})
 	}
 	if err != nil {
@@ -166,4 +166,8 @@ func (r *sleepRepo) toDomainSlice(rows []sqlc.Sleep) ([]whoop.Sleep, error) {
 		sleeps = append(sleeps, *sleep)
 	}
 	return sleeps, nil
+}
+
+func (r *sleepRepo) Delete(ctx context.Context, id string) error {
+	return r.q.DeleteSleep(ctx, id)
 }
