@@ -33,15 +33,17 @@ type Client struct {
 	httpClient  *http.Client
 	tokenSource oauth2.TokenSource
 	sessionID   string
+	apiKey      string
 	logger      *slog.Logger
 }
 
-func NewClient(baseURL string, tokenSource oauth2.TokenSource, sessionID string, logger *slog.Logger) *Client {
+func NewClient(baseURL string, tokenSource oauth2.TokenSource, sessionID string, apiKey string, logger *slog.Logger) *Client {
 	return &Client{
 		baseURL:     baseURL,
 		httpClient:  &http.Client{Timeout: 0}, // no timeout for SSE
 		tokenSource: tokenSource,
 		sessionID:   sessionID,
+		apiKey:      apiKey,
 		logger:      logger,
 	}
 }
@@ -112,6 +114,9 @@ func (c *Client) connectOnce(ctx context.Context, handler NotificationHandler) e
 
 	if c.sessionID != "" {
 		xhttp.SetRequestHeaderSessionID(req, c.sessionID)
+	}
+	if c.apiKey != "" {
+		req.Header.Set(xhttp.XAPIKey, c.apiKey)
 	}
 
 	resp, err := c.httpClient.Do(req)

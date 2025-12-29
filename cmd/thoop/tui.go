@@ -73,9 +73,15 @@ func tuiCmd() *cobra.Command {
 			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
 			authFlow := oauth.NewServerFlowWithURL(cfg.ProxyURL, querier)
 
+			var apiKey string
+			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
+				apiKey = *apiKeyPtr
+			}
+
 			client := whoop.New(tokenSource,
 				whoop.WithProxyURL(cfg.ProxyURL+"/api/whoop"),
 				whoop.WithSessionID(sessionID),
+				whoop.WithAPIKey(apiKey),
 				whoop.WithLogger(logger),
 			)
 			logger.InfoContext(ctx, "starting thoop", xslog.Version())
@@ -84,7 +90,7 @@ func tuiCmd() *cobra.Command {
 			syncSvc := xsync.NewService(client, repo, logger)
 			dataFetcher := xsync.NewFetcher(client, repo, logger)
 
-			sseClient := sse.NewClient(cfg.ProxyURL, tokenSource, sessionID, logger)
+			sseClient := sse.NewClient(cfg.ProxyURL, tokenSource, sessionID, apiKey, logger)
 			notifProcessor := xsync.NewNotificationProcessor(client, repo, logger)
 			notifChan := make(chan storage.Notification, 10)
 

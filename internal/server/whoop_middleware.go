@@ -17,7 +17,7 @@ func WhoopAuth(validator *TokenValidator) func(http.Handler) http.Handler {
 			logger := xslog.FromContext(r.Context())
 			authHeader := r.Header.Get("Authorization")
 
-			userID, err := validator.ValidateAndGetUserID(r.Context(), authHeader)
+			tokenUserID, err := validator.ValidateAndGetUserID(r.Context(), authHeader)
 			if err != nil {
 				logger.WarnContext(r.Context(), "token validation failed",
 					xslog.RequestPath(r),
@@ -42,7 +42,20 @@ func WhoopAuth(validator *TokenValidator) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := xcontext.SetWhoopUserID(r.Context(), userID)
+			// binding check: verify token's user matches API key's user (if APIKeyAuth ran first)
+			if apiKeyUserID, ok := xcontext.GetWhoopUserID(r.Context()); ok {
+				if tokenUserID != apiKeyUserID {
+					logger.WarnContext(r.Context(), "token user does not match API key user",
+						xslog.RequestPath(r),
+						xslog.BindingMismatchGroup(tokenUserID, apiKeyUserID))
+					xhttp.SetHeaderContentTypeApplicationJSON(w)
+					w.WriteHeader(http.StatusForbidden)
+					_, _ = w.Write([]byte(`{"error":"forbidden","message":"token does not match API key"}`))
+					return
+				}
+			}
+
+			ctx := xcontext.SetWhoopUserID(r.Context(), tokenUserID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

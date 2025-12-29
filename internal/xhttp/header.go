@@ -18,6 +18,7 @@ const (
 	ContentType      = "Content-Type"
 	XRateLimitReason = "X-Ratelimit-Reason"
 	XSessionID       = "X-Session-Id"
+	XAPIKey          = "X-Api-Key" //nolint:gosec // this is a header name, not a credential
 )
 
 func SetHeaderRequestID(w http.ResponseWriter, requestID string) {
@@ -47,4 +48,8 @@ func SetRequestHeaderSessionID(req *http.Request, sessionID string) {
 
 func GetRequestHeaderSessionID(req *http.Request) string {
 	return req.Header.Get(XSessionID)
+}
+
+func GetRequestHeaderAPIKey(req *http.Request) string {
+	return req.Header.Get(XAPIKey)
 }

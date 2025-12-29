@@ -14,19 +14,23 @@ const (
 	groupResponse = "response"
 	groupError    = "error"
 	groupUser     = "user"
+	groupToken    = "token"
+	groupAPIKey   = "api_key"
 )
 
 const (
-	keyID         = "id"
-	keyHost       = "host"
-	keyUserAgent  = "user_agent"
-	keyProto      = "proto"
-	keyQuery      = "query"
-	keyStatusText = "status_text"
-	keyDurationMS = "duration_ms"
-	keyMessage    = "message"
-	keyType       = "type"
-	keyValue      = "value"
+	keyID           = "id"
+	keyHost         = "host"
+	keyUserAgent    = "user_agent"
+	keyProto        = "proto"
+	keyQuery        = "query"
+	keyStatusText   = "status_text"
+	keyDurationMS   = "duration_ms"
+	keyMessage      = "message"
+	keyType         = "type"
+	keyValue        = "value"
+	keyTokenUserID  = "token_user_id"
+	keyApiKeyUserID = "api_key_user_id" //nolint:gosec // this is a structured log field name, not a credential
 )
 
 func RequestGroup(r *http.Request) slog.Attr {
@@ -77,5 +81,12 @@ func ErrorGroupWithStack(err any) slog.Attr {
 func UserGroup(userID int64) slog.Attr {
 	return slog.Group(groupUser,
 		slog.Int64(keyID, userID),
+	)
+}
+
+func BindingMismatchGroup(tokenUserID, apiKeyUserID int64) slog.Attr {
+	return slog.Group("binding",
+		slog.Int64(keyTokenUserID, tokenUserID),
+		slog.Int64(keyApiKeyUserID, apiKeyUserID),
 	)
 }

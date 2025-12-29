@@ -29,6 +29,7 @@ type Client struct {
 
 	isUsingProxy bool
 	sessionID    string
+	apiKey       string
 }
 
 func New(tokenSource oauth2.TokenSource, opts ...Option) *Client {
@@ -74,6 +75,10 @@ func WithLogger(logger *slog.Logger) Option {
 	return func(c *Client) { c.logger = logger }
 }
 
+func WithAPIKey(apiKey string) Option {
+	return func(c *Client) { c.apiKey = apiKey }
+}
+
 func (c *Client) do(ctx context.Context, method string, path string, query url.Values, result any) error {
 	token, err := c.tokenSource.Token()
 	if err != nil {
@@ -94,8 +99,13 @@ func (c *Client) do(ctx context.Context, method string, path string, query url.V
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set(version.Header, version.Get())
 
-	if c.isUsingProxy && c.sessionID != "" {
-		xhttp.SetRequestHeaderSessionID(req, c.sessionID)
+	if c.isUsingProxy {
+		if c.sessionID != "" {
+			xhttp.SetRequestHeaderSessionID(req, c.sessionID)
+		}
+		if c.apiKey != "" {
+			req.Header.Set(xhttp.XAPIKey, c.apiKey)
+		}
 	}
 
 	resp, err := c.httpClient.Do(req)
