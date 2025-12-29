@@ -55,34 +55,34 @@ func ParseMajor(v string) string {
 
 type VersionError struct {
 	ClientVersion string
-	ProxyVersion  string
+	ServerVersion string
 	MinVersion    string
 }
 
 func (e VersionError) Error() string {
-	return fmt.Sprintf("client version %s incompatible with proxy version %s (requires v%s.x)",
-		e.ClientVersion, e.ProxyVersion, e.MinVersion)
+	return fmt.Sprintf("client version %s incompatible with server version %s (requires v%s.x)",
+		e.ClientVersion, e.ServerVersion, e.MinVersion)
 }
 
 func CheckCompatibility(clientVersion string) *VersionError {
-	proxyVersion := Get()
+	serverVersion := Get()
 
-	if IsDevelopment(clientVersion) || IsDevelopment(proxyVersion) {
+	if IsDevelopment(clientVersion) || IsDevelopment(serverVersion) {
 		return nil
 	}
 
 	var (
 		clientMajor = ParseMajor(clientVersion)
-		proxyMajor  = ParseMajor(proxyVersion)
+		serverMajor = ParseMajor(serverVersion)
 	)
 
-	if clientMajor == proxyMajor {
+	if clientMajor == serverMajor {
 		return nil
 	}
 
 	return &VersionError{
 		ClientVersion: clientVersion,
-		ProxyVersion:  proxyVersion,
-		MinVersion:    proxyMajor,
+		ServerVersion: serverVersion,
+		MinVersion:    serverMajor,
 	}
 }

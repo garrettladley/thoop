@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/proxy"
+	"github.com/garrettladley/thoop/internal/server"
 	xredis "github.com/garrettladley/thoop/internal/redis"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/xhttp/middleware"
@@ -42,7 +42,7 @@ func main() {
 }
 
 func run(ctx context.Context, logger *slog.Logger) error {
-	cfg, err := proxy.ReadConfig()
+	cfg, err := server.ReadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
@@ -64,14 +64,14 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	whoopLimiter := initWhoopLimiter(ctx, cfg, redisClient, logger)
 	tokenCache := initTokenCache(ctx, redisClient, logger)
-	tokenValidator := proxy.NewTokenValidator(tokenCache, whoopLimiter)
+	tokenValidator := server.NewTokenValidator(tokenCache, whoopLimiter)
 	notificationStore := initNotificationStore(ctx, redisClient, logger)
 
-	handler := proxy.NewHandler(cfg, backend)
-	whoopHandler := proxy.NewWhoopHandler(cfg, whoopLimiter)
-	webhookHandler := proxy.NewWebhookHandler(cfg.Whoop.ClientSecret, notificationStore)
-	sseHandler := proxy.NewSSEHandler(notificationStore)
-	notificationsHandler := proxy.NewNotificationsHandler(notificationStore)
+	handler := server.NewHandler(cfg, backend)
+	whoopHandler := server.NewWhoopHandler(cfg, whoopLimiter)
+	webhookHandler := server.NewWebhookHandler(cfg.Whoop.ClientSecret, notificationStore)
+	sseHandler := server.NewSSEHandler(notificationStore)
+	notificationsHandler := server.NewNotificationsHandler(notificationStore)
 
 	mux := http.NewServeMux()
 
@@ -85,7 +85,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		_, _ = w.Write([]byte("ok"))
 	})
 	unauthedWrapped := middleware.Chain(unauthedMux,
-		proxy.RateLimitWithBackend(backend),
+		server.RateLimitWithBackend(backend),
 	)
 	mux.Handle("/auth/", unauthedWrapped)
 	mux.Handle("/webhooks/", unauthedWrapped)
@@ -96,7 +96,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	whoopMux.HandleFunc("/api/whoop/", whoopHandler.HandleWhoopProxy)
 	whoopWrapped := middleware.Chain(whoopMux,
 		middleware.VersionCheck,
-		proxy.WhoopAuth(tokenValidator),
+		server.WhoopAuth(tokenValidator),
 	)
 	mux.Handle("/api/whoop/", whoopWrapped)
 
@@ -104,7 +104,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	notificationsMux.HandleFunc("GET /api/notifications", notificationsHandler.HandlePoll)
 	notificationsMux.HandleFunc("GET /api/notifications/stream", sseHandler.HandleStream)
 	notificationsWrapped := middleware.Chain(notificationsMux,
-		proxy.WhoopAuth(tokenValidator),
+		server.WhoopAuth(tokenValidator),
 	)
 	mux.Handle("/api/notifications", notificationsWrapped)
 	mux.Handle("/api/notifications/stream", notificationsWrapped)
@@ -131,7 +131,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		logger.InfoContext(ctx, "starting proxy server",
+		logger.InfoContext(ctx, "starting server",
 			xslog.Version(),
 			slog.String(keyPort, cfg.Port))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -153,12 +153,12 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	return nil
 }
 
-func initBackend(ctx context.Context, cfg proxy.Config, redisClient *redis.Client, logger *slog.Logger) (storage.Backend, error) {
+func initBackend(ctx context.Context, cfg server.Config, redisClient *redis.Client, logger *slog.Logger) (storage.Backend, error) {
 	logger.InfoContext(ctx, "initializing Redis backend")
 	return storage.NewRedisBackend(storage.RedisConfig{Client: redisClient}, int(cfg.RateLimit.Limit))
 }
 
-func initWhoopLimiter(ctx context.Context, cfg proxy.Config, redisClient *redis.Client, logger *slog.Logger) storage.WhoopRateLimiter {
+func initWhoopLimiter(ctx context.Context, cfg server.Config, redisClient *redis.Client, logger *slog.Logger) storage.WhoopRateLimiter {
 	whoopCfg := storage.WhoopRateLimiterConfig{
 		PerUserMinuteLimit: cfg.WhoopRateLimit.PerUserMinuteLimit,
 		PerUserDayLimit:    cfg.WhoopRateLimit.PerUserDayLimit,

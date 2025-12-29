@@ -13,7 +13,7 @@ jobs:
     concurrency: deploy-group
     environment:
       name: production
-      url: https://thoop-proxy.fly.dev
+      url: https://thoop.fly.dev
     steps:
       - uses: actions/checkout@v4
         with:

@@ -1,4 +1,4 @@
-package proxy
+package server
 
 import (
 	"github.com/caarlos0/env/v11"
