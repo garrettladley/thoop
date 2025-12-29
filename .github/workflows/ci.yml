@@ -98,7 +98,7 @@ jobs:
         run: make install
 
       - name: Test
-        run: go test -v -json -failfast -race -coverpkg=./... -covermode=atomic -coverprofile=coverage.txt ./... -timeout 5m
+        run: go test -v -json -race -coverpkg=./... -covermode=atomic -coverprofile=coverage.txt ./... -timeout 5m
 
       - uses: codecov/codecov-action@v5
         with:
