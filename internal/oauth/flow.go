@@ -252,7 +252,7 @@ func proxyCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Token
 	}, nil
 }
 
-func writeVersionErrorHTML(w http.ResponseWriter, errDesc, minVersion string) {
+func writeVersionErrorHTML(w http.ResponseWriter, errDesc string, minVersion string) {
 	xhttp.SetHeaderContentTypeTextHTML(w)
 	upgradeCmd := "go install github.com/garrettladley/thoop/cmd/thoop@latest"
 	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>

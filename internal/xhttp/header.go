@@ -14,7 +14,10 @@ const (
 	ReferrerPolicy   = "Referrer-Policy"
 )
 
-const ContentType = "Content-Type"
+const (
+	ContentType      = "Content-Type"
+	XRateLimitReason = "X-Ratelimit-Reason"
+)
 
 func SetHeaderRequestID(w http.ResponseWriter, requestID string) {
 	const headerName = "X-Request-ID"

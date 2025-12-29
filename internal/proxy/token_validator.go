@@ -13,6 +13,7 @@ import (
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/storage"
+	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 	"golang.org/x/oauth2"
 )
@@ -20,7 +21,6 @@ import (
 var (
 	ErrMissingToken = errors.New("missing bearer token")
 	ErrInvalidToken = errors.New("invalid bearer token")
-	ErrRateLimited  = errors.New("rate limited")
 )
 
 const defaultTokenCacheTTL = 5 * time.Minute
@@ -62,7 +62,7 @@ func (v *TokenValidator) ValidateAndGetUserID(ctx context.Context, authHeader st
 
 	logger.DebugContext(ctx, "token cache miss, validating with WHOOP API")
 
-	userID, err = v.validateWithWhoopAPI(ctx, token)
+	userID, err = v.validateWithWhoopAPI(ctx, token, tokenHash)
 	if err != nil {
 		return "", err
 	}
@@ -107,15 +107,33 @@ func (s *staticTokenSource) Token() (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: s.token}, nil
 }
 
-func (v *TokenValidator) validateWithWhoopAPI(ctx context.Context, token string) (string, error) {
+func (v *TokenValidator) validateWithWhoopAPI(ctx context.Context, token string, tokenHash string) (string, error) {
 	logger := xslog.FromContext(ctx)
 
-	state, err := v.whoopLimiter.CheckAndIncrementGlobalOnly(ctx)
+	state, err := v.whoopLimiter.CheckAndIncrement(ctx, tokenHash)
 	if err != nil {
-		logger.WarnContext(ctx, "failed to check global rate limit for token validation", xslog.ErrorGroup(err))
-	} else if !state.Allowed {
-		logger.WarnContext(ctx, "global rate limit exceeded for token validation")
-		return "", ErrRateLimited
+		return "", fmt.Errorf("checking rate limit: %w", err)
+	}
+	if !state.Allowed {
+		logger.WarnContext(ctx, "rate limit exceeded for token validation")
+
+		var retryAfter time.Duration
+		var reason storage.WhoopRateLimitReason
+		if state.Reason != nil {
+			reason = *state.Reason
+			switch reason {
+			case storage.WhoopRateLimitReasonPerUserMinute, storage.WhoopRateLimitReasonGlobalMinute:
+				retryAfter = time.Until(state.MinuteReset)
+			case storage.WhoopRateLimitReasonPerUserDay, storage.WhoopRateLimitReasonGlobalDay:
+				retryAfter = time.Until(state.DayReset)
+			default:
+				retryAfter = time.Minute
+			}
+		} else {
+			retryAfter = time.Minute
+		}
+
+		return "", &xhttp.RateLimitError{RetryAfter: retryAfter, Reason: string(reason)}
 	}
 
 	tokenSource := &staticTokenSource{token: token}

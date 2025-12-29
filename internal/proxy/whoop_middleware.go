@@ -25,6 +25,7 @@ func WhoopAuth(validator *TokenValidator) func(http.Handler) http.Handler {
 
 				xhttp.SetHeaderContentTypeApplicationJSON(w)
 
+				var rateLimitErr *xhttp.RateLimitError
 				switch {
 				case errors.Is(err, ErrMissingToken):
 					w.WriteHeader(http.StatusUnauthorized)
@@ -32,6 +33,8 @@ func WhoopAuth(validator *TokenValidator) func(http.Handler) http.Handler {
 				case errors.Is(err, ErrInvalidToken):
 					w.WriteHeader(http.StatusUnauthorized)
 					_, _ = w.Write([]byte(`{"error":"unauthorized","message":"Invalid or expired token"}`))
+				case errors.As(err, &rateLimitErr):
+					xhttp.WriteRateLimitError(w, rateLimitErr)
 				default:
 					w.WriteHeader(http.StatusInternalServerError)
 					_, _ = w.Write([]byte(`{"error":"internal_error","message":"Token validation failed"}`))
