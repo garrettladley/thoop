@@ -23,16 +23,18 @@ import (
 const stateTTL = 5 * time.Minute
 
 type Handler struct {
-	config  *oauth2.Config
-	storage storage.StateStore
-	db      pgc.Querier
+	config       *oauth2.Config
+	storage      storage.StateStore
+	db           pgc.Querier
+	whoopLimiter storage.WhoopRateLimiter
 }
 
-func NewHandler(cfg Config, store storage.StateStore, db pgc.Querier) *Handler {
+func NewHandler(cfg Config, store storage.StateStore, db pgc.Querier, whoopLimiter storage.WhoopRateLimiter) *Handler {
 	return &Handler{
-		config:  oauth.NewConfig(cfg),
-		storage: store,
-		db:      db,
+		config:       oauth.NewConfig(cfg),
+		storage:      store,
+		db:           db,
+		whoopLimiter: whoopLimiter,
 	}
 }
 
@@ -111,6 +113,16 @@ func (h *Handler) HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	token, err := h.config.Exchange(ctx, code)
 	if err != nil {
 		http.Error(w, "failed to exchange authorization code", http.StatusInternalServerError)
+		return
+	}
+
+	rlState, err := h.whoopLimiter.CheckAndIncrement(ctx, "oauth")
+	if err != nil {
+		http.Error(w, "failed to check rate limit", http.StatusInternalServerError)
+		return
+	}
+	if !rlState.Allowed {
+		redirectWithError(w, r, entry.LocalPort, oauth.ErrorCodeRateLimited, "rate limit exceeded, please try again later", nil)
 		return
 	}
 
