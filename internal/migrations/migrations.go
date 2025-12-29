@@ -60,8 +60,6 @@ func Apply(db *sql.DB) error {
 		if err := recordMigration(db, filename); err != nil {
 			return err
 		}
-
-		fmt.Printf("Applied migration: %s\n", filename)
 	}
 
 	return nil

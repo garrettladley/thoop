@@ -3,6 +3,7 @@ package tui
 import (
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -15,6 +16,7 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/page/onboarding"
 	"github.com/garrettladley/thoop/internal/tui/page/splash"
 	"github.com/garrettladley/thoop/internal/tui/theme"
+	"github.com/garrettladley/thoop/internal/xslog"
 )
 
 var _ tea.Model = (*Model)(nil)
@@ -39,6 +41,7 @@ type Model struct {
 	theme          theme.Theme
 	state          state
 	deps           Deps
+	sseOnce        sync.Once
 }
 
 func New(deps Deps) Model {
@@ -113,6 +116,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case dashboard.RecoveryMsg:
 		if msg.Err == nil && msg.Recovery != nil && msg.Recovery.Score != nil {
 			m.state.dashboard.RecoveryScore = &msg.Recovery.Score.RecoveryScore
+		}
+		return m, nil
+
+	case NotificationMsg:
+		if m.page == page.Dashboard {
+			return m, tea.Batch(
+				dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
+				ListenNotificationsCmd(m.deps.Ctx, m.deps.NotificationChan, m.deps.NotifProcessor),
+			)
+		}
+		return m, ListenNotificationsCmd(m.deps.Ctx, m.deps.NotificationChan, m.deps.NotifProcessor)
+
+	case SSEDisconnectedMsg:
+		if msg.Err != nil {
+			m.deps.Logger.WarnContext(m.deps.Ctx, "SSE disconnected", xslog.Error(msg.Err))
 		}
 		return m, nil
 	}
@@ -214,10 +232,19 @@ func (m *Model) handleTokenRefreshResult(msg onboarding.TokenRefreshResultMsg) (
 }
 
 func (m *Model) startDashboard() tea.Cmd {
-	return tea.Batch(
+	cmds := []tea.Cmd{
 		dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
 		onboarding.TokenCheckTickCmd(tokenCheckInterval),
-	)
+	}
+
+	m.sseOnce.Do(func() {
+		cmds = append(cmds,
+			StartSSECmd(m.deps.Ctx, m.deps.SSEClient, m.deps.NotificationChan),
+			ListenNotificationsCmd(m.deps.Ctx, m.deps.NotificationChan, m.deps.NotifProcessor),
+		)
+	})
+
+	return tea.Batch(cmds...)
 }
 
 func (m *Model) View() tea.View {

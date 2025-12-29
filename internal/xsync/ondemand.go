@@ -15,17 +15,14 @@ func (s *Service) fetchHistorical(ctx context.Context, start, end time.Time) err
 		xslog.Start(start),
 		xslog.End(end))
 
-	// Fetch cycles
 	if err := s.fetchHistoricalCycles(ctx, start, end); err != nil {
 		return err
 	}
 
-	// Fetch sleeps
 	if err := s.fetchHistoricalSleeps(ctx, start, end); err != nil {
 		return err
 	}
 
-	// Fetch workouts
 	if err := s.fetchHistoricalWorkouts(ctx, start, end); err != nil {
 		return err
 	}

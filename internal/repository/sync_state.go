@@ -16,6 +16,9 @@ type syncStateRepo struct {
 func (r *syncStateRepo) Get(ctx context.Context) (*SyncState, error) {
 	row, err := r.q.GetSyncState(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
+		if err := r.q.UpsertSyncState(ctx, sqlc.UpsertSyncStateParams{}); err != nil {
+			return nil, err
+		}
 		return &SyncState{}, nil
 	}
 	if err != nil {

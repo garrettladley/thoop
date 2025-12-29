@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 
@@ -13,6 +14,8 @@ import (
 	go_json "github.com/goccy/go-json"
 	"golang.org/x/oauth2"
 )
+
+const maxRetries = 3
 
 type Client struct {
 	User     UserService
@@ -24,6 +27,7 @@ type Client struct {
 	baseURL     string
 	httpClient  *http.Client
 	tokenSource oauth2.TokenSource
+	logger      *slog.Logger
 
 	isUsingProxy bool
 	sessionID    string
@@ -35,6 +39,7 @@ func New(tokenSource oauth2.TokenSource, opts ...Option) *Client {
 		baseURL:     baseURL,
 		httpClient:  http.DefaultClient,
 		tokenSource: tokenSource,
+		logger:      slog.Default(),
 	}
 
 	for _, opt := range opts {
@@ -65,6 +70,10 @@ func WithProxyURL(baseURL string) Option {
 
 func WithSessionID(sessionID string) Option {
 	return func(c *Client) { c.sessionID = sessionID }
+}
+
+func WithLogger(logger *slog.Logger) Option {
+	return func(c *Client) { c.logger = logger }
 }
 
 func (c *Client) do(ctx context.Context, method string, path string, query url.Values, result any) error {

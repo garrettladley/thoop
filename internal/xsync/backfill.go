@@ -6,12 +6,15 @@ import (
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/xslog"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
 	BackfillDuration = 30 * 24 * time.Hour
 
-	BackfillPageSize = 25
+	BackfillPageSize = 10
+
+	maxRecoveryConcurrency = 2
 )
 
 func (s *Service) runBackfill(ctx context.Context) {
@@ -71,13 +74,18 @@ func (s *Service) backfillCycles(ctx context.Context, start, end time.Time) erro
 			return err
 		}
 
+		g, gctx := errgroup.WithContext(ctx)
+		g.SetLimit(maxRecoveryConcurrency)
 		for _, cycle := range resp.Records {
-			if err := s.backfillRecoveryForCycle(ctx, cycle.ID); err != nil {
-				s.logger.WarnContext(ctx, "failed to backfill recovery",
-					xslog.CycleID(cycle.ID),
-					xslog.Error(err))
-			}
+			g.Go(func() error {
+				if err := s.backfillRecoveryForCycle(gctx, cycle.ID); err != nil {
+					s.logger.WarnContext(gctx, "failed to backfill recovery",
+						xslog.CycleID(cycle.ID), xslog.Error(err))
+				}
+				return nil
+			})
 		}
+		_ = g.Wait()
 
 		totalCycles += len(resp.Records)
 

@@ -74,12 +74,24 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	notificationsHandler := proxy.NewNotificationsHandler(notificationStore)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /auth/start", handler.HandleAuthStart)
-	mux.HandleFunc("GET /auth/callback", handler.HandleAuthCallback)
 
-	// Webhook endpoint (no auth - uses signature verification)
-	mux.HandleFunc("POST /webhooks/whoop", webhookHandler.HandleWebhook)
+	// Unauthenticated routes - protected by global IP rate limiter
+	unauthedMux := http.NewServeMux()
+	unauthedMux.HandleFunc("GET /auth/start", handler.HandleAuthStart)
+	unauthedMux.HandleFunc("GET /auth/callback", handler.HandleAuthCallback)
+	unauthedMux.HandleFunc("POST /webhooks/whoop", webhookHandler.HandleWebhook)
+	unauthedMux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	unauthedWrapped := middleware.Chain(unauthedMux,
+		proxy.RateLimitWithBackend(backend),
+	)
+	mux.Handle("/auth/", unauthedWrapped)
+	mux.Handle("/webhooks/", unauthedWrapped)
+	mux.Handle("/health", unauthedWrapped)
 
+	// Authenticated routes - protected by per-user WHOOP rate limiter
 	whoopMux := http.NewServeMux()
 	whoopMux.HandleFunc("/api/whoop/", whoopHandler.HandleWhoopProxy)
 	whoopWrapped := middleware.Chain(whoopMux,
@@ -88,7 +100,6 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	)
 	mux.Handle("/api/whoop/", whoopWrapped)
 
-	// Notification endpoints (require auth)
 	notificationsMux := http.NewServeMux()
 	notificationsMux.HandleFunc("GET /api/notifications", notificationsHandler.HandlePoll)
 	notificationsMux.HandleFunc("GET /api/notifications/stream", sseHandler.HandleStream)
@@ -98,18 +109,12 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	mux.Handle("/api/notifications", notificationsWrapped)
 	mux.Handle("/api/notifications/stream", notificationsWrapped)
 
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-
 	wrapped := middleware.Chain(mux,
 		middleware.Recovery,
 		middleware.Logging,
 		middleware.Logger(logger),
 		middleware.RequestID(),
 		middleware.ClientSessionID,
-		proxy.RateLimitWithBackend(backend),
 		middleware.SecurityHeaders,
 	)
 
@@ -118,7 +123,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		Handler:           wrapped,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		WriteTimeout:      0, // disabled for SSE; use SetWriteDeadline per-request
 		IdleTimeout:       60 * time.Second,
 	}
 

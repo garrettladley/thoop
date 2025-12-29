@@ -32,6 +32,8 @@ type Fetcher struct {
 	logger *slog.Logger
 }
 
+var _ DataFetcher = (*Fetcher)(nil)
+
 func NewFetcher(client *whoop.Client, repo *repository.Repository, logger *slog.Logger) *Fetcher {
 	return &Fetcher{
 		client: client,

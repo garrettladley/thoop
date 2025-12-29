@@ -48,8 +48,12 @@ func RequestMethod(r *http.Request) slog.Attr {
 }
 
 func RequestPath(r *http.Request) slog.Attr {
+	return Path(r.URL.Path)
+}
+
+func Path(path string) slog.Attr {
 	const pathKey = "path"
-	return slog.String(pathKey, r.URL.Path)
+	return slog.String(pathKey, path)
 }
 
 func IP(ip string) slog.Attr {
@@ -106,9 +110,9 @@ func SessionID(id string) slog.Attr {
 	return slog.String(sessionIDKey, id)
 }
 
-func UserID(id string) slog.Attr {
+func UserID(id int64) slog.Attr {
 	const userIDKey = "user_id"
-	return slog.String(userIDKey, id)
+	return slog.Int64(userIDKey, id)
 }
 
 func EntityType(entityType string) slog.Attr {

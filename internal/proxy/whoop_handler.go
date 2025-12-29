@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,13 +43,15 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 	logger := xslog.FromContext(ctx)
 
 	whoopUserID, ok := xcontext.GetWhoopUserID(ctx)
-	if !ok || whoopUserID == "" {
+	if !ok || whoopUserID == 0 {
 		logger.WarnContext(ctx, "missing user key in context")
 		xhttp.Error(w, http.StatusUnauthorized)
 		return
 	}
 
-	state, err := h.whoopLimiter.CheckAndIncrement(ctx, whoopUserID)
+	userKey := strconv.FormatInt(whoopUserID, 10)
+
+	state, err := h.whoopLimiter.CheckAndIncrement(ctx, userKey)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to check rate limit",
 			xslog.ErrorGroup(err),

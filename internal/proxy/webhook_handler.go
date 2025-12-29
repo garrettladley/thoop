@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -172,26 +171,26 @@ func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		Timestamp:  time.Now(),
 	}
 
-	userIDStr := strconv.FormatInt(event.GetUserID(), 10)
+	userID := event.GetUserID()
 
-	if err := h.notificationStore.Add(ctx, userIDStr, notification); err != nil {
+	if err := h.notificationStore.Add(ctx, userID, notification); err != nil {
 		logger.ErrorContext(ctx, "failed to store notification",
 			xslog.Error(err),
-			xslog.UserID(userIDStr),
+			xslog.UserID(userID),
 		)
 	}
 
-	if err := h.notificationStore.Publish(ctx, userIDStr, notification); err != nil {
+	if err := h.notificationStore.Publish(ctx, userID, notification); err != nil {
 		logger.ErrorContext(ctx, "failed to publish notification",
 			xslog.Error(err),
-			xslog.UserID(userIDStr),
+			xslog.UserID(userID),
 		)
 	}
 
 	logger.InfoContext(ctx, "processed webhook",
 		xslog.EntityType(string(event.GetEntityType())),
 		xslog.Action(string(event.GetAction())),
-		xslog.UserID(userIDStr),
+		xslog.UserID(userID),
 		xslog.EntityID(event.GetEntityID()),
 	)
 
@@ -199,7 +198,7 @@ func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 // verifySignature verifies the webhook signature using HMAC-SHA256.
-// Algorithm: base64(HMAC-SHA256(timestamp + body, client_secret))
+// algorithm: base64(HMAC-SHA256(timestamp + body, client_secret))
 func (h *WebhookHandler) verifySignature(body []byte, timestamp, signature string) bool {
 	mac := hmac.New(sha256.New, []byte(h.clientSecret))
 	mac.Write([]byte(timestamp))
@@ -209,9 +208,7 @@ func (h *WebhookHandler) verifySignature(body []byte, timestamp, signature strin
 	return hmac.Equal([]byte(expected), []byte(signature))
 }
 
-// isTimestampValid checks if the webhook timestamp is recent enough.
 func (h *WebhookHandler) isTimestampValid(timestampStr string) bool {
-	// Timestamp is in milliseconds since epoch
 	var timestampMs int64
 	if _, err := fmt.Sscanf(timestampStr, "%d", &timestampMs); err != nil {
 		return false

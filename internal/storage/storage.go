@@ -9,8 +9,13 @@ import (
 
 var ErrNotFound = errors.New("state not found")
 
+type RateLimitResult struct {
+	Allowed    bool
+	RetryAfter time.Duration
+}
+
 type RateLimiter interface {
-	Allow(ctx context.Context, key string) (bool, error)
+	Allow(ctx context.Context, key string) (RateLimitResult, error)
 }
 
 type StateEntry struct {
@@ -84,8 +89,8 @@ type WhoopRateLimiter interface {
 type TokenCache interface {
 	// GetUserID returns the cached user ID for a token hash.
 	// Returns ErrNotFound if not cached or expired.
-	GetUserID(ctx context.Context, tokenHash string) (string, error)
+	GetUserID(ctx context.Context, tokenHash string) (int64, error)
 
 	// SetUserID caches a user ID for a token hash with TTL.
-	SetUserID(ctx context.Context, tokenHash string, userID string, ttl time.Duration) error
+	SetUserID(ctx context.Context, tokenHash string, userID int64, ttl time.Duration) error
 }

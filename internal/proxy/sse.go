@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -14,6 +15,7 @@ import (
 
 const (
 	sseHeartbeatInterval = 30 * time.Second
+	sseWriteTimeout      = 45 * time.Second
 )
 
 type SSEHandler struct {
@@ -30,14 +32,20 @@ func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := xslog.FromContext(ctx)
 
+	logger.DebugContext(ctx, "SSE HandleStream called")
+
 	userID, ok := xcontext.GetWhoopUserID(ctx)
 	if !ok {
+		logger.WarnContext(ctx, "SSE: no user ID in context")
 		xhttp.Error(w, http.StatusUnauthorized)
 		return
 	}
 
+	logger.DebugContext(ctx, "SSE: got user ID", xslog.UserID(userID))
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
+		logger.WarnContext(ctx, "SSE: flusher not supported")
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 		return
 	}
@@ -46,6 +54,8 @@ func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
+
+	logger.DebugContext(ctx, "SSE: subscribing to notifications")
 
 	notifCh, unsubscribe, err := h.notificationStore.Subscribe(ctx, userID)
 	if err != nil {
@@ -60,7 +70,9 @@ func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 
 	logger.InfoContext(ctx, "SSE connection established", xslog.UserID(userID))
 
-	if err := writeSSEEvent(w, flusher, "connected", map[string]string{
+	rc := http.NewResponseController(w)
+
+	if err := writeSSEEvent(rc, w, flusher, "connected", map[string]any{
 		"user_id": userID,
 		"time":    time.Now().Format(time.RFC3339),
 	}); err != nil {
@@ -83,13 +95,13 @@ func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if err := writeSSEEvent(w, flusher, "notification", notification); err != nil {
+			if err := writeSSEEvent(rc, w, flusher, "notification", notification); err != nil {
 				logger.ErrorContext(ctx, "failed to send notification event", xslog.Error(err))
 				return
 			}
 
 		case t := <-heartbeat.C:
-			if err := writeSSEEvent(w, flusher, "heartbeat", map[string]string{
+			if err := writeSSEEvent(rc, w, flusher, "heartbeat", map[string]string{
 				"time": t.Format(time.RFC3339),
 			}); err != nil {
 				logger.ErrorContext(ctx, "failed to send heartbeat", xslog.Error(err))
@@ -99,7 +111,12 @@ func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func writeSSEEvent(w http.ResponseWriter, flusher http.Flusher, event string, data any) error {
+func writeSSEEvent(rc *http.ResponseController, w http.ResponseWriter, flusher http.Flusher, event string, data any) error {
+	// Extend write deadline before each write (ignore if not supported)
+	if err := rc.SetWriteDeadline(time.Now().Add(sseWriteTimeout)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		return fmt.Errorf("failed to set write deadline: %w", err)
+	}
+
 	jsonData, err := go_json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal event data: %w", err)

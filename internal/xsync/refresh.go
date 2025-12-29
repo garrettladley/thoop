@@ -13,7 +13,7 @@ import (
 func (s *Service) refreshCurrent(ctx context.Context) error {
 	s.logger.InfoContext(ctx, "refreshing current cycles")
 
-	// Fetch the 2 most recent cycles
+	// fetch the 2 most recent cycles
 	resp, err := s.client.Cycle.List(ctx, &whoop.ListParams{Limit: 2})
 	if err != nil {
 		return err
@@ -24,12 +24,12 @@ func (s *Service) refreshCurrent(ctx context.Context) error {
 		return nil
 	}
 
-	// Save cycles
+	// save cycles
 	if err := s.repo.Cycles.UpsertBatch(ctx, resp.Records); err != nil {
 		return err
 	}
 
-	// Fetch recovery and sleep for each cycle in parallel
+	// fetch recovery and sleep for each cycle in parallel
 	for _, cycle := range resp.Records {
 		// Fetch recovery
 		if err := s.refreshRecoveryForCycle(ctx, cycle.ID); err != nil {
@@ -38,7 +38,7 @@ func (s *Service) refreshCurrent(ctx context.Context) error {
 				xslog.Error(err))
 		}
 
-		// Fetch sleep
+		// fetch sleep
 		if err := s.refreshSleepForCycle(ctx, cycle.ID); err != nil {
 			s.logger.WarnContext(ctx, "failed to refresh sleep",
 				xslog.CycleID(cycle.ID),
@@ -46,7 +46,7 @@ func (s *Service) refreshCurrent(ctx context.Context) error {
 		}
 	}
 
-	// Update last sync time
+	// update last sync time
 	now := time.Now()
 	if err := s.repo.SyncState.UpdateLastFullSync(ctx, now); err != nil {
 		s.logger.WarnContext(ctx, "failed to update last sync time", xslog.Error(err))
@@ -56,7 +56,6 @@ func (s *Service) refreshCurrent(ctx context.Context) error {
 	return nil
 }
 
-// refreshRecoveryForCycle fetches and caches recovery for a cycle.
 func (s *Service) refreshRecoveryForCycle(ctx context.Context, cycleID int64) error {
 	recovery, err := s.client.Cycle.GetRecovery(ctx, cycleID)
 	if err != nil {
@@ -65,7 +64,6 @@ func (s *Service) refreshRecoveryForCycle(ctx context.Context, cycleID int64) er
 	return s.repo.Recoveries.Upsert(ctx, recovery)
 }
 
-// refreshSleepForCycle fetches and caches sleep for a cycle.
 func (s *Service) refreshSleepForCycle(ctx context.Context, cycleID int64) error {
 	sleep, err := s.client.Cycle.GetSleep(ctx, cycleID)
 	if err != nil {

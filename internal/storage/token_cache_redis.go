@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -18,17 +19,21 @@ func NewRedisTokenCache(cfg RedisConfig) *RedisTokenCache {
 	return &RedisTokenCache{client: cfg.Client}
 }
 
-func (c *RedisTokenCache) GetUserID(ctx context.Context, tokenHash string) (string, error) {
-	userID, err := c.client.Get(ctx, tokenCacheKeyPrefix+tokenHash).Result()
+func (c *RedisTokenCache) GetUserID(ctx context.Context, tokenHash string) (int64, error) {
+	userIDStr, err := c.client.Get(ctx, tokenCacheKeyPrefix+tokenHash).Result()
 	if errors.Is(err, redis.Nil) {
-		return "", ErrNotFound
+		return 0, ErrNotFound
 	}
 	if err != nil {
-		return "", err
+		return 0, err
+	}
+	userID, err := strconv.ParseInt(userIDStr, 10, 64)
+	if err != nil {
+		return 0, err
 	}
 	return userID, nil
 }
 
-func (c *RedisTokenCache) SetUserID(ctx context.Context, tokenHash string, userID string, ttl time.Duration) error {
-	return c.client.Set(ctx, tokenCacheKeyPrefix+tokenHash, userID, ttl).Err()
+func (c *RedisTokenCache) SetUserID(ctx context.Context, tokenHash string, userID int64, ttl time.Duration) error {
+	return c.client.Set(ctx, tokenCacheKeyPrefix+tokenHash, strconv.FormatInt(userID, 10), ttl).Err()
 }
