@@ -41,6 +41,7 @@ func tuiCmd() *cobra.Command {
 
 			oauthCfg := oauth.NewConfig(cfg.Whoop)
 			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
+			authFlow := oauth.NewProxyFlowWithURL(cfg.ProxyURL, querier)
 
 			client := whoop.New(tokenSource, whoop.WithBaseURL(cfg.ProxyURL+"/api/whoop"))
 
@@ -55,6 +56,8 @@ func tuiCmd() *cobra.Command {
 				Cancel:       cancel,
 				Logger:       logger,
 				TokenChecker: tokenSource,
+				TokenSource:  tokenSource,
+				AuthFlow:     authFlow,
 				WhoopClient:  client,
 			}
 			model := tui.New(deps)

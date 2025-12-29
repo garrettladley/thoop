@@ -20,8 +20,15 @@ linters:
     - nolintlint
     - paralleltest
     - canonicalheader
+    - exhaustive
 
   settings:
+    exhaustive:
+      check:
+        - switch
+        - map
+      default-signifies-exhaustive: true
+
     sloglint:
       # Enforce using attributes only (overrides no-mixed-args, incompatible with kv-only).
       attr-only: true

@@ -13,7 +13,6 @@ import (
 	"github.com/garrettladley/thoop/internal/xcontext"
 	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
-	go_json "github.com/goccy/go-json"
 )
 
 const whoopAPIURL = "https://api.prod.whoop.com/developer"
@@ -73,7 +72,12 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 		var (
 			retryAfter time.Duration
 			message    string
+			reason     string
 		)
+
+		if state.Reason != nil {
+			reason = string(*state.Reason)
+		}
 
 		switch *state.Reason {
 		case storage.WhoopRateLimitReasonPerUserMinute:
@@ -89,27 +93,15 @@ func (h *WhoopHandler) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) 
 			retryAfter = time.Until(state.DayReset)
 			message = "Global rate limit exceeded (app quota exhausted for today)"
 		default:
-			retryAfter = 60
+			retryAfter = time.Minute
 			message = "Rate limit exceeded"
 		}
 
-		xhttp.SetHeaderContentTypeApplicationJSON(w)
-		xhttp.SetHeaderRetryAfter(w, retryAfter)
-		if state.Reason != nil && *state.Reason != "" {
-			w.Header().Set("X-Ratelimit-Reason", string(*state.Reason))
-		}
-		w.WriteHeader(http.StatusTooManyRequests)
-
-		if err := go_json.NewEncoder(w).Encode(map[string]any{
-			"error":       "rate_limit_exceeded",
-			"message":     message,
-			"reason":      state.Reason,
-			"retry_after": retryAfter,
-		}); err != nil {
-			logger.ErrorContext(ctx, "failed to encode rate limit response",
-				xslog.ErrorGroup(err),
-				xslog.RequestPath(r))
-		}
+		xhttp.WriteRateLimitError(w, &xhttp.RateLimitError{
+			RetryAfter: retryAfter,
+			Reason:     reason,
+			Message:    message,
+		})
 		return
 	}
 

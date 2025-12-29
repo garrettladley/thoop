@@ -93,6 +93,37 @@ func (s *DBTokenSource) HasToken(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+func (s *DBTokenSource) ExpiresWithin(ctx context.Context, d time.Duration) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.token != nil {
+		return time.Until(s.token.Expiry) <= d, nil
+	}
+
+	dbToken, err := s.querier.GetToken(ctx)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrNoToken
+		}
+		return false, fmt.Errorf("failed to load token: %w", err)
+	}
+
+	return time.Until(dbToken.Expiry) <= d, nil
+}
+
+func (s *DBTokenSource) RefreshIfNeeded(ctx context.Context, threshold time.Duration) (*oauth2.Token, error) {
+	expiresWithin, err := s.ExpiresWithin(ctx, threshold)
+	if err != nil {
+		return nil, err
+	}
+	if !expiresWithin {
+		return nil, nil
+	}
+
+	return s.Token()
+}
+
 func (s *DBTokenSource) saveToken(ctx context.Context, token *oauth2.Token) error {
 	params := sqlc.UpsertTokenParams{
 		AccessToken: token.AccessToken,

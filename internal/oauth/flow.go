@@ -189,10 +189,9 @@ func startCallbackServer(handler callbackHandler, resultCh chan<- tokenResult) (
 		resultCh <- tokenResult{token: token}
 	})
 
-	addr := net.JoinHostPort("127.0.0.1", "8080")
-	listener, err := net.Listen("tcp", addr)
+	listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", "0"))
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to listen on %s: %w", addr, err)
+		return nil, "", fmt.Errorf("failed to start listener: %w", err)
 	}
 
 	_, port, _ := net.SplitHostPort(listener.Addr().String())
@@ -253,7 +252,7 @@ func proxyCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Token
 	}, nil
 }
 
-func writeVersionErrorHTML(w http.ResponseWriter, errDesc, minVersion string) {
+func writeVersionErrorHTML(w http.ResponseWriter, errDesc string, minVersion string) {
 	xhttp.SetHeaderContentTypeTextHTML(w)
 	upgradeCmd := "go install github.com/garrettladley/thoop/cmd/thoop@latest"
 	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>

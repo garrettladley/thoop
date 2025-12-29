@@ -1,6 +1,16 @@
-package tui
+package splash
 
-const Logo = `
+import (
+	"time"
+
+	"charm.land/lipgloss/v2"
+
+	"github.com/garrettladley/thoop/internal/tui/theme"
+)
+
+const Duration = 1500 * time.Millisecond
+
+const logo = `
  ▄▄▄▄▄▄▄▄  ▄▄    ▄▄    ▄▄▄▄      ▄▄▄▄    ▄▄▄▄▄▄
  ▀▀▀██▀▀▀  ██    ██   ██▀▀██    ██▀▀██   ██▀▀▀▀█▄
     ██     ██    ██  ██    ██  ██    ██  ██    ██
@@ -9,6 +19,21 @@ const Logo = `
     ██     ██    ██   ██▄▄██    ██▄▄██   ██
     ▀▀     ▀▀    ▀▀    ▀▀▀▀      ▀▀▀▀    ▀▀`
 
-func (m *Model) LogoView() string {
-	return m.theme.TextAccent().Render(Logo)
+type TickMsg struct{}
+
+type State struct{}
+
+func LogoView(t theme.Theme) string {
+	return t.TextAccent().Render(logo)
+}
+
+func View(t theme.Theme, width, height int) string {
+	logo := LogoView(t)
+	return lipgloss.Place(
+		width,
+		height,
+		lipgloss.Center,
+		lipgloss.Center,
+		logo,
+	)
 }

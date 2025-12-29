@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
 	"github.com/garrettladley/thoop/internal/db"
 	"github.com/garrettladley/thoop/internal/oauth"
@@ -11,7 +12,7 @@ import (
 )
 
 func authCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "auth",
 		Short: "Authenticate with WHOOP",
 		Long:  "Opens browser to authenticate with WHOOP and stores the token locally.",
@@ -49,6 +50,57 @@ func authCmd() *cobra.Command {
 
 			fmt.Printf("Authentication successful!\n")
 			fmt.Printf("Token expires: %s\n", token.Expiry.Format("2006-01-02 15:04:05"))
+
+			return nil
+		},
+	}
+
+	cmd.AddCommand(purgeCmd())
+
+	return cmd
+}
+
+func purgeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "purge",
+		Short: "Remove stored authentication token",
+		Long:  "Deletes the locally stored WHOOP authentication token from the database.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			cfg, err := config.Read()
+			if err != nil {
+				return err
+			}
+
+			if _, err := paths.EnsureDir(); err != nil {
+				return err
+			}
+
+			dbPath, err := paths.DB()
+			if err != nil {
+				return err
+			}
+
+			sqlDB, querier, err := db.Open(dbPath)
+			if err != nil {
+				return fmt.Errorf("failed to open database: %w", err)
+			}
+			defer func() {
+				_ = sqlDB.Close()
+			}()
+
+			oauthCfg := oauth.NewConfig(cfg.Whoop)
+			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
+
+			client := whoop.New(tokenSource, whoop.WithBaseURL(cfg.ProxyURL+"/api/whoop"))
+			_ = client.User.RevokeAccess(ctx) // best effort - token may already be invalid
+
+			if err := querier.DeleteToken(ctx); err != nil {
+				return fmt.Errorf("failed to delete token: %w", err)
+			}
+
+			fmt.Println("Authentication token removed successfully.")
 
 			return nil
 		},

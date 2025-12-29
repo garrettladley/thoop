@@ -13,5 +13,7 @@ type Deps struct {
 	Cancel       context.CancelFunc
 	Logger       *slog.Logger
 	TokenChecker oauth.TokenChecker
+	TokenSource  *oauth.DBTokenSource
+	AuthFlow     oauth.Flow
 	WhoopClient  *whoop.Client
 }
