@@ -114,7 +114,6 @@ func (h *Handler) HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user profile from WHOOP API
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token.AccessToken})
 	whoopClient := whoop.New(tokenSource)
 

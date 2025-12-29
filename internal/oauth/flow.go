@@ -25,6 +25,12 @@ const (
 	defaultProxyURL = "https://thoop.fly.dev"
 )
 
+var (
+	ErrInvalidState       = errors.New("invalid state parameter")
+	ErrMissingAuthCode    = errors.New("missing authorization code")
+	ErrMissingAccessToken = errors.New("missing access_token")
+)
+
 type Flow interface {
 	Run(ctx context.Context) (*oauth2.Token, error)
 }
@@ -101,7 +107,7 @@ func (f *DirectFlow) callbackHandler() callbackHandler {
 	return func(w http.ResponseWriter, r *http.Request) (*oauth2.Token, string, error) {
 		if !ValidateState(f.state, r.URL.Query().Get("state")) {
 			http.Error(w, "Invalid state parameter", http.StatusBadRequest)
-			return nil, "", errors.New("invalid state parameter")
+			return nil, "", ErrInvalidState
 		}
 
 		if errParam := r.URL.Query().Get("error"); errParam != "" {
@@ -113,7 +119,7 @@ func (f *DirectFlow) callbackHandler() callbackHandler {
 		code := r.URL.Query().Get("code")
 		if code == "" {
 			http.Error(w, "Missing authorization code", http.StatusBadRequest)
-			return nil, "", errors.New("missing authorization code")
+			return nil, "", ErrMissingAuthCode
 		}
 
 		token, err := f.config.Exchange(r.Context(), code)
@@ -242,7 +248,7 @@ func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Toke
 	accessToken := r.URL.Query().Get("access_token")
 	if accessToken == "" {
 		http.Error(w, "Missing access token", http.StatusBadRequest)
-		return nil, "", errors.New("missing access_token")
+		return nil, "", ErrMissingAccessToken
 	}
 
 	tokenType := r.URL.Query().Get("token_type")
