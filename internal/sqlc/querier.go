@@ -6,12 +6,44 @@ package sqlc
 
 import (
 	"context"
+	"time"
 )
 
 type Querier interface {
+	DeleteCycle(ctx context.Context, id int64) error
+	DeleteRecovery(ctx context.Context, cycleID int64) error
+	DeleteSleep(ctx context.Context, id string) error
 	DeleteToken(ctx context.Context) error
+	DeleteWorkout(ctx context.Context, id string) error
+	GetCycle(ctx context.Context, id int64) (Cycle, error)
+	GetCyclesByDateRange(ctx context.Context, arg GetCyclesByDateRangeParams) ([]Cycle, error)
+	GetCyclesByDateRangeCursor(ctx context.Context, arg GetCyclesByDateRangeCursorParams) ([]Cycle, error)
+	GetLastNotificationPoll(ctx context.Context) (*time.Time, error)
+	GetLatestCycles(ctx context.Context, limit int64) ([]Cycle, error)
+	GetNapsByCycleID(ctx context.Context, cycleID int64) ([]Sleep, error)
+	GetPendingCycles(ctx context.Context) ([]Cycle, error)
+	GetRecoveriesByCycleIDs(ctx context.Context, cycleIds []int64) ([]Recovery, error)
+	GetRecovery(ctx context.Context, cycleID int64) (Recovery, error)
+	GetSleep(ctx context.Context, id string) (Sleep, error)
+	GetSleepByCycleID(ctx context.Context, cycleID int64) (Sleep, error)
+	GetSleepsByDateRange(ctx context.Context, arg GetSleepsByDateRangeParams) ([]Sleep, error)
+	GetSleepsByDateRangeCursor(ctx context.Context, arg GetSleepsByDateRangeCursorParams) ([]Sleep, error)
+	GetSyncState(ctx context.Context) (SyncState, error)
 	GetToken(ctx context.Context) (Token, error)
+	GetWorkout(ctx context.Context, id string) (Workout, error)
+	GetWorkoutsByCycleID(ctx context.Context, cycleID int64) ([]Workout, error)
+	GetWorkoutsByDateRange(ctx context.Context, arg GetWorkoutsByDateRangeParams) ([]Workout, error)
+	GetWorkoutsByDateRangeCursor(ctx context.Context, arg GetWorkoutsByDateRangeCursorParams) ([]Workout, error)
+	MarkBackfillComplete(ctx context.Context) error
+	UpdateBackfillWatermark(ctx context.Context, backfillWatermark *time.Time) error
+	UpdateLastFullSync(ctx context.Context, lastFullSync *time.Time) error
+	UpdateLastNotificationPoll(ctx context.Context, lastNotificationPoll *time.Time) error
+	UpsertCycle(ctx context.Context, arg UpsertCycleParams) error
+	UpsertRecovery(ctx context.Context, arg UpsertRecoveryParams) error
+	UpsertSleep(ctx context.Context, arg UpsertSleepParams) error
+	UpsertSyncState(ctx context.Context, arg UpsertSyncStateParams) error
 	UpsertToken(ctx context.Context, arg UpsertTokenParams) error
+	UpsertWorkout(ctx context.Context, arg UpsertWorkoutParams) error
 }
 
 var _ Querier = (*Queries)(nil)

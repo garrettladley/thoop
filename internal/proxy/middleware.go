@@ -14,7 +14,7 @@ func RateLimitWithBackend(backend storage.RateLimiter) func(http.Handler) http.H
 			logger := xslog.FromContext(r.Context())
 			ip := xhttp.GetRequestIP(r)
 
-			allowed, err := backend.Allow(r.Context(), ip)
+			result, err := backend.Allow(r.Context(), ip)
 			if err != nil {
 				logger.ErrorContext(r.Context(), "rate limit check failed",
 					xslog.ErrorGroup(err),
@@ -24,8 +24,11 @@ func RateLimitWithBackend(backend storage.RateLimiter) func(http.Handler) http.H
 				return
 			}
 
-			if !allowed {
-				xhttp.Error(w, http.StatusTooManyRequests)
+			if !result.Allowed {
+				xhttp.WriteRateLimitError(w, &xhttp.RateLimitError{
+					RetryAfter: result.RetryAfter,
+					Reason:     "ip_rate_limit",
+				})
 				return
 			}
 

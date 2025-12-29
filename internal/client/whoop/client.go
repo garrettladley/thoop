@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 
 	"github.com/garrettladley/thoop/internal/version"
+	"github.com/garrettladley/thoop/internal/xhttp"
 	go_json "github.com/goccy/go-json"
 	"golang.org/x/oauth2"
 )
@@ -23,6 +25,10 @@ type Client struct {
 	baseURL     string
 	httpClient  *http.Client
 	tokenSource oauth2.TokenSource
+	logger      *slog.Logger
+
+	isUsingProxy bool
+	sessionID    string
 }
 
 func New(tokenSource oauth2.TokenSource, opts ...Option) *Client {
@@ -31,6 +37,7 @@ func New(tokenSource oauth2.TokenSource, opts ...Option) *Client {
 		baseURL:     baseURL,
 		httpClient:  http.DefaultClient,
 		tokenSource: tokenSource,
+		logger:      slog.Default(),
 	}
 
 	for _, opt := range opts {
@@ -52,8 +59,19 @@ func WithHTTPClient(hc *http.Client) Option {
 	return func(c *Client) { c.httpClient = hc }
 }
 
-func WithBaseURL(baseURL string) Option {
-	return func(c *Client) { c.baseURL = baseURL }
+func WithProxyURL(baseURL string) Option {
+	return func(c *Client) {
+		c.baseURL = baseURL
+		c.isUsingProxy = true
+	}
+}
+
+func WithSessionID(sessionID string) Option {
+	return func(c *Client) { c.sessionID = sessionID }
+}
+
+func WithLogger(logger *slog.Logger) Option {
+	return func(c *Client) { c.logger = logger }
 }
 
 func (c *Client) do(ctx context.Context, method string, path string, query url.Values, result any) error {
@@ -75,6 +93,10 @@ func (c *Client) do(ctx context.Context, method string, path string, query url.V
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set(version.Header, version.Get())
+
+	if c.isUsingProxy && c.sessionID != "" {
+		xhttp.SetRequestHeaderSessionID(req, c.sessionID)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

@@ -65,14 +65,33 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	whoopLimiter := initWhoopLimiter(ctx, cfg, redisClient, logger)
 	tokenCache := initTokenCache(ctx, redisClient, logger)
 	tokenValidator := proxy.NewTokenValidator(tokenCache, whoopLimiter)
+	notificationStore := initNotificationStore(ctx, redisClient, logger)
 
 	handler := proxy.NewHandler(cfg, backend)
 	whoopHandler := proxy.NewWhoopHandler(cfg, whoopLimiter)
+	webhookHandler := proxy.NewWebhookHandler(cfg.Whoop.ClientSecret, notificationStore)
+	sseHandler := proxy.NewSSEHandler(notificationStore)
+	notificationsHandler := proxy.NewNotificationsHandler(notificationStore)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /auth/start", handler.HandleAuthStart)
-	mux.HandleFunc("GET /auth/callback", handler.HandleAuthCallback)
 
+	// Unauthenticated routes - protected by global IP rate limiter
+	unauthedMux := http.NewServeMux()
+	unauthedMux.HandleFunc("GET /auth/start", handler.HandleAuthStart)
+	unauthedMux.HandleFunc("GET /auth/callback", handler.HandleAuthCallback)
+	unauthedMux.HandleFunc("POST /webhooks/whoop", webhookHandler.HandleWebhook)
+	unauthedMux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	unauthedWrapped := middleware.Chain(unauthedMux,
+		proxy.RateLimitWithBackend(backend),
+	)
+	mux.Handle("/auth/", unauthedWrapped)
+	mux.Handle("/webhooks/", unauthedWrapped)
+	mux.Handle("/health", unauthedWrapped)
+
+	// Authenticated routes - protected by per-user WHOOP rate limiter
 	whoopMux := http.NewServeMux()
 	whoopMux.HandleFunc("/api/whoop/", whoopHandler.HandleWhoopProxy)
 	whoopWrapped := middleware.Chain(whoopMux,
@@ -81,17 +100,21 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	)
 	mux.Handle("/api/whoop/", whoopWrapped)
 
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
+	notificationsMux := http.NewServeMux()
+	notificationsMux.HandleFunc("GET /api/notifications", notificationsHandler.HandlePoll)
+	notificationsMux.HandleFunc("GET /api/notifications/stream", sseHandler.HandleStream)
+	notificationsWrapped := middleware.Chain(notificationsMux,
+		proxy.WhoopAuth(tokenValidator),
+	)
+	mux.Handle("/api/notifications", notificationsWrapped)
+	mux.Handle("/api/notifications/stream", notificationsWrapped)
 
 	wrapped := middleware.Chain(mux,
 		middleware.Recovery,
 		middleware.Logging,
 		middleware.Logger(logger),
 		middleware.RequestID(),
-		proxy.RateLimitWithBackend(backend),
+		middleware.ClientSessionID,
 		middleware.SecurityHeaders,
 	)
 
@@ -100,7 +123,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		Handler:           wrapped,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		WriteTimeout:      0, // disabled for SSE; use SetWriteDeadline per-request
 		IdleTimeout:       60 * time.Second,
 	}
 
@@ -155,4 +178,9 @@ func initWhoopLimiter(ctx context.Context, cfg proxy.Config, redisClient *redis.
 func initTokenCache(ctx context.Context, redisClient *redis.Client, logger *slog.Logger) storage.TokenCache {
 	logger.InfoContext(ctx, "initializing token cache")
 	return storage.NewRedisTokenCache(storage.RedisConfig{Client: redisClient})
+}
+
+func initNotificationStore(ctx context.Context, redisClient *redis.Client, logger *slog.Logger) storage.NotificationStore {
+	logger.InfoContext(ctx, "initializing notification store")
+	return storage.NewRedisNotificationStore(redisClient)
 }

@@ -35,7 +35,7 @@ func NewRedisBackend(cfg RedisConfig, rateLimit int) (*RedisBackend, error) {
 	}, nil
 }
 
-func (r *RedisBackend) Allow(ctx context.Context, key string) (bool, error) {
+func (r *RedisBackend) Allow(ctx context.Context, key string) (RateLimitResult, error) {
 	params := rateLimitParams{
 		window: r.rateWindow,
 		limit:  r.rateLimit,
@@ -44,10 +44,13 @@ func (r *RedisBackend) Allow(ctx context.Context, key string) (bool, error) {
 
 	allowed, err := runRateLimitScript(ctx, r.client, rateLimitKeyPrefix+key, params)
 	if err != nil {
-		return false, fmt.Errorf("failed to run rate limit script: %w", err)
+		return RateLimitResult{}, fmt.Errorf("failed to run rate limit script: %w", err)
 	}
 
-	return allowed, nil
+	return RateLimitResult{
+		Allowed:    allowed,
+		RetryAfter: r.rateWindow,
+	}, nil
 }
 
 func (r *RedisBackend) Set(ctx context.Context, state string, entry StateEntry, ttl time.Duration) error {

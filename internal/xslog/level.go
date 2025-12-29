@@ -78,3 +78,13 @@ func NewLogger(w io.Writer, level Level) *slog.Logger {
 func NewLoggerFromEnv(w io.Writer) *slog.Logger {
 	return NewLogger(w, FromEnv())
 }
+
+func NewTextLogger(w io.Writer, level Level) *slog.Logger {
+	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{
+		Level: level.ToSlog(),
+	}))
+}
+
+func NewTextLoggerFromEnv(w io.Writer) *slog.Logger {
+	return NewTextLogger(w, FromEnv())
+}

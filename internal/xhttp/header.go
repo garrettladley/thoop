@@ -17,6 +17,7 @@ const (
 const (
 	ContentType      = "Content-Type"
 	XRateLimitReason = "X-Ratelimit-Reason"
+	XSessionID       = "X-Session-Id"
 )
 
 func SetHeaderRequestID(w http.ResponseWriter, requestID string) {
@@ -38,4 +39,12 @@ func SetHeaderRetryAfter(w http.ResponseWriter, retryAfter time.Duration) {
 	const retryAfterHeader = "Retry-After"
 	retryAfterSeconds := int(retryAfter.Seconds())
 	w.Header().Set(retryAfterHeader, fmt.Sprintf("%d", retryAfterSeconds))
+}
+
+func SetRequestHeaderSessionID(req *http.Request, sessionID string) {
+	req.Header.Set(XSessionID, sessionID)
+}
+
+func GetRequestHeaderSessionID(req *http.Request) string {
+	return req.Header.Get(XSessionID)
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -41,12 +40,12 @@ func NewTokenValidator(cache storage.TokenCache, whoopLimiter storage.WhoopRateL
 	}
 }
 
-func (v *TokenValidator) ValidateAndGetUserID(ctx context.Context, authHeader string) (string, error) {
+func (v *TokenValidator) ValidateAndGetUserID(ctx context.Context, authHeader string) (int64, error) {
 	logger := xslog.FromContext(ctx)
 
 	token, err := extractBearerToken(authHeader)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 
 	tokenHash := hashToken(token)
@@ -64,7 +63,7 @@ func (v *TokenValidator) ValidateAndGetUserID(ctx context.Context, authHeader st
 
 	userID, err = v.validateWithWhoopAPI(ctx, token, tokenHash)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 
 	if cacheErr := v.cache.SetUserID(ctx, tokenHash, userID, v.ttl); cacheErr != nil {
@@ -107,12 +106,12 @@ func (s *staticTokenSource) Token() (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: s.token}, nil
 }
 
-func (v *TokenValidator) validateWithWhoopAPI(ctx context.Context, token string, tokenHash string) (string, error) {
+func (v *TokenValidator) validateWithWhoopAPI(ctx context.Context, token string, tokenHash string) (int64, error) {
 	logger := xslog.FromContext(ctx)
 
 	state, err := v.whoopLimiter.CheckAndIncrement(ctx, tokenHash)
 	if err != nil {
-		return "", fmt.Errorf("checking rate limit: %w", err)
+		return 0, fmt.Errorf("checking rate limit: %w", err)
 	}
 	if !state.Allowed {
 		logger.WarnContext(ctx, "rate limit exceeded for token validation")
@@ -133,7 +132,7 @@ func (v *TokenValidator) validateWithWhoopAPI(ctx context.Context, token string,
 			retryAfter = time.Minute
 		}
 
-		return "", &xhttp.RateLimitError{RetryAfter: retryAfter, Reason: string(reason)}
+		return 0, &xhttp.RateLimitError{RetryAfter: retryAfter, Reason: string(reason)}
 	}
 
 	tokenSource := &staticTokenSource{token: token}
@@ -144,11 +143,11 @@ func (v *TokenValidator) validateWithWhoopAPI(ctx context.Context, token string,
 		var apiErr *whoop.APIError
 		if errors.As(err, &apiErr) {
 			if apiErr.StatusCode == http.StatusUnauthorized {
-				return "", ErrInvalidToken
+				return 0, ErrInvalidToken
 			}
 		}
-		return "", fmt.Errorf("validating token: %w", err)
+		return 0, fmt.Errorf("validating token: %w", err)
 	}
 
-	return strconv.FormatInt(profile.UserID, 10), nil
+	return profile.UserID, nil
 }

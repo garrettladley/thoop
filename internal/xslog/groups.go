@@ -74,8 +74,8 @@ func ErrorGroupWithStack(err any) slog.Attr {
 	)
 }
 
-func UserGroup(userID string) slog.Attr {
+func UserGroup(userID int64) slog.Attr {
 	return slog.Group(groupUser,
-		slog.String(keyID, userID),
+		slog.Int64(keyID, userID),
 	)
 }

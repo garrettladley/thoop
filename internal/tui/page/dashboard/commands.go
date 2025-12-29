@@ -14,16 +14,6 @@ type CycleMsg struct {
 	Err   error
 }
 
-type SleepMsg struct {
-	Sleep *whoop.Sleep
-	Err   error
-}
-
-type RecoveryMsg struct {
-	Recovery *whoop.Recovery
-	Err      error
-}
-
 func FetchCycleCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 	if client == nil {
 		return func() tea.Msg {
@@ -45,6 +35,11 @@ func FetchCycleCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 	}
 }
 
+type SleepMsg struct {
+	Sleep *whoop.Sleep
+	Err   error
+}
+
 func FetchSleepCmd(ctx context.Context, client *whoop.Client, cycleID int64) tea.Cmd {
 	if client == nil {
 		return func() tea.Msg {
@@ -58,6 +53,11 @@ func FetchSleepCmd(ctx context.Context, client *whoop.Client, cycleID int64) tea
 		sleep, err := client.Cycle.GetSleep(ctx, cycleID)
 		return SleepMsg{Sleep: sleep, Err: err}
 	}
+}
+
+type RecoveryMsg struct {
+	Recovery *whoop.Recovery
+	Err      error
 }
 
 func FetchRecoveryCmd(ctx context.Context, client *whoop.Client, cycleID int64) tea.Cmd {
