@@ -7,8 +7,8 @@ sql:
       - "internal/migrations/sql/*.sql"
     gen:
       go:
-        package: "sqlc"
-        out: "internal/sqlc"
+        package: "sqlitec"
+        out: "internal/sqlc/sqlite"
         emit_json_tags: true
         emit_interface: true
         emit_empty_slices: true

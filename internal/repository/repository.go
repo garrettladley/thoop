@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
-	"github.com/garrettladley/thoop/internal/sqlc"
+	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
 )
 
 type Repository struct {
@@ -16,7 +16,7 @@ type Repository struct {
 	Workouts   WorkoutRepository
 }
 
-func New(q sqlc.Querier) *Repository {
+func New(q sqlitec.Querier) *Repository {
 	return &Repository{
 		SyncState:  &syncStateRepo{q: q},
 		Cycles:     &cycleRepo{q: q},

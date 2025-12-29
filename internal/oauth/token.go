@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/sqlc"
+	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
 	"golang.org/x/oauth2"
 )
 
@@ -23,12 +23,12 @@ var (
 
 type DBTokenSource struct {
 	config  *oauth2.Config
-	querier sqlc.Querier
+	querier sqlitec.Querier
 	mu      sync.Mutex
 	token   *oauth2.Token
 }
 
-func NewDBTokenSource(config *oauth2.Config, querier sqlc.Querier) *DBTokenSource {
+func NewDBTokenSource(config *oauth2.Config, querier sqlitec.Querier) *DBTokenSource {
 	return &DBTokenSource{
 		config:  config,
 		querier: querier,
@@ -125,7 +125,7 @@ func (s *DBTokenSource) RefreshIfNeeded(ctx context.Context, threshold time.Dura
 }
 
 func (s *DBTokenSource) saveToken(ctx context.Context, token *oauth2.Token) error {
-	params := sqlc.UpsertTokenParams{
+	params := sqlitec.UpsertTokenParams{
 		AccessToken: token.AccessToken,
 		TokenType:   token.TokenType,
 		Expiry:      token.Expiry,
@@ -138,7 +138,7 @@ func (s *DBTokenSource) saveToken(ctx context.Context, token *oauth2.Token) erro
 	return s.querier.UpsertToken(ctx, params)
 }
 
-func dbTokenToOAuth2(t sqlc.Token) *oauth2.Token {
+func dbTokenToOAuth2(t sqlitec.Token) *oauth2.Token {
 	token := &oauth2.Token{
 		AccessToken: t.AccessToken,
 		TokenType:   t.TokenType,
