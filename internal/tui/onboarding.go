@@ -5,7 +5,6 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
-// OnboardingPhase represents the current phase of the onboarding flow
 type OnboardingPhase uint
 
 const (

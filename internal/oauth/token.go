@@ -93,19 +93,14 @@ func (s *DBTokenSource) HasToken(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// ExpiresWithin checks if the current token expires within the given duration.
-// Returns true if the token expires within the duration, false otherwise.
-// If there's no token or an error occurs, returns false.
 func (s *DBTokenSource) ExpiresWithin(ctx context.Context, d time.Duration) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Check cached token first
 	if s.token != nil {
 		return time.Until(s.token.Expiry) <= d, nil
 	}
 
-	// Load from database
 	dbToken, err := s.querier.GetToken(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -117,19 +112,15 @@ func (s *DBTokenSource) ExpiresWithin(ctx context.Context, d time.Duration) (boo
 	return time.Until(dbToken.Expiry) <= d, nil
 }
 
-// RefreshIfNeeded checks if the token expires within the threshold and refreshes it if needed.
-// Returns the refreshed token or nil if no refresh was needed.
 func (s *DBTokenSource) RefreshIfNeeded(ctx context.Context, threshold time.Duration) (*oauth2.Token, error) {
 	expiresWithin, err := s.ExpiresWithin(ctx, threshold)
 	if err != nil {
 		return nil, err
 	}
-
 	if !expiresWithin {
-		return nil, nil // No refresh needed
+		return nil, nil
 	}
 
-	// Force a token refresh by calling Token() which handles the refresh logic
 	return s.Token()
 }
 

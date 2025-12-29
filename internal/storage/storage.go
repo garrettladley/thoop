@@ -70,6 +70,8 @@ type WhoopRateLimiter interface {
 	// Returns combined state - allowed only if BOTH per-user AND global limits pass
 	CheckAndIncrement(ctx context.Context, userKey string) (*WhoopRateLimitState, error)
 
+	CheckAndIncrementGlobalOnly(ctx context.Context) (*WhoopRateLimitState, error)
+
 	// UpdateFromHeaders updates global rate limit state from WHOOP API response headers.
 	// Syncs global counters with WHOOP's actual values.
 	UpdateFromHeaders(ctx context.Context, headers http.Header) error

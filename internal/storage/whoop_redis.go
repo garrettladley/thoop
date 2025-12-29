@@ -15,7 +15,13 @@ import (
 //go:embed whoop_ratelimit.lua
 var whoopRateLimitLua string
 
-var whoopRateLimitScript = redis.NewScript(whoopRateLimitLua)
+//go:embed whoop_ratelimit_global.lua
+var whoopRateLimitGlobalLua string
+
+var (
+	whoopRateLimitScript       = redis.NewScript(whoopRateLimitLua)
+	whoopRateLimitGlobalScript = redis.NewScript(whoopRateLimitGlobalLua)
+)
 
 const (
 	whoopUserKeyPrefix   = "whoop:ratelimit:user:"
@@ -105,6 +111,75 @@ func (w *WhoopRedisLimiter) CheckAndIncrement(ctx context.Context, userKey strin
 		reason := WhoopRateLimitReason(reasonStr)
 		state.Reason = &reason
 		if reason == WhoopRateLimitReasonPerUserMinute || reason == WhoopRateLimitReasonGlobalMinute {
+			state.MinuteReset = time.Now().Add(time.Minute).Truncate(time.Minute)
+		} else {
+			state.DayReset = time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
+		}
+	}
+
+	return state, nil
+}
+
+func (w *WhoopRedisLimiter) CheckAndIncrementGlobalOnly(ctx context.Context) (*WhoopRateLimitState, error) {
+	keys := []string{
+		whoopGlobalKeyPrefix + ":minute",
+		whoopGlobalKeyPrefix + ":day",
+	}
+
+	const (
+		minuteWindowMs = 60_000     // minute window in ms
+		dayWindowMs    = 86_400_000 // day window in ms
+		ttlSeconds     = 90_000     // TTL in seconds (25 hours for safety)
+	)
+	args := []any{
+		w.config.GlobalMinuteLimit,
+		w.config.GlobalDayLimit,
+		minuteWindowMs,
+		dayWindowMs,
+		ttlSeconds,
+	}
+
+	result, err := whoopRateLimitGlobalScript.Run(ctx, w.client, keys, args...).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to run WHOOP global rate limit script: %w", err)
+	}
+
+	resultSlice, ok := result.([]any)
+	if !ok || len(resultSlice) < 2 {
+		return nil, fmt.Errorf("unexpected result format from global rate limit script")
+	}
+
+	allowed, ok := resultSlice[0].(int64)
+	if !ok {
+		return nil, fmt.Errorf("unexpected allowed value type")
+	}
+
+	state := &WhoopRateLimitState{
+		Allowed: allowed == 1,
+	}
+
+	if allowed == 1 {
+		minRemaining, ok := resultSlice[1].(int64)
+		if !ok {
+			return nil, fmt.Errorf("unexpected minute remaining type")
+		}
+		dayRemaining, ok := resultSlice[2].(int64)
+		if !ok {
+			return nil, fmt.Errorf("unexpected day remaining type")
+		}
+
+		state.MinuteRemaining = int(minRemaining)
+		state.DayRemaining = int(dayRemaining)
+		state.MinuteReset = time.Now().Add(time.Minute).Truncate(time.Minute)
+		state.DayReset = time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
+	} else {
+		reasonStr, ok := resultSlice[1].(string)
+		if !ok {
+			return nil, fmt.Errorf("unexpected reason type: got %T", resultSlice[1])
+		}
+		reason := WhoopRateLimitReason(reasonStr)
+		state.Reason = &reason
+		if reason == WhoopRateLimitReasonGlobalMinute {
 			state.MinuteReset = time.Now().Add(time.Minute).Truncate(time.Minute)
 		} else {
 			state.DayReset = time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)

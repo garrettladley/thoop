@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
 	"github.com/garrettladley/thoop/internal/db"
 	"github.com/garrettladley/thoop/internal/oauth"
@@ -67,6 +68,11 @@ func purgeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
+			cfg, err := config.Read()
+			if err != nil {
+				return err
+			}
+
 			if _, err := paths.EnsureDir(); err != nil {
 				return err
 			}
@@ -83,6 +89,12 @@ func purgeCmd() *cobra.Command {
 			defer func() {
 				_ = sqlDB.Close()
 			}()
+
+			oauthCfg := oauth.NewConfig(cfg.Whoop)
+			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
+
+			client := whoop.New(tokenSource, whoop.WithBaseURL(cfg.ProxyURL+"/api/whoop"))
+			_ = client.User.RevokeAccess(ctx) // best effort - token may already be invalid
 
 			if err := querier.DeleteToken(ctx); err != nil {
 				return fmt.Errorf("failed to delete token: %w", err)

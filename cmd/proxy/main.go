@@ -64,7 +64,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	whoopLimiter := initWhoopLimiter(ctx, cfg, redisClient, logger)
 	tokenCache := initTokenCache(ctx, redisClient, logger)
-	tokenValidator := proxy.NewTokenValidator(tokenCache)
+	tokenValidator := proxy.NewTokenValidator(tokenCache, whoopLimiter)
 
 	handler := proxy.NewHandler(cfg, backend)
 	whoopHandler := proxy.NewWhoopHandler(cfg, whoopLimiter)

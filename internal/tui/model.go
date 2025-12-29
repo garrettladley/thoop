@@ -78,7 +78,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 
-	// splash timer expired - transition based on auth state
 	case SplashTickMsg:
 		return m.handleSplashTick()
 
@@ -132,11 +131,10 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.deps.Cancel()
 		return m, tea.Quit
 	case "enter":
-		// Handle enter key on onboarding page
-		if m.page == onboardingPage {
+		switch m.page {
+		case onboardingPage:
 			switch m.state.onboarding.Phase {
 			case OnboardingPhaseWelcome, OnboardingPhaseError:
-				// Start auth flow
 				m.state.onboarding.Phase = OnboardingPhaseAuthenticating
 				m.state.onboarding.ErrorMsg = ""
 				return m, commands.StartAuthFlowCmd(m.deps.Ctx, m.deps.AuthFlow)
@@ -157,9 +155,9 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleSplashTick() (tea.Model, tea.Cmd) {
-	// Only transition if auth status is known
+	// only transition if auth status is known
 	if !m.state.authChecked {
-		// Auth check still pending, wait a bit more
+		// auth check still pending, wait a bit more
 		return m, tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
 			return SplashTickMsg{}
 		})
@@ -192,14 +190,12 @@ func (m *Model) handleAuthFlowResult(msg commands.AuthFlowResultMsg) (tea.Model,
 		return m, nil
 	}
 
-	// Auth successful, transition to dashboard
 	m.state.dashboard.AuthIndicator.Authenticated = true
 	m.page = dashboardPage
 	return m, m.startDashboard()
 }
 
 func (m *Model) handleTokenCheckTick() (tea.Model, tea.Cmd) {
-	// Only check if we're on the dashboard
 	if m.page != dashboardPage {
 		return m, nil
 	}
@@ -209,9 +205,7 @@ func (m *Model) handleTokenCheckTick() (tea.Model, tea.Cmd) {
 
 func (m *Model) handleTokenRefreshResult(msg commands.TokenRefreshResultMsg) (tea.Model, tea.Cmd) {
 	if msg.Err != nil {
-		// Token refresh failed, check if it's a fatal error
 		if errors.Is(msg.Err, oauth.ErrNoToken) || errors.Is(msg.Err, oauth.ErrTokenExpired) {
-			// Need to re-authenticate
 			m.state.dashboard.AuthIndicator.Authenticated = false
 			m.page = onboardingPage
 			m.state.onboarding.Phase = OnboardingPhaseWelcome
@@ -219,7 +213,6 @@ func (m *Model) handleTokenRefreshResult(msg commands.TokenRefreshResultMsg) (te
 		}
 	}
 
-	// Continue the token check ticker
 	return m, commands.TokenCheckTickCmd(tokenCheckInterval)
 }
 

@@ -20,21 +20,24 @@ import (
 var (
 	ErrMissingToken = errors.New("missing bearer token")
 	ErrInvalidToken = errors.New("invalid bearer token")
+	ErrRateLimited  = errors.New("rate limited")
 )
 
 const defaultTokenCacheTTL = 5 * time.Minute
 
 type TokenValidator struct {
-	cache      storage.TokenCache
-	httpClient *http.Client
-	ttl        time.Duration
+	cache        storage.TokenCache
+	whoopLimiter storage.WhoopRateLimiter
+	httpClient   *http.Client
+	ttl          time.Duration
 }
 
-func NewTokenValidator(cache storage.TokenCache) *TokenValidator {
+func NewTokenValidator(cache storage.TokenCache, whoopLimiter storage.WhoopRateLimiter) *TokenValidator {
 	return &TokenValidator{
-		cache:      cache,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
-		ttl:        defaultTokenCacheTTL,
+		cache:        cache,
+		whoopLimiter: whoopLimiter,
+		httpClient:   &http.Client{Timeout: 10 * time.Second},
+		ttl:          defaultTokenCacheTTL,
 	}
 }
 
@@ -105,6 +108,16 @@ func (s *staticTokenSource) Token() (*oauth2.Token, error) {
 }
 
 func (v *TokenValidator) validateWithWhoopAPI(ctx context.Context, token string) (string, error) {
+	logger := xslog.FromContext(ctx)
+
+	state, err := v.whoopLimiter.CheckAndIncrementGlobalOnly(ctx)
+	if err != nil {
+		logger.WarnContext(ctx, "failed to check global rate limit for token validation", xslog.ErrorGroup(err))
+	} else if !state.Allowed {
+		logger.WarnContext(ctx, "global rate limit exceeded for token validation")
+		return "", ErrRateLimited
+	}
+
 	tokenSource := &staticTokenSource{token: token}
 	client := whoop.New(tokenSource, whoop.WithHTTPClient(v.httpClient))
 
