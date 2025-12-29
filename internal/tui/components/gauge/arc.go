@@ -21,6 +21,7 @@ const (
 func drawArc(canvas *drawille.Canvas, centerX, centerY, radius float64, startAngle, sweepAngle float64) {
 	endAngle := startAngle + sweepAngle
 
+	// draw the arc at multiple radii for thickness
 	for t := range arcThickness {
 		r := int(radius) - t
 		if r <= 0 {
@@ -28,6 +29,9 @@ func drawArc(canvas *drawille.Canvas, centerX, centerY, radius float64, startAng
 		}
 		midpointCircleArc(canvas, int(centerX), int(centerY), r, startAngle, endAngle)
 	}
+
+	// fill gaps between radii by drawing radial lines
+	fillArcGaps(canvas, int(centerX), int(centerY), int(radius), int(radius)-arcThickness+1, startAngle, endAngle)
 }
 
 // midpointCircleArc draws an arc using the midpoint circle algorithm.
@@ -105,6 +109,23 @@ func isInArcRange(cx, cy, px, py int, startAngle, endAngle float64) bool {
 	}
 
 	return false
+}
+
+// fillArcGaps fills gaps between concentric circles by drawing radial lines at regular intervals.
+func fillArcGaps(canvas *drawille.Canvas, cx, cy, outerR, innerR int, startAngle, endAngle float64) {
+	// draw radial lines at every degree to fill gaps
+	for angle := startAngle; angle <= endAngle; angle += 1.0 {
+		rad := angle * math.Pi / 180
+		cos := math.Cos(rad)
+		sin := math.Sin(rad)
+
+		// draw from inner to outer radius
+		for r := innerR; r <= outerR; r++ {
+			x := cx + int(math.Round(float64(r)*cos))
+			y := cy + int(math.Round(float64(r)*sin))
+			canvas.Set(x, y)
+		}
+	}
 }
 
 func drawFullArc(canvas *drawille.Canvas, centerX, centerY, radius float64) {

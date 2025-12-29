@@ -171,7 +171,7 @@ const (
 )
 
 // overlayArcsRaw combines background and filled arcs with their respective colors.
-// This applies lipgloss styling per-line segment rather than per-character to avoid ANSI corruption.
+// for braille characters, we combine dots (OR them together) so filled arc adds to background.
 func overlayArcsRaw(bgStr, fillStr string, bgColor, fillColor color.Color) string {
 	var (
 		bgLines   = strings.Split(bgStr, "\n")
@@ -196,10 +196,18 @@ func overlayArcsRaw(bgStr, fillStr string, bgColor, fillColor color.Color) strin
 				fillChar = fillRunes[j]
 			}
 
-			// if fill char is not empty braille, use fill color
-			if fillChar != ' ' && fillChar != emptyBraille {
+			bgIsBraille := isBraille(bgChar)
+			// only consider fill as having content if it has actual dots (not empty braille)
+			fillHasDots := isBraille(fillChar) && fillChar != emptyBraille
+
+			if fillHasDots && bgIsBraille {
+				// combine braille dots: filled arc on top of background arc
+				combined := combineBraille(bgChar, fillChar)
+				// use fill color for the combined result (filled takes precedence visually)
+				lineBuilder.WriteString(fillStyle.Render(string(combined)))
+			} else if fillHasDots {
 				lineBuilder.WriteString(fillStyle.Render(string(fillChar)))
-			} else if bgChar != ' ' && bgChar != emptyBraille {
+			} else if bgIsBraille {
 				lineBuilder.WriteString(bgStyle.Render(string(bgChar)))
 			} else {
 				lineBuilder.WriteRune(' ')
@@ -209,6 +217,20 @@ func overlayArcsRaw(bgStr, fillStr string, bgColor, fillColor color.Color) strin
 	}
 
 	return strings.Join(result, "\n")
+}
+
+// isBraille returns true if the rune is a braille character (U+2800 to U+28FF)
+func isBraille(r rune) bool {
+	return r >= 0x2800 && r <= 0x28FF
+}
+
+// combineBraille ORs the dots of two braille characters together
+func combineBraille(a, b rune) rune {
+	// braille characters are U+2800 + dot pattern
+	// OR the patterns together to combine dots
+	patternA := a - emptyBraille
+	patternB := b - emptyBraille
+	return emptyBraille + (patternA | patternB)
 }
 
 // overlayWithBackground overlays foreground on background.
@@ -253,8 +275,8 @@ func overlayWithBackground(background, foreground string) string {
 			continue
 		}
 
-		// get the styled foreground content (trimmed)
-		fgContent := strings.TrimSpace(fgLine)
+		// extract the styled foreground content from fgStart to fgEnd (preserve spacing)
+		fgContent := extractStyledSegment(fgLine, fgStart, fgEnd)
 
 		// build result: bg left + fg center + bg right
 		// for background, we need to preserve its ANSI styling
@@ -275,7 +297,7 @@ func overlayWithBackground(background, foreground string) string {
 			lineBuilder.WriteRune(' ')
 		}
 
-		// foreground content (with its ANSI codes)
+		// foreground content (with its ANSI codes and original spacing)
 		lineBuilder.WriteString(fgContent)
 
 		// right portion of background (after foreground ends)
@@ -293,39 +315,37 @@ func overlayWithBackground(background, foreground string) string {
 // preserving the ANSI styling for those characters.
 func extractStyledSegment(styledStr string, start, end int) string {
 	var (
-		result        strings.Builder
-		visibleIdx    = 0
-		inEscape      = false
-		pendingEscape strings.Builder
+		result         strings.Builder
+		visibleIdx     = 0
+		inEscape       = false
+		pendingEscapes strings.Builder // accumulates ALL escapes between characters
 	)
 
 	for _, r := range styledStr {
 		if r == ansiEscape {
 			inEscape = true
-			pendingEscape.WriteRune(r)
+			pendingEscapes.WriteRune(r)
 			continue
 		}
 
 		if inEscape {
-			pendingEscape.WriteRune(r)
+			pendingEscapes.WriteRune(r)
 			if unicode.IsLetter(r) {
 				inEscape = false
-				// if we're in the target range, include this escape sequence
-				if visibleIdx >= start && visibleIdx < end {
-					result.WriteString(pendingEscape.String())
-				}
-				pendingEscape.Reset()
 			}
 			continue
 		}
 
 		// regular character
 		if visibleIdx >= start && visibleIdx < end {
-			// include any pending escape and this character
-			result.WriteString(pendingEscape.String())
-			pendingEscape.Reset()
+			// include all escape sequences since last character
+			if pendingEscapes.Len() > 0 {
+				result.WriteString(pendingEscapes.String())
+			}
 			result.WriteRune(r)
 		}
+		// clear accumulated escapes after each character
+		pendingEscapes.Reset()
 		visibleIdx++
 	}
 
