@@ -126,7 +126,6 @@ func (h *Handler) HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token.AccessToken})
 	whoopClient := whoop.New(tokenSource)
 
