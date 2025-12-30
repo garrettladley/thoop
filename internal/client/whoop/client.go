@@ -24,6 +24,7 @@ type Client struct {
 
 	baseURL    string
 	httpClient *http.Client
+	transport  *whoopTransport
 	logger     *slog.Logger
 }
 
@@ -50,6 +51,7 @@ func New(tokenSource oauth2.TokenSource, opts ...Option) *Client {
 	c := &Client{
 		baseURL:    cfg.baseURL,
 		httpClient: &http.Client{Transport: transport, Timeout: cfg.timeout},
+		transport:  transport,
 		logger:     cfg.logger,
 	}
 
@@ -164,4 +166,8 @@ func (t *whoopTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("round trip: %w", err)
 	}
 	return resp, nil
+}
+
+func (c *Client) SetAPIKey(apiKey string) {
+	c.transport.apiKey = apiKey
 }

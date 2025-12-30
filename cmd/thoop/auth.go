@@ -49,26 +49,21 @@ func authCmd() *cobra.Command {
 
 			flow := oauth.NewServerFlow(cfg.ServerURL, querier)
 
-			token, err := flow.Run(ctx)
+			result, err := flow.Run(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication failed: %w", err)
 			}
 
 			fmt.Printf("Authentication successful!\n")
-			fmt.Printf("Token expires: %s\n", token.Expiry.Format("2006-01-02 15:04:05"))
+			fmt.Printf("Token expires: %s\n", result.Token.Expiry.Format("2006-01-02 15:04:05"))
 
 			// start backfill in background after successful auth
 			logger := xslog.NewLoggerFromEnv(os.Stderr)
 			tokenSource := oauth.NewProxyTokenSource(cfg.ServerURL, querier)
 
-			var apiKey string
-			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
-				apiKey = *apiKeyPtr
-			}
-
 			client := whoop.New(tokenSource,
 				whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
-				whoop.WithAPIKey(apiKey),
+				whoop.WithAPIKey(result.apiKey),
 			)
 			repo := repository.New(querier)
 			syncSvc := xsync.NewService(client, repo, logger)

@@ -30,6 +30,7 @@ type Event struct {
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+	transport  *sseTransport
 	poller     *PollClient
 	logger     *slog.Logger
 }
@@ -44,6 +45,7 @@ func NewClient(baseURL string, tokenSource oauth2.TokenSource, sessionID string,
 	return &Client{
 		baseURL:    baseURL,
 		httpClient: &http.Client{Transport: transport},
+		transport:  transport,
 		poller:     NewPollClient(baseURL, tokenSource, sessionID),
 		logger:     logger,
 	}
@@ -236,4 +238,8 @@ func (t *sseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("round trip: %w", err)
 	}
 	return resp, nil
+}
+
+func (c *Client) SetAPIKey(apiKey string) {
+	c.transport.apiKey = apiKey
 }

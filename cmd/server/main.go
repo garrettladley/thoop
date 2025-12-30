@@ -154,6 +154,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	wrapped := middleware.Chain(mux,
 		middleware.Recovery,
 		middleware.Logging,
+		middleware.Gzip,
 		middleware.Logger(logger),
 		middleware.ShutdownContext,
 		middleware.RequestID(),
