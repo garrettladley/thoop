@@ -2,7 +2,6 @@ package xerrors
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 
 	"github.com/garrettladley/thoop/internal/xhttp"
@@ -48,7 +47,7 @@ func logError(ctx context.Context, err *Error) {
 	logger := xslog.FromContext(ctx)
 	attrs := []any{
 		xslog.HTTPStatus(err.StatusCode),
-		slog.String("message", err.Message),
+		xslog.Message(err.Message),
 	}
 	if err.Cause != nil {
 		attrs = append(attrs, xslog.Error(err.Cause))
@@ -65,7 +64,5 @@ func logError(ctx context.Context, err *Error) {
 		logger.ErrorContext(ctx, "server error", attrs...)
 	case 4:
 		logger.WarnContext(ctx, "client error", attrs...)
-	default:
-		logger.InfoContext(ctx, "error response", attrs...)
 	}
 }

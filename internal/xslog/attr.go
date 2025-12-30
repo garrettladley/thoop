@@ -159,3 +159,8 @@ func Type(t string) slog.Attr {
 	const typeKey = "type"
 	return slog.String(typeKey, t)
 }
+
+func Message(msg string) slog.Attr {
+	const messageKey = "message"
+	return slog.String(messageKey, msg)
+}
