@@ -59,7 +59,16 @@ func authCmd() *cobra.Command {
 			logger := xslog.NewLoggerFromEnv(os.Stderr)
 			oauthCfg := oauth.NewConfig(cfg.Whoop)
 			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
-			client := whoop.New(tokenSource, whoop.WithProxyURL(cfg.ProxyURL+"/api/whoop"))
+
+			var apiKey string
+			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
+				apiKey = *apiKeyPtr
+			}
+
+			client := whoop.New(tokenSource,
+				whoop.WithProxyURL(cfg.ProxyURL+"/api/whoop"),
+				whoop.WithAPIKey(apiKey),
+			)
 			repo := repository.New(querier)
 			syncSvc := xsync.NewService(client, repo, logger)
 
@@ -110,7 +119,15 @@ func purgeCmd() *cobra.Command {
 			oauthCfg := oauth.NewConfig(cfg.Whoop)
 			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
 
-			client := whoop.New(tokenSource, whoop.WithProxyURL(cfg.ProxyURL+"/api/whoop"))
+			var apiKey string
+			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
+				apiKey = *apiKeyPtr
+			}
+
+			client := whoop.New(tokenSource,
+				whoop.WithProxyURL(cfg.ProxyURL+"/api/whoop"),
+				whoop.WithAPIKey(apiKey),
+			)
 			_ = client.User.RevokeAccess(ctx) // best effort - token may already be invalid
 
 			if err := querier.DeleteToken(ctx); err != nil {

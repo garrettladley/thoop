@@ -36,9 +36,7 @@ func NewProxy(whoopLimiter storage.WhoopRateLimiter, rateLimitCfg RateLimitConfi
 	return &Proxy{
 		whoopLimiter: whoopLimiter,
 		rateLimitCfg: rateLimitCfg,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		httpClient:   xhttp.NewHTTPClient(xhttp.WithTimeout(30 * time.Second)),
 	}
 }
 
