@@ -18,10 +18,10 @@ func tokenCmd() *cobra.Command {
 
 			dbPath, err := paths.DB()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get database path: %w", err)
 			}
 
-			sqlDB, querier, err := db.Open(dbPath)
+			sqlDB, querier, err := db.Open(cmd.Context(), dbPath)
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}

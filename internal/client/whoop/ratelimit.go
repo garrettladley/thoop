@@ -1,6 +1,7 @@
 package whoop
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -44,7 +45,7 @@ func ParseRateLimitHeaders(headers http.Header) (*RateLimitInfo, error) {
 
 	resetSeconds, err := strconv.ParseInt(resetStr, 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing reset time: %w", err)
 	}
 
 	return &RateLimitInfo{
@@ -61,7 +62,7 @@ func ParseRateLimitHeaders(headers http.Header) (*RateLimitInfo, error) {
 func parseRateLimitValue(s string) (int, error) {
 	parts := strings.Split(s, ",")
 	if len(parts) == 0 {
-		return 0, strconv.ErrSyntax
+		return 0, fmt.Errorf("parsing rate limit value: %w", strconv.ErrSyntax)
 	}
 
 	value := strings.TrimSpace(parts[0])
@@ -69,5 +70,9 @@ func parseRateLimitValue(s string) (int, error) {
 		value = value[:idx]
 	}
 
-	return strconv.Atoi(value)
+	result, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("parsing rate limit value: %w", err)
+	}
+	return result, nil
 }

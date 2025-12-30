@@ -2,6 +2,8 @@ package version
 
 import (
 	"fmt"
+	"os"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -85,4 +87,31 @@ func CheckCompatibility(clientVersion string) *VersionError {
 		ServerVersion: serverVersion,
 		MinVersion:    serverMajor,
 	}
+}
+
+// IsNewer returns true if latest is newer than current.
+// Development versions are never considered outdated.
+func IsNewer(current, latest string) bool {
+	current = strings.TrimPrefix(current, "v")
+	latest = strings.TrimPrefix(latest, "v")
+
+	if IsDevelopment(current) {
+		return false
+	}
+
+	return current != latest
+}
+
+// IsHomebrew returns true if the binary appears to be installed via homebrew.
+func IsHomebrew() bool {
+	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+		return false
+	}
+
+	execPath, err := os.Executable()
+	if err != nil {
+		return false
+	}
+
+	return strings.Contains(execPath, "homebrew") || strings.Contains(execPath, "Cellar")
 }

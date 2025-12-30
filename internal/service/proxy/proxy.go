@@ -126,6 +126,7 @@ func (p *Proxy) ProxyRequest(ctx context.Context, req *ProxyRequest) (*ProxyResp
 	if err != nil {
 		return nil, fmt.Errorf("%w: request failed: %v", ErrUpstreamError, err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	if updateErr := p.whoopLimiter.UpdateFromHeaders(ctx, resp.Header); updateErr != nil {
 		logger.WarnContext(ctx, "failed to update rate limit from headers", xslog.Error(updateErr))

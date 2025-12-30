@@ -14,6 +14,8 @@ var (
 	ErrRateLimited         = errors.New("rate limit exceeded")
 	ErrAccountBanned       = errors.New("account banned")
 	ErrAuthDenied          = errors.New("authorization denied")
+	ErrInvalidRefreshToken = errors.New("invalid or missing refresh token")
+	ErrRefreshFailed       = errors.New("token refresh failed")
 )
 
 type StartAuthRequest struct {
@@ -36,6 +38,14 @@ type CallbackResult struct {
 	Token     *oauth2.Token
 	APIKey    string
 	LocalPort string
+}
+
+type RefreshRequest struct {
+	RefreshToken string
+}
+
+type RefreshResult struct {
+	Token *oauth2.Token
 }
 
 type VersionError struct {
@@ -79,4 +89,9 @@ type Service interface {
 	// Returns ErrAccountBanned if the user is banned.
 	// The returned *AuthError contains LocalPort for redirect construction.
 	HandleCallback(ctx context.Context, req CallbackRequest) (*CallbackResult, error)
+
+	// RefreshToken exchanges a refresh token for new access and refresh tokens.
+	// Returns ErrInvalidRefreshToken if refresh token is missing.
+	// Returns ErrRefreshFailed if the token exchange fails.
+	RefreshToken(ctx context.Context, req RefreshRequest) (*RefreshResult, error)
 }

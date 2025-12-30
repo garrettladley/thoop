@@ -22,22 +22,7 @@ func newMigrationCmd() *cobra.Command {
 				return fmt.Errorf("failed to read migrations directory: %w", err)
 			}
 
-			var nextNum int
-			for _, entry := range entries {
-				if strings.HasSuffix(entry.Name(), ".sql") {
-					parts := strings.Split(entry.Name(), "_")
-					if len(parts) > 0 {
-						var num int
-						if _, err := fmt.Sscanf(parts[0], "%d", &num); err == nil {
-							if num > nextNum {
-								nextNum = num
-							}
-						}
-					}
-				}
-			}
-			nextNum++
-
+			nextNum := getNextMigrationNum(entries)
 			filename := filepath.Join("migrations", fmt.Sprintf("%06d_%s.sql", nextNum, name))
 
 			if _, err := os.Stat(filename); err == nil {
@@ -53,4 +38,25 @@ func newMigrationCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func getNextMigrationNum(entries []os.DirEntry) int {
+	var nextNum int
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+		parts := strings.Split(entry.Name(), "_")
+		if len(parts) == 0 {
+			continue
+		}
+		var num int
+		if _, err := fmt.Sscanf(parts[0], "%d", &num); err != nil {
+			continue
+		}
+		if num > nextNum {
+			nextNum = num
+		}
+	}
+	return nextNum + 1
 }

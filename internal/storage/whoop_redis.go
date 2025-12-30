@@ -84,34 +84,46 @@ func (w *WhoopRedisLimiter) CheckAndIncrement(ctx context.Context, userKey strin
 	}
 
 	if allowed == 1 {
-		minRemaining, ok := resultSlice[1].(int64)
-		if !ok {
-			return nil, fmt.Errorf("unexpected minute remaining type")
+		if err := populateAllowedState(state, resultSlice); err != nil {
+			return nil, err
 		}
-		dayRemaining, ok := resultSlice[2].(int64)
-		if !ok {
-			return nil, fmt.Errorf("unexpected day remaining type")
-		}
-
-		state.MinuteRemaining = int(minRemaining)
-		state.DayRemaining = int(dayRemaining)
-		state.MinuteReset = time.Now().Add(time.Minute).Truncate(time.Minute)
-		state.DayReset = time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
-	} else {
-		reasonStr, ok := resultSlice[1].(string)
-		if !ok {
-			return nil, fmt.Errorf("unexpected reason type: got %T", resultSlice[1])
-		}
-		reason := WhoopRateLimitReason(reasonStr)
-		state.Reason = &reason
-		if reason == WhoopRateLimitReasonPerUserMinute || reason == WhoopRateLimitReasonGlobalMinute {
-			state.MinuteReset = time.Now().Add(time.Minute).Truncate(time.Minute)
-		} else {
-			state.DayReset = time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
-		}
+	} else if err := populateDeniedState(state, resultSlice); err != nil {
+		return nil, err
 	}
 
 	return state, nil
+}
+
+func populateAllowedState(state *WhoopRateLimitState, resultSlice []any) error {
+	minRemaining, ok := resultSlice[1].(int64)
+	if !ok {
+		return fmt.Errorf("unexpected minute remaining type")
+	}
+	dayRemaining, ok := resultSlice[2].(int64)
+	if !ok {
+		return fmt.Errorf("unexpected day remaining type")
+	}
+
+	state.MinuteRemaining = int(minRemaining)
+	state.DayRemaining = int(dayRemaining)
+	state.MinuteReset = time.Now().Add(time.Minute).Truncate(time.Minute)
+	state.DayReset = time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
+	return nil
+}
+
+func populateDeniedState(state *WhoopRateLimitState, resultSlice []any) error {
+	reasonStr, ok := resultSlice[1].(string)
+	if !ok {
+		return fmt.Errorf("unexpected reason type: got %T", resultSlice[1])
+	}
+	reason := WhoopRateLimitReason(reasonStr)
+	state.Reason = &reason
+	if reason == WhoopRateLimitReasonPerUserMinute || reason == WhoopRateLimitReasonGlobalMinute {
+		state.MinuteReset = time.Now().Add(time.Minute).Truncate(time.Minute)
+	} else {
+		state.DayReset = time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
+	}
+	return nil
 }
 
 func (w *WhoopRedisLimiter) UpdateFromHeaders(ctx context.Context, headers http.Header) error {

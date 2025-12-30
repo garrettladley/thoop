@@ -98,7 +98,7 @@ func (c *PollClient) PollAll(ctx context.Context, ch chan<- storage.Notification
 			case ch <- n:
 				total++
 			case <-ctx.Done():
-				return total, ctx.Err()
+				return total, fmt.Errorf("context cancelled: %w", ctx.Err())
 			}
 		}
 
@@ -133,5 +133,9 @@ func (t *pollTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		xhttp.SetRequestHeaderSessionID(req, t.sessionID)
 	}
 
-	return t.base.RoundTrip(req)
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return nil, fmt.Errorf("round trip: %w", err)
+	}
+	return resp, nil
 }

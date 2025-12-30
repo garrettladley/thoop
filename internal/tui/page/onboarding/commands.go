@@ -53,7 +53,7 @@ func TokenCheckTickCmd(interval time.Duration) tea.Cmd {
 	})
 }
 
-func RefreshTokenIfNeededCmd(ctx context.Context, tokenSource *oauth.DBTokenSource, threshold time.Duration) tea.Cmd {
+func RefreshTokenIfNeededCmd(ctx context.Context, tokenSource oauth.TokenSource, threshold time.Duration) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()

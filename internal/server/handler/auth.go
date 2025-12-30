@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"time"
 
+	go_json "github.com/goccy/go-json"
+
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/service/auth"
 	"github.com/garrettladley/thoop/internal/xslog"
@@ -57,6 +59,57 @@ func (h *Auth) HandleAuthStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, result.AuthURL, http.StatusTemporaryRedirect)
+}
+
+// HandleRefresh handles POST /auth/refresh requests.
+func (h *Auth) HandleRefresh(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := xslog.FromContext(ctx)
+
+	var reqBody struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	if err := go_json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	req := auth.RefreshRequest{
+		RefreshToken: reqBody.RefreshToken,
+	}
+
+	result, err := h.service.RefreshToken(ctx, req)
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidRefreshToken) {
+			http.Error(w, "invalid or missing refresh token", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, auth.ErrRefreshFailed) {
+			http.Error(w, "token refresh failed", http.StatusUnauthorized)
+			return
+		}
+		logger.ErrorContext(ctx, "refresh token error", xslog.Error(err))
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := struct {
+		AccessToken  string `json:"access_token"`
+		TokenType    string `json:"token_type"`
+		ExpiresIn    int    `json:"expires_in"`
+		RefreshToken string `json:"refresh_token,omitempty"`
+	}{
+		AccessToken:  result.Token.AccessToken,
+		TokenType:    result.Token.TokenType,
+		ExpiresIn:    int(time.Until(result.Token.Expiry).Seconds()),
+		RefreshToken: result.Token.RefreshToken,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := go_json.NewEncoder(w).Encode(resp); err != nil {
+		logger.ErrorContext(ctx, "failed to encode response", xslog.Error(err))
+	}
 }
 
 // HandleAuthCallback handles GET /auth/callback requests.

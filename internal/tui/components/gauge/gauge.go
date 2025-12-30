@@ -176,7 +176,7 @@ func overlayArcsRaw(bgStr, fillStr string, bgColor, fillColor color.Color) strin
 	var (
 		bgLines   = strings.Split(bgStr, "\n")
 		fillLines = strings.Split(fillStr, "\n")
-		result    []string
+		result    = make([]string, 0, len(bgLines))
 		bgStyle   = lipgloss.NewStyle().Foreground(bgColor)
 		fillStyle = lipgloss.NewStyle().Foreground(fillColor)
 	)
