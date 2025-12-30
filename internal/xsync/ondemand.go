@@ -6,6 +6,7 @@ import (
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/xslog"
+	"golang.org/x/sync/errgroup"
 )
 
 // fetchHistorical fetches data for a specific date range.
@@ -15,15 +16,11 @@ func (s *Service) fetchHistorical(ctx context.Context, start, end time.Time) err
 		xslog.Start(start),
 		xslog.End(end))
 
-	if err := s.fetchHistoricalCycles(ctx, start, end); err != nil {
-		return err
-	}
-
-	if err := s.fetchHistoricalSleeps(ctx, start, end); err != nil {
-		return err
-	}
-
-	if err := s.fetchHistoricalWorkouts(ctx, start, end); err != nil {
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return s.fetchHistoricalCycles(gctx, start, end) })
+	g.Go(func() error { return s.fetchHistoricalSleeps(gctx, start, end) })
+	g.Go(func() error { return s.fetchHistoricalWorkouts(gctx, start, end) })
+	if err := g.Wait(); err != nil {
 		return err
 	}
 
@@ -55,21 +52,27 @@ func (s *Service) fetchHistoricalCycles(ctx context.Context, start, end time.Tim
 			return err
 		}
 
-		// Fetch recoveries for each cycle
+		// Fetch recoveries for each cycle in parallel
+		rg, rgctx := errgroup.WithContext(ctx)
+		rg.SetLimit(maxRecoveryConcurrency)
 		for _, cycle := range resp.Records {
-			recovery, err := s.client.Cycle.GetRecovery(ctx, cycle.ID)
-			if err != nil {
-				s.logger.WarnContext(ctx, "failed to fetch recovery",
-					xslog.CycleID(cycle.ID),
-					xslog.Error(err))
-				continue
-			}
-			if err := s.repo.Recoveries.Upsert(ctx, recovery); err != nil {
-				s.logger.WarnContext(ctx, "failed to save recovery",
-					xslog.CycleID(cycle.ID),
-					xslog.Error(err))
-			}
+			rg.Go(func() error {
+				recovery, err := s.client.Cycle.GetRecovery(rgctx, cycle.ID)
+				if err != nil {
+					s.logger.WarnContext(rgctx, "failed to fetch recovery",
+						xslog.CycleID(cycle.ID),
+						xslog.Error(err))
+					return nil
+				}
+				if err := s.repo.Recoveries.Upsert(rgctx, recovery); err != nil {
+					s.logger.WarnContext(rgctx, "failed to save recovery",
+						xslog.CycleID(cycle.ID),
+						xslog.Error(err))
+				}
+				return nil
+			})
 		}
+		_ = rg.Wait()
 
 		if !resp.HasMore() {
 			break
