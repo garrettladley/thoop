@@ -35,9 +35,11 @@ func NewPollClient(baseURL string, tokenSource oauth2.TokenSource, sessionID str
 	}
 }
 
+const defaultPollLimit = 100
+
 // Poll fetches unacknowledged notifications using cursor-based pagination.
 // Pass cursor=0 for the first page. Returns notifications with id > cursor.
-func (c *PollClient) Poll(ctx context.Context, cursor int64) (*PollResponse, error) {
+func (c *PollClient) Poll(ctx context.Context, cursor int64, limit int32) (*PollResponse, error) {
 	u, err := url.Parse(c.baseURL + "/api/notifications")
 	if err != nil {
 		return nil, fmt.Errorf("parsing URL: %w", err)
@@ -46,6 +48,9 @@ func (c *PollClient) Poll(ctx context.Context, cursor int64) (*PollResponse, err
 	q := u.Query()
 	if cursor > 0 {
 		q.Set("cursor", strconv.FormatInt(cursor, 10))
+	}
+	if limit > 0 {
+		q.Set("limit", strconv.FormatInt(int64(limit), 10))
 	}
 	u.RawQuery = q.Encode()
 
@@ -70,6 +75,41 @@ func (c *PollClient) Poll(ctx context.Context, cursor int64) (*PollResponse, err
 	}
 
 	return &result, nil
+}
+
+// PollAll fetches all unacknowledged notifications by paginating until exhausted.
+// Sends notifications to the provided channel as they are fetched.
+// Returns total count fetched, or error. Closes channel when done or on error.
+func (c *PollClient) PollAll(ctx context.Context, ch chan<- storage.Notification) (int, error) {
+	defer close(ch)
+
+	var (
+		cursor int64
+		total  int
+	)
+	for {
+		resp, err := c.Poll(ctx, cursor, defaultPollLimit)
+		if err != nil {
+			return total, err
+		}
+
+		for _, n := range resp.Notifications {
+			select {
+			case ch <- n:
+				total++
+			case <-ctx.Done():
+				return total, ctx.Err()
+			}
+		}
+
+		if len(resp.Notifications) < defaultPollLimit {
+			break
+		}
+
+		cursor = resp.Notifications[len(resp.Notifications)-1].ID
+	}
+
+	return total, nil
 }
 
 type pollTransport struct {

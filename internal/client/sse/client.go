@@ -30,6 +30,7 @@ type Event struct {
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+	poller     *PollClient
 	logger     *slog.Logger
 }
 
@@ -43,6 +44,7 @@ func NewClient(baseURL string, tokenSource oauth2.TokenSource, sessionID string,
 	return &Client{
 		baseURL:    baseURL,
 		httpClient: &http.Client{Transport: transport},
+		poller:     NewPollClient(baseURL, tokenSource, sessionID),
 		logger:     logger,
 	}
 }
@@ -94,7 +96,12 @@ func (c *Client) Connect(ctx context.Context, handler NotificationHandler) error
 }
 
 // connectOnce establishes a single SSE connection and processes events until disconnection.
+// On each connect, it first polls for any missed unacked notifications before streaming.
 func (c *Client) connectOnce(ctx context.Context, handler NotificationHandler) error {
+	if err := c.catchUp(ctx, handler); err != nil {
+		return fmt.Errorf("catching up: %w", err)
+	}
+
 	url := c.baseURL + "/api/notifications/stream"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -111,7 +118,7 @@ func (c *Client) connectOnce(ctx context.Context, handler NotificationHandler) e
 		return fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
-	c.logger.InfoContext(ctx, "SSE connection established")
+	c.logger.DebugContext(ctx, "SSE connection established")
 
 	scanner := bufio.NewScanner(resp.Body)
 	var currentEvent Event
@@ -137,6 +144,35 @@ func (c *Client) connectOnce(ctx context.Context, handler NotificationHandler) e
 
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("reading stream: %w", err)
+	}
+
+	return nil
+}
+
+// catchUp polls for all unacked notifications and delivers them to the handler.
+// Uses a buffered channel to avoid loading all notifications into memory at once.
+func (c *Client) catchUp(ctx context.Context, handler NotificationHandler) error {
+	ch := make(chan storage.Notification, defaultPollLimit)
+
+	var pollErr error
+	var total int
+
+	go func() {
+		total, pollErr = c.poller.PollAll(ctx, ch)
+	}()
+
+	for n := range ch {
+		handler(n)
+	}
+
+	if pollErr != nil {
+		return pollErr
+	}
+
+	if total > 0 {
+		c.logger.DebugContext(ctx, "caught up on missed notifications",
+			xslog.Count(total),
+		)
 	}
 
 	return nil

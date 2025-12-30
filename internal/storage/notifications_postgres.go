@@ -52,7 +52,7 @@ func (s *HybridNotificationStore) Add(ctx context.Context, userID int64, n Notif
 		return nil
 	}
 
-	// Set the ID on the notification for real-time subscribers
+	// set the ID on the notification for real-time subscribers
 	n.ID = *id
 
 	data, err := go_json.Marshal(n)
