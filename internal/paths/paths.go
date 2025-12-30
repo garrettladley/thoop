@@ -8,7 +8,6 @@ import (
 
 const (
 	dotConfig = ".config"
-	appName   = "thoop"
 	dbName    = "thoop.db"
 	logsDir   = "logs"
 )

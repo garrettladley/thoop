@@ -9,7 +9,6 @@ primary_region = 'iad'
 [build]
 
 [env]
-  ENV = 'production'
   BASE_URL = 'https://thoop.fly.dev'
 
 [http_service]
