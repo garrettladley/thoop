@@ -54,10 +54,10 @@ func logError(ctx context.Context, err *Error) {
 		attrs = append(attrs, xslog.Error(err.Cause))
 	}
 	if err.RateLimit != nil {
-		attrs = append(attrs, slog.Any("rate_limit", err.RateLimit))
+		attrs = append(attrs, xslog.RateLimitGroup(err.RateLimit.RetryAfter, err.RateLimit.Reason))
 	}
 	if err.Validation != nil {
-		attrs = append(attrs, slog.Any("validation", err.Validation))
+		attrs = append(attrs, xslog.ValidationGroup(err.Validation.Fields))
 	}
 
 	switch err.StatusCode / 100 {

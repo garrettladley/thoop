@@ -90,3 +90,22 @@ func BindingMismatchGroup(tokenUserID, apiKeyUserID int64) slog.Attr {
 		slog.Int64(keyApiKeyUserID, apiKeyUserID),
 	)
 }
+
+func RateLimitGroup(retryAfter time.Duration, reason string) slog.Attr {
+	attrs := make([]any, 0, 2)
+	if retryAfter > 0 {
+		attrs = append(attrs, slog.Duration("retry_after", retryAfter))
+	}
+	if reason != "" {
+		attrs = append(attrs, slog.String("reason", reason))
+	}
+	return slog.Group("rate_limit", attrs...)
+}
+
+func ValidationGroup(fields map[string]string) slog.Attr {
+	attrs := make([]any, 0, len(fields))
+	for k, v := range fields {
+		attrs = append(attrs, slog.String(k, v))
+	}
+	return slog.Group("validation", attrs...)
+}
