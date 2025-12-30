@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"compress/gzip"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -32,7 +33,11 @@ type gzipResponseWriter struct {
 	decided     bool
 }
 
-var _ http.Flusher = (*gzipResponseWriter)(nil)
+var (
+	_ http.ResponseWriter = (*gzipResponseWriter)(nil)
+	_ http.Flusher        = (*gzipResponseWriter)(nil)
+	_ io.Closer           = (*gzipResponseWriter)(nil)
+)
 
 func (g *gzipResponseWriter) WriteHeader(code int) {
 	g.statusCode = code
