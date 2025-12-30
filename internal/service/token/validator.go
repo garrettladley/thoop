@@ -22,7 +22,6 @@ const defaultTokenCacheTTL = 5 * time.Minute
 type Validator struct {
 	cache        storage.TokenCache
 	whoopLimiter storage.WhoopRateLimiter
-	httpClient   *http.Client
 	ttl          time.Duration
 }
 
@@ -32,7 +31,6 @@ func NewValidator(cache storage.TokenCache, whoopLimiter storage.WhoopRateLimite
 	return &Validator{
 		cache:        cache,
 		whoopLimiter: whoopLimiter,
-		httpClient:   &http.Client{Timeout: 10 * time.Second},
 		ttl:          defaultTokenCacheTTL,
 	}
 }
@@ -128,7 +126,7 @@ func (v *Validator) validateWithWhoopAPI(ctx context.Context, token string, toke
 	}
 
 	tokenSource := &staticTokenSource{token: token}
-	client := whoop.New(tokenSource, whoop.WithHTTPClient(v.httpClient))
+	client := whoop.New(tokenSource, whoop.WithTimeout(10*time.Second))
 
 	profile, err := client.User.GetProfile(ctx)
 	if err != nil {

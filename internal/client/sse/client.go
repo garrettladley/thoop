@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/storage"
-	"github.com/garrettladley/thoop/internal/version"
 	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 	go_json "github.com/goccy/go-json"
@@ -29,22 +28,22 @@ type Event struct {
 }
 
 type Client struct {
-	baseURL     string
-	httpClient  *http.Client
-	tokenSource oauth2.TokenSource
-	sessionID   string
-	apiKey      string
-	logger      *slog.Logger
+	baseURL    string
+	httpClient *http.Client
+	logger     *slog.Logger
 }
 
 func NewClient(baseURL string, tokenSource oauth2.TokenSource, sessionID string, apiKey string, logger *slog.Logger) *Client {
-	return &Client{
-		baseURL:     baseURL,
-		httpClient:  &http.Client{Timeout: 0}, // no timeout for SSE
+	transport := &sseTransport{
+		base:        xhttp.NewTransport(),
 		tokenSource: tokenSource,
 		sessionID:   sessionID,
 		apiKey:      apiKey,
-		logger:      logger,
+	}
+	return &Client{
+		baseURL:    baseURL,
+		httpClient: &http.Client{Transport: transport},
+		logger:     logger,
 	}
 }
 
@@ -96,27 +95,10 @@ func (c *Client) Connect(ctx context.Context, handler NotificationHandler) error
 
 // connectOnce establishes a single SSE connection and processes events until disconnection.
 func (c *Client) connectOnce(ctx context.Context, handler NotificationHandler) error {
-	token, err := c.tokenSource.Token()
-	if err != nil {
-		return fmt.Errorf("getting token: %w", err)
-	}
-
 	url := c.baseURL + "/api/notifications/stream"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
-	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("Cache-Control", "no-cache")
-	req.Header.Set(version.Header, version.Get())
-
-	if c.sessionID != "" {
-		xhttp.SetRequestHeaderSessionID(req, c.sessionID)
-	}
-	if c.apiKey != "" {
-		req.Header.Set(xhttp.XAPIKey, c.apiKey)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -185,4 +167,33 @@ func (c *Client) handleEvent(ctx context.Context, event Event, handler Notificat
 	default:
 		c.logger.DebugContext(ctx, "received unknown event type", xslog.Type(event.Type))
 	}
+}
+
+type sseTransport struct {
+	base        http.RoundTripper
+	tokenSource oauth2.TokenSource
+	sessionID   string
+	apiKey      string
+}
+
+var _ http.RoundTripper = (*sseTransport)(nil)
+
+func (t *sseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	token, err := t.tokenSource.Token()
+	if err != nil {
+		return nil, fmt.Errorf("getting token: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Cache-Control", "no-cache")
+
+	if t.sessionID != "" {
+		xhttp.SetRequestHeaderSessionID(req, t.sessionID)
+	}
+	if t.apiKey != "" {
+		req.Header.Set(xhttp.XAPIKey, t.apiKey)
+	}
+
+	return t.base.RoundTrip(req)
 }

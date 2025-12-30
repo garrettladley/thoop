@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"time"
 
-	"github.com/garrettladley/thoop/internal/version"
 	"github.com/garrettladley/thoop/internal/xhttp"
 	go_json "github.com/goccy/go-json"
 	"golang.org/x/oauth2"
@@ -22,27 +22,34 @@ type Client struct {
 	Sleep    SleepService
 	Workout  WorkoutService
 
-	baseURL     string
-	httpClient  *http.Client
-	tokenSource oauth2.TokenSource
-	logger      *slog.Logger
-
-	isUsingProxy bool
-	sessionID    string
-	apiKey       string
+	baseURL    string
+	httpClient *http.Client
+	logger     *slog.Logger
 }
 
 func New(tokenSource oauth2.TokenSource, opts ...Option) *Client {
 	const baseURL = "https://api.prod.whoop.com/developer"
-	c := &Client{
+
+	cfg := &clientConfig{
 		baseURL:     baseURL,
-		httpClient:  http.DefaultClient,
 		tokenSource: tokenSource,
 		logger:      slog.Default(),
 	}
-
 	for _, opt := range opts {
-		opt(c)
+		opt(cfg)
+	}
+
+	transport := &whoopTransport{
+		base:        xhttp.NewTransport(),
+		tokenSource: cfg.tokenSource,
+		sessionID:   cfg.sessionID,
+		apiKey:      cfg.apiKey,
+	}
+
+	c := &Client{
+		baseURL:    cfg.baseURL,
+		httpClient: &http.Client{Transport: transport, Timeout: cfg.timeout},
+		logger:     cfg.logger,
 	}
 
 	c.User = &userService{client: c}
@@ -54,37 +61,38 @@ func New(tokenSource oauth2.TokenSource, opts ...Option) *Client {
 	return c
 }
 
-type Option func(*Client)
-
-func WithHTTPClient(hc *http.Client) Option {
-	return func(c *Client) { c.httpClient = hc }
+type clientConfig struct {
+	baseURL     string
+	tokenSource oauth2.TokenSource
+	logger      *slog.Logger
+	sessionID   string
+	apiKey      string
+	timeout     time.Duration
 }
 
+type Option func(*clientConfig)
+
 func WithProxyURL(baseURL string) Option {
-	return func(c *Client) {
-		c.baseURL = baseURL
-		c.isUsingProxy = true
-	}
+	return func(cfg *clientConfig) { cfg.baseURL = baseURL }
 }
 
 func WithSessionID(sessionID string) Option {
-	return func(c *Client) { c.sessionID = sessionID }
+	return func(cfg *clientConfig) { cfg.sessionID = sessionID }
 }
 
 func WithLogger(logger *slog.Logger) Option {
-	return func(c *Client) { c.logger = logger }
+	return func(cfg *clientConfig) { cfg.logger = logger }
 }
 
 func WithAPIKey(apiKey string) Option {
-	return func(c *Client) { c.apiKey = apiKey }
+	return func(cfg *clientConfig) { cfg.apiKey = apiKey }
+}
+
+func WithTimeout(d time.Duration) Option {
+	return func(cfg *clientConfig) { cfg.timeout = d }
 }
 
 func (c *Client) do(ctx context.Context, method string, path string, query url.Values, result any) error {
-	token, err := c.tokenSource.Token()
-	if err != nil {
-		return fmt.Errorf("getting token: %w", err)
-	}
-
 	u := c.baseURL + path
 	if len(query) > 0 {
 		u += "?" + query.Encode()
@@ -93,19 +101,6 @@ func (c *Client) do(ctx context.Context, method string, path string, query url.V
 	req, err := http.NewRequestWithContext(ctx, method, u, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set(version.Header, version.Get())
-
-	if c.isUsingProxy {
-		if c.sessionID != "" {
-			xhttp.SetRequestHeaderSessionID(req, c.sessionID)
-		}
-		if c.apiKey != "" {
-			req.Header.Set(xhttp.XAPIKey, c.apiKey)
-		}
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -129,4 +124,32 @@ func (c *Client) do(ctx context.Context, method string, path string, query url.V
 	}
 
 	return nil
+}
+
+type whoopTransport struct {
+	base        http.RoundTripper
+	tokenSource oauth2.TokenSource
+	sessionID   string
+	apiKey      string
+}
+
+var _ http.RoundTripper = (*whoopTransport)(nil)
+
+func (t *whoopTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	token, err := t.tokenSource.Token()
+	if err != nil {
+		return nil, fmt.Errorf("getting token: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	req.Header.Set("Accept", "application/json")
+
+	if t.sessionID != "" {
+		xhttp.SetRequestHeaderSessionID(req, t.sessionID)
+	}
+	if t.apiKey != "" {
+		req.Header.Set(xhttp.XAPIKey, t.apiKey)
+	}
+
+	return t.base.RoundTrip(req)
 }
