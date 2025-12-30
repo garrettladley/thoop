@@ -21,8 +21,8 @@ const (
 )
 
 type Notification struct {
-	ID         int64      `json:"id"`          // monotonic, for cursor
-	TraceID    string     `json:"trace_id"`    // WHOOP's trace_id, for acking
+	ID         int64      `json:"id"`       // monotonic, for cursor
+	TraceID    string     `json:"trace_id"` // WHOOP's trace_id, for acking
 	EntityType EntityType `json:"entity_type"`
 	EntityID   string     `json:"entity_id"`
 	Action     Action     `json:"action"`
