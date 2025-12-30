@@ -63,7 +63,7 @@ func authCmd() *cobra.Command {
 
 			client := whoop.New(tokenSource,
 				whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
-				whoop.WithAPIKey(result.apiKey),
+				whoop.WithAPIKey(result.APIKey),
 			)
 			repo := repository.New(querier)
 			syncSvc := xsync.NewService(client, repo, logger)
