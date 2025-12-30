@@ -2,17 +2,7 @@ package storage
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"time"
-
-	go_json "github.com/goccy/go-json"
-	"github.com/redis/go-redis/v9"
-)
-
-const (
-	notificationsKeyPrefix  = "notifications:"
-	notificationsLivePrefix = "notifications:live:"
 )
 
 type EntityType string
@@ -31,6 +21,8 @@ const (
 )
 
 type Notification struct {
+	ID         int64      `json:"id"`          // monotonic, for cursor
+	TraceID    string     `json:"trace_id"`    // WHOOP's trace_id, for acking
 	EntityType EntityType `json:"entity_type"`
 	EntityID   string     `json:"entity_id"`
 	Action     Action     `json:"action"`
@@ -38,144 +30,18 @@ type Notification struct {
 }
 
 type NotificationStore interface {
+	// Add persists a notification and publishes to real-time subscribers.
+	// Idempotent: duplicate trace_ids are ignored.
 	Add(ctx context.Context, userID int64, n Notification) error
 
-	GetSince(ctx context.Context, userID int64, since time.Time) ([]Notification, error)
+	// GetUnacked returns unacknowledged notifications using cursor-based pagination.
+	// Pass 0 for the first page. Returns notifications with id > cursor.
+	GetUnacked(ctx context.Context, userID int64, cursor int64, limit int32) ([]Notification, error)
 
-	Publish(ctx context.Context, userID int64, n Notification) error
+	// Acknowledge marks the specified notifications as acknowledged by trace_id.
+	Acknowledge(ctx context.Context, userID int64, traceIDs []string) error
 
 	// Subscribe returns a channel that receives notifications for a user.
 	// The returned function should be called to unsubscribe.
 	Subscribe(ctx context.Context, userID int64) (<-chan Notification, func(), error)
-
-	// DeleteBefore removes notifications older than the given timestamp.
-	// Called after client successfully processes notifications.
-	DeleteBefore(ctx context.Context, userID int64, before time.Time) error
-}
-
-var _ NotificationStore = (*RedisNotificationStore)(nil)
-
-type RedisNotificationStore struct {
-	client *redis.Client
-}
-
-func NewRedisNotificationStore(client *redis.Client) *RedisNotificationStore {
-	return &RedisNotificationStore{
-		client: client,
-	}
-}
-
-func (s *RedisNotificationStore) notificationsKey(userID int64) string {
-	return notificationsKeyPrefix + strconv.FormatInt(userID, 10)
-}
-
-func (s *RedisNotificationStore) liveKey(userID int64) string {
-	return notificationsLivePrefix + strconv.FormatInt(userID, 10)
-}
-
-func (s *RedisNotificationStore) Add(ctx context.Context, userID int64, n Notification) error {
-	data, err := go_json.Marshal(n)
-	if err != nil {
-		return fmt.Errorf("failed to marshal notification: %w", err)
-	}
-
-	key := s.notificationsKey(userID)
-	score := float64(n.Timestamp.UnixMilli())
-
-	err = s.client.ZAdd(ctx, key, redis.Z{
-		Score:  score,
-		Member: string(data),
-	}).Err()
-	if err != nil {
-		return fmt.Errorf("failed to add notification: %w", err)
-	}
-
-	return nil
-}
-
-func (s *RedisNotificationStore) GetSince(ctx context.Context, userID int64, since time.Time) ([]Notification, error) {
-	key := s.notificationsKey(userID)
-	minScore := fmt.Sprintf("%d", since.UnixMilli())
-
-	results, err := s.client.ZRangeByScore(ctx, key, &redis.ZRangeBy{
-		Min: "(" + minScore,
-		Max: "+inf",
-	}).Result()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get notifications: %w", err)
-	}
-
-	notifications := make([]Notification, 0, len(results))
-	for _, data := range results {
-		var n Notification
-		if err := go_json.Unmarshal([]byte(data), &n); err != nil {
-			continue
-		}
-		notifications = append(notifications, n)
-	}
-
-	return notifications, nil
-}
-
-func (s *RedisNotificationStore) Publish(ctx context.Context, userID int64, n Notification) error {
-	data, err := go_json.Marshal(n)
-	if err != nil {
-		return fmt.Errorf("failed to marshal notification: %w", err)
-	}
-
-	channel := s.liveKey(userID)
-	if err := s.client.Publish(ctx, channel, string(data)).Err(); err != nil {
-		return fmt.Errorf("failed to publish notification: %w", err)
-	}
-
-	return nil
-}
-
-func (s *RedisNotificationStore) Subscribe(ctx context.Context, userID int64) (<-chan Notification, func(), error) {
-	channel := s.liveKey(userID)
-	pubsub := s.client.Subscribe(ctx, channel)
-
-	_, err := pubsub.Receive(ctx)
-	if err != nil {
-		_ = pubsub.Close()
-		return nil, nil, fmt.Errorf("failed to subscribe: %w", err)
-	}
-
-	notifCh := make(chan Notification)
-
-	go func() {
-		defer close(notifCh)
-		ch := pubsub.Channel()
-
-		for msg := range ch {
-			var n Notification
-			if err := go_json.Unmarshal([]byte(msg.Payload), &n); err != nil {
-				continue
-			}
-
-			select {
-			case notifCh <- n:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	unsubscribe := func() {
-		_ = pubsub.Close()
-	}
-
-	return notifCh, unsubscribe, nil
-}
-
-func (s *RedisNotificationStore) DeleteBefore(ctx context.Context, userID int64, before time.Time) error {
-	key := s.notificationsKey(userID)
-	maxScore := fmt.Sprintf("%d", before.UnixMilli())
-
-	err := s.client.ZRemRangeByScore(ctx, key, "-inf", maxScore).Err()
-	if err != nil {
-		return fmt.Errorf("failed to delete notifications: %w", err)
-	}
-
-	return nil
 }

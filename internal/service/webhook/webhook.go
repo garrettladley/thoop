@@ -49,6 +49,7 @@ func (p *Processor) ProcessWebhook(ctx context.Context, req ProcessRequest) erro
 	}
 
 	notification := storage.Notification{
+		TraceID:    event.GetTraceID(),
 		EntityType: event.GetEntityType(),
 		EntityID:   event.GetEntityID(),
 		Action:     event.GetAction(),
@@ -58,14 +59,7 @@ func (p *Processor) ProcessWebhook(ctx context.Context, req ProcessRequest) erro
 	userID := event.GetUserID()
 
 	if err := p.notificationStore.Add(ctx, userID, notification); err != nil {
-		logger.ErrorContext(ctx, "failed to store notification",
-			xslog.Error(err),
-			xslog.UserID(userID),
-		)
-	}
-
-	if err := p.notificationStore.Publish(ctx, userID, notification); err != nil {
-		logger.ErrorContext(ctx, "failed to publish notification",
+		logger.ErrorContext(ctx, "failed to store/publish notification",
 			xslog.Error(err),
 			xslog.UserID(userID),
 		)

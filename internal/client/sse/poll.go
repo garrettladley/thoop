@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/storage"
@@ -15,7 +16,6 @@ import (
 
 type PollResponse struct {
 	Notifications []storage.Notification `json:"notifications"`
-	ServerTime    time.Time              `json:"server_time"`
 }
 
 type PollClient struct {
@@ -35,15 +35,17 @@ func NewPollClient(baseURL string, tokenSource oauth2.TokenSource, sessionID str
 	}
 }
 
-func (c *PollClient) Poll(ctx context.Context, since time.Time) (*PollResponse, error) {
+// Poll fetches unacknowledged notifications using cursor-based pagination.
+// Pass cursor=0 for the first page. Returns notifications with id > cursor.
+func (c *PollClient) Poll(ctx context.Context, cursor int64) (*PollResponse, error) {
 	u, err := url.Parse(c.baseURL + "/api/notifications")
 	if err != nil {
 		return nil, fmt.Errorf("parsing URL: %w", err)
 	}
 
 	q := u.Query()
-	if !since.IsZero() {
-		q.Set("since", since.Format(time.RFC3339))
+	if cursor > 0 {
+		q.Set("cursor", strconv.FormatInt(cursor, 10))
 	}
 	u.RawQuery = q.Encode()
 

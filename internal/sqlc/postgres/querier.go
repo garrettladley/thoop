@@ -9,6 +9,7 @@ import (
 )
 
 type Querier interface {
+	AcknowledgeWebhookEventsByTraceIDs(ctx context.Context, arg AcknowledgeWebhookEventsByTraceIDsParams) error
 	BanUser(ctx context.Context, whoopUserID int64) error
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateUser(ctx context.Context, whoopUserID int64) (User, error)
@@ -16,7 +17,9 @@ type Querier interface {
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error)
 	GetAPIKeysByUser(ctx context.Context, whoopUserID int64) ([]ApiKey, error)
 	GetOrCreateUser(ctx context.Context, whoopUserID int64) (User, error)
+	GetUnackedWebhookEvents(ctx context.Context, arg GetUnackedWebhookEventsParams) ([]GetUnackedWebhookEventsRow, error)
 	GetUser(ctx context.Context, whoopUserID int64) (User, error)
+	InsertWebhookEvent(ctx context.Context, arg InsertWebhookEventParams) (*int64, error)
 	RevokeAPIKey(ctx context.Context, id int64) error
 	UnbanUser(ctx context.Context, whoopUserID int64) error
 	UpdateAPIKeyLastUsed(ctx context.Context, id int64) error

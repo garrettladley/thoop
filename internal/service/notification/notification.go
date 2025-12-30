@@ -2,7 +2,6 @@ package notification
 
 import (
 	"context"
-	"time"
 
 	"github.com/garrettladley/thoop/internal/storage"
 )
@@ -17,8 +16,8 @@ func NewStore(store storage.NotificationStore) *Store {
 	return &Store{store: store}
 }
 
-func (s *Store) GetNotifications(ctx context.Context, userID int64, since time.Time) (*PollResult, error) {
-	notifications, err := s.store.GetSince(ctx, userID, since)
+func (s *Store) GetUnacked(ctx context.Context, userID int64, cursor int64, limit int32) (*PollResult, error) {
+	notifications, err := s.store.GetUnacked(ctx, userID, cursor, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -29,8 +28,11 @@ func (s *Store) GetNotifications(ctx context.Context, userID int64, since time.T
 
 	return &PollResult{
 		Notifications: notifications,
-		ServerTime:    time.Now(),
 	}, nil
+}
+
+func (s *Store) Acknowledge(ctx context.Context, userID int64, traceIDs []string) error {
+	return s.store.Acknowledge(ctx, userID, traceIDs)
 }
 
 func (s *Store) Subscribe(ctx context.Context, userID int64) (<-chan storage.Notification, func(), error) {

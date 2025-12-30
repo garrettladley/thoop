@@ -86,7 +86,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	whoopLimiter := initWhoopLimiter(ctx, cfg, redisClient, logger)
 	tokenCache := initTokenCache(ctx, redisClient, logger)
-	notificationStore := initNotificationStore(ctx, redisClient, logger)
+	notificationStore := initNotificationStore(ctx, pool, redisClient, logger)
 
 	// Database layer
 	queries := pgc.New(pool)
@@ -143,12 +143,14 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	notificationsMux := http.NewServeMux()
 	notificationsMux.HandleFunc("GET /api/notifications", notificationsHandler.HandlePoll)
+	notificationsMux.HandleFunc("POST /api/notifications/ack", notificationsHandler.HandleAcknowledge)
 	notificationsMux.HandleFunc("GET /api/notifications/stream", sseHandler.HandleStream)
 	notificationsWrapped := middleware.Chain(notificationsMux,
 		servermw.APIKeyAuth(userService),
 		servermw.BearerAuth(tokenService),
 	)
 	mux.Handle("/api/notifications", notificationsWrapped)
+	mux.Handle("/api/notifications/ack", notificationsWrapped)
 	mux.Handle("/api/notifications/stream", notificationsWrapped)
 
 	wrapped := middleware.Chain(mux,
@@ -233,9 +235,9 @@ func initTokenCache(ctx context.Context, redisClient *redis.Client, logger *slog
 	return storage.NewRedisTokenCache(storage.RedisConfig{Client: redisClient})
 }
 
-func initNotificationStore(ctx context.Context, redisClient *redis.Client, logger *slog.Logger) storage.NotificationStore {
-	logger.InfoContext(ctx, "initializing notification store")
-	return storage.NewRedisNotificationStore(redisClient)
+func initNotificationStore(ctx context.Context, pool *pgxpool.Pool, redisClient *redis.Client, logger *slog.Logger) storage.NotificationStore {
+	logger.InfoContext(ctx, "initializing notification store (PostgreSQL + Redis pub/sub)")
+	return storage.NewHybridNotificationStore(pool, redisClient)
 }
 
 func initPostgres(ctx context.Context, cfg server.Config, logger *slog.Logger) (*pgxpool.Pool, error) {

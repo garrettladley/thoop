@@ -2,19 +2,21 @@ package notification
 
 import (
 	"context"
-	"time"
 
 	"github.com/garrettladley/thoop/internal/storage"
 )
 
 type PollResult struct {
 	Notifications []storage.Notification `json:"notifications"`
-	ServerTime    time.Time              `json:"server_time"`
 }
 
 type Service interface {
-	// GetNotifications retrieves notifications since a given timestamp.
-	GetNotifications(ctx context.Context, userID int64, since time.Time) (*PollResult, error)
+	// GetUnacked retrieves unacknowledged notifications using cursor-based pagination.
+	// Pass 0 for the first page. cursor is the monotonic id.
+	GetUnacked(ctx context.Context, userID int64, cursor int64, limit int32) (*PollResult, error)
+
+	// Acknowledge marks the specified notifications as acknowledged by trace_id.
+	Acknowledge(ctx context.Context, userID int64, traceIDs []string) error
 
 	// Subscribe creates a subscription for live notifications.
 	// Returns a channel that receives notifications and an unsubscribe function.

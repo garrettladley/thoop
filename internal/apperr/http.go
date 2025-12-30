@@ -44,17 +44,3 @@ func writeRateLimitError(w http.ResponseWriter, err *RateLimitError) {
 		Message: err.Message,
 	})
 }
-
-func WriteJSON(w http.ResponseWriter, status int, data any) {
-	xhttp.SetHeaderContentTypeApplicationJSON(w)
-	w.WriteHeader(status)
-	_ = go_json.NewEncoder(w).Encode(data)
-}
-
-func WriteNoContent(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func WriteOK(w http.ResponseWriter, data any) {
-	WriteJSON(w, http.StatusOK, data)
-}
