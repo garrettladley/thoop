@@ -35,6 +35,7 @@ linters:
     - unparam
     - unused
     - whitespace
+    - wrapcheck
 
   settings:
     exhaustive:

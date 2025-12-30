@@ -2,6 +2,7 @@ package xsync
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
@@ -21,7 +22,7 @@ func (s *Service) fetchHistorical(ctx context.Context, start, end time.Time) err
 	g.Go(func() error { return s.fetchHistoricalSleeps(gctx, start, end) })
 	g.Go(func() error { return s.fetchHistoricalWorkouts(gctx, start, end) })
 	if err := g.Wait(); err != nil {
-		return err
+		return fmt.Errorf("%w", err)
 	}
 
 	s.logger.InfoContext(ctx, "historical data fetch complete")
@@ -39,17 +40,17 @@ func (s *Service) fetchHistoricalCycles(ctx context.Context, start, end time.Tim
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("%w", ctx.Err())
 		default:
 		}
 
 		resp, err := s.client.Cycle.List(ctx, params)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 
 		if err := s.repo.Cycles.UpsertBatch(ctx, resp.Records); err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 
 		// Fetch recoveries for each cycle in parallel
@@ -94,17 +95,17 @@ func (s *Service) fetchHistoricalSleeps(ctx context.Context, start, end time.Tim
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("%w", ctx.Err())
 		default:
 		}
 
 		resp, err := s.client.Sleep.List(ctx, params)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 
 		if err := s.repo.Sleeps.UpsertBatch(ctx, resp.Records); err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 
 		if !resp.HasMore() {
@@ -127,17 +128,17 @@ func (s *Service) fetchHistoricalWorkouts(ctx context.Context, start, end time.T
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("%w", ctx.Err())
 		default:
 		}
 
 		resp, err := s.client.Workout.List(ctx, params)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 
 		if err := s.repo.Workouts.UpsertBatch(ctx, resp.Records); err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 
 		if !resp.HasMore() {

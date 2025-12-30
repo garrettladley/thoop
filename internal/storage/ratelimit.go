@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -33,7 +34,7 @@ func runRateLimitScript(ctx context.Context, client *redis.Client, key string, p
 		params.args()...,
 	).Int()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to run rate limit script: %w", err)
 	}
 	return result == 1, nil
 }

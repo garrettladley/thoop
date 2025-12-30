@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
@@ -20,13 +21,13 @@ func (r *cycleRepo) Upsert(ctx context.Context, cycle *whoop.Cycle) error {
 	if cycle.Score != nil {
 		data, err := go_json.Marshal(cycle.Score)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 		s := string(data)
 		scoreJSON = &s
 	}
 
-	return r.q.UpsertCycle(ctx, sqlitec.UpsertCycleParams{
+	err := r.q.UpsertCycle(ctx, sqlitec.UpsertCycleParams{
 		ID:             cycle.ID,
 		UserID:         cycle.UserID,
 		CreatedAt:      cycle.CreatedAt,
@@ -37,6 +38,10 @@ func (r *cycleRepo) Upsert(ctx context.Context, cycle *whoop.Cycle) error {
 		ScoreState:     string(cycle.ScoreState),
 		ScoreJson:      scoreJSON,
 	})
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }
 
 func (r *cycleRepo) Get(ctx context.Context, id int64) (*whoop.Cycle, error) {
@@ -45,7 +50,7 @@ func (r *cycleRepo) Get(ctx context.Context, id int64) (*whoop.Cycle, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 	return r.toDomain(row)
 }
@@ -53,7 +58,7 @@ func (r *cycleRepo) Get(ctx context.Context, id int64) (*whoop.Cycle, error) {
 func (r *cycleRepo) GetLatest(ctx context.Context, limit int) ([]whoop.Cycle, error) {
 	rows, err := r.q.GetLatestCycles(ctx, int64(limit))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 	return r.toDomainSlice(rows)
 }
@@ -93,7 +98,7 @@ func (r *cycleRepo) GetByDateRange(ctx context.Context, start, end time.Time, cu
 		})
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 
 	hasMore := int64(len(rows)) > limit
@@ -121,7 +126,7 @@ func (r *cycleRepo) GetByDateRange(ctx context.Context, start, end time.Time, cu
 func (r *cycleRepo) GetPending(ctx context.Context) ([]whoop.Cycle, error) {
 	rows, err := r.q.GetPendingCycles(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 	return r.toDomainSlice(rows)
 }
@@ -141,7 +146,7 @@ func (r *cycleRepo) toDomain(row sqlitec.Cycle) (*whoop.Cycle, error) {
 	if row.ScoreJson != nil {
 		var score whoop.CycleScore
 		if err := go_json.Unmarshal([]byte(*row.ScoreJson), &score); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w", err)
 		}
 		cycle.Score = &score
 	}

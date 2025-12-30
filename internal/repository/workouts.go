@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
@@ -20,13 +21,13 @@ func (r *workoutRepo) Upsert(ctx context.Context, workout *whoop.Workout) error 
 	if workout.Score != nil {
 		data, err := go_json.Marshal(workout.Score)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 		s := string(data)
 		scoreJSON = &s
 	}
 
-	return r.q.UpsertWorkout(ctx, sqlitec.UpsertWorkoutParams{
+	err := r.q.UpsertWorkout(ctx, sqlitec.UpsertWorkoutParams{
 		ID:             workout.ID,
 		V1ID:           workout.V1ID,
 		UserID:         workout.UserID,
@@ -39,6 +40,10 @@ func (r *workoutRepo) Upsert(ctx context.Context, workout *whoop.Workout) error 
 		ScoreState:     string(workout.ScoreState),
 		ScoreJson:      scoreJSON,
 	})
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }
 
 func (r *workoutRepo) UpsertBatch(ctx context.Context, workouts []whoop.Workout) error {
@@ -56,7 +61,7 @@ func (r *workoutRepo) Get(ctx context.Context, id string) (*whoop.Workout, error
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 	return r.toDomain(row)
 }
@@ -87,13 +92,12 @@ func (r *workoutRepo) GetByDateRange(ctx context.Context, start, end time.Time, 
 		})
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 
-	// Determine if there are more results
 	hasMore := int64(len(rows)) > limit
 	if hasMore {
-		rows = rows[:limit] // Trim to requested limit
+		rows = rows[:limit]
 	}
 
 	workouts, err := r.toDomainSlice(rows)
@@ -130,7 +134,7 @@ func (r *workoutRepo) toDomain(row sqlitec.Workout) (*whoop.Workout, error) {
 	if row.ScoreJson != nil {
 		var score whoop.WorkoutScore
 		if err := go_json.Unmarshal([]byte(*row.ScoreJson), &score); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w", err)
 		}
 		workout.Score = &score
 	}
@@ -151,5 +155,9 @@ func (r *workoutRepo) toDomainSlice(rows []sqlitec.Workout) ([]whoop.Workout, er
 }
 
 func (r *workoutRepo) Delete(ctx context.Context, id string) error {
-	return r.q.DeleteWorkout(ctx, id)
+	err := r.q.DeleteWorkout(ctx, id)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }

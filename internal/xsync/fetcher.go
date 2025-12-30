@@ -2,6 +2,7 @@ package xsync
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -45,7 +46,7 @@ func NewFetcher(client *whoop.Client, repo *repository.Repository, logger *slog.
 func (f *Fetcher) GetCurrentCycle(ctx context.Context) (*whoop.Cycle, error) {
 	resp, err := f.client.Cycle.List(ctx, &whoop.ListParams{Limit: 1})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list cycles: %w", err)
 	}
 	if len(resp.Records) == 0 {
 		return nil, nil
@@ -63,7 +64,7 @@ func (f *Fetcher) GetCurrentCycle(ctx context.Context) (*whoop.Cycle, error) {
 func (f *Fetcher) GetCycles(ctx context.Context, start, end time.Time) ([]whoop.Cycle, error) {
 	result, err := f.repo.Cycles.GetByDateRange(ctx, start, end, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get cycles by date range: %w", err)
 	}
 
 	if len(result.Records) > 0 {
@@ -76,7 +77,7 @@ func (f *Fetcher) GetCycles(ctx context.Context, start, end time.Time) ([]whoop.
 func (f *Fetcher) GetRecovery(ctx context.Context, cycleID int64) (*whoop.Recovery, error) {
 	recovery, err := f.repo.Recoveries.Get(ctx, cycleID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get recovery from repo: %w", err)
 	}
 	if recovery != nil {
 		return recovery, nil
@@ -84,7 +85,7 @@ func (f *Fetcher) GetRecovery(ctx context.Context, cycleID int64) (*whoop.Recove
 
 	recovery, err = f.client.Cycle.GetRecovery(ctx, cycleID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get recovery from api: %w", err)
 	}
 
 	if err := f.repo.Recoveries.Upsert(ctx, recovery); err != nil {
@@ -97,7 +98,7 @@ func (f *Fetcher) GetRecovery(ctx context.Context, cycleID int64) (*whoop.Recove
 func (f *Fetcher) GetSleep(ctx context.Context, cycleID int64) (*whoop.Sleep, error) {
 	sleep, err := f.repo.Sleeps.GetByCycleID(ctx, cycleID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get sleep from repo: %w", err)
 	}
 	if sleep != nil {
 		return sleep, nil
@@ -105,7 +106,7 @@ func (f *Fetcher) GetSleep(ctx context.Context, cycleID int64) (*whoop.Sleep, er
 
 	sleep, err = f.client.Cycle.GetSleep(ctx, cycleID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get sleep from api: %w", err)
 	}
 
 	if err := f.repo.Sleeps.Upsert(ctx, sleep); err != nil {
@@ -118,7 +119,7 @@ func (f *Fetcher) GetSleep(ctx context.Context, cycleID int64) (*whoop.Sleep, er
 func (f *Fetcher) GetWorkouts(ctx context.Context, start, end time.Time) ([]whoop.Workout, error) {
 	result, err := f.repo.Workouts.GetByDateRange(ctx, start, end, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get workouts by date range: %w", err)
 	}
 
 	if len(result.Records) > 0 {
@@ -139,7 +140,7 @@ func (f *Fetcher) fetchCyclesFromAPI(ctx context.Context, start, end time.Time) 
 	for {
 		resp, err := f.client.Cycle.List(ctx, params)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to list cycles: %w", err)
 		}
 
 		if err := f.repo.Cycles.UpsertBatch(ctx, resp.Records); err != nil {
@@ -168,7 +169,7 @@ func (f *Fetcher) fetchWorkoutsFromAPI(ctx context.Context, start, end time.Time
 	for {
 		resp, err := f.client.Workout.List(ctx, params)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to list workouts: %w", err)
 		}
 
 		if err := f.repo.Workouts.UpsertBatch(ctx, resp.Records); err != nil {

@@ -28,7 +28,7 @@ func testCmd() *cobra.Command {
 
 			dbPath, err := paths.DB()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get database path: %w", err)
 			}
 
 			sqlDB, querier, err := db.Open(ctx, dbPath)

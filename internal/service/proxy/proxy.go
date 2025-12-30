@@ -161,5 +161,8 @@ func CopyResponse(w http.ResponseWriter, resp *ProxyResponse) error {
 	w.WriteHeader(resp.StatusCode)
 
 	_, err := io.Copy(w, resp.Body)
-	return err
+	if err != nil {
+		return fmt.Errorf("copying response body: %w", err)
+	}
+	return nil
 }

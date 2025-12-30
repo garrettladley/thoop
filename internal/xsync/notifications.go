@@ -2,6 +2,7 @@ package xsync
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
@@ -87,16 +88,24 @@ func (p *NotificationProcessor) handleUpdate(ctx context.Context, n storage.Noti
 func (p *NotificationProcessor) handleDelete(ctx context.Context, n storage.Notification) error {
 	switch n.EntityType {
 	case storage.EntityTypeWorkout:
-		return p.repo.Workouts.Delete(ctx, n.EntityID)
+		if err := p.repo.Workouts.Delete(ctx, n.EntityID); err != nil {
+			return fmt.Errorf("failed to delete workout: %w", err)
+		}
+		return nil
 	case storage.EntityTypeSleep:
-		return p.repo.Sleeps.Delete(ctx, n.EntityID)
+		if err := p.repo.Sleeps.Delete(ctx, n.EntityID); err != nil {
+			return fmt.Errorf("failed to delete sleep: %w", err)
+		}
+		return nil
 	case storage.EntityTypeRecovery:
 		sleep, err := p.repo.Sleeps.Get(ctx, n.EntityID)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get sleep: %w", err)
 		}
 		if sleep != nil {
-			return p.repo.Recoveries.Delete(ctx, sleep.CycleID)
+			if err := p.repo.Recoveries.Delete(ctx, sleep.CycleID); err != nil {
+				return fmt.Errorf("failed to delete recovery: %w", err)
+			}
 		}
 		return nil
 	default:
@@ -107,28 +116,34 @@ func (p *NotificationProcessor) handleDelete(ctx context.Context, n storage.Noti
 func (p *NotificationProcessor) fetchAndCacheWorkout(ctx context.Context, id string) error {
 	workout, err := p.client.Workout.Get(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get workout: %w", err)
 	}
-	return p.repo.Workouts.Upsert(ctx, workout)
+	if err := p.repo.Workouts.Upsert(ctx, workout); err != nil {
+		return fmt.Errorf("failed to upsert workout: %w", err)
+	}
+	return nil
 }
 
 func (p *NotificationProcessor) fetchAndCacheSleep(ctx context.Context, id string) error {
 	sleep, err := p.client.Sleep.Get(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get sleep: %w", err)
 	}
-	return p.repo.Sleeps.Upsert(ctx, sleep)
+	if err := p.repo.Sleeps.Upsert(ctx, sleep); err != nil {
+		return fmt.Errorf("failed to upsert sleep: %w", err)
+	}
+	return nil
 }
 
 func (p *NotificationProcessor) fetchAndCacheRecoveryBySleepID(ctx context.Context, sleepID string) error {
 	sleep, err := p.repo.Sleeps.Get(ctx, sleepID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get sleep: %w", err)
 	}
 	if sleep == nil {
 		sleep, err = p.client.Sleep.Get(ctx, sleepID)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get sleep from api: %w", err)
 		}
 		if err := p.repo.Sleeps.Upsert(ctx, sleep); err != nil {
 			p.logger.WarnContext(ctx, "failed to cache sleep", xslog.Error(err))
@@ -137,7 +152,10 @@ func (p *NotificationProcessor) fetchAndCacheRecoveryBySleepID(ctx context.Conte
 
 	recovery, err := p.client.Cycle.GetRecovery(ctx, sleep.CycleID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get recovery: %w", err)
 	}
-	return p.repo.Recoveries.Upsert(ctx, recovery)
+	if err := p.repo.Recoveries.Upsert(ctx, recovery); err != nil {
+		return fmt.Errorf("failed to upsert recovery: %w", err)
+	}
+	return nil
 }

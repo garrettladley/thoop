@@ -75,19 +75,25 @@ func createHistoryTable(ctx context.Context, pool *pgxpool.Pool) error {
 			applied_at TIMESTAMPTZ DEFAULT NOW()
 		)
 	`)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create history table: %w", err)
+	}
+	return nil
 }
 
 func isMigrationApplied(ctx context.Context, pool *pgxpool.Pool, name string) (bool, error) {
 	var count int
 	err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM migrations_history WHERE name = $1", name).Scan(&count)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check if migration applied: %w", err)
 	}
 	return count > 0, nil
 }
 
 func recordMigration(ctx context.Context, pool *pgxpool.Pool, name string) error {
 	_, err := pool.Exec(ctx, "INSERT INTO migrations_history (name) VALUES ($1)", name)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to record migration: %w", err)
+	}
+	return nil
 }

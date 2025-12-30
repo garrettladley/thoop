@@ -86,9 +86,15 @@ func (r *RedisBackend) GetAndDelete(ctx context.Context, state string) (StateEnt
 }
 
 func (r *RedisBackend) Close() error {
-	return r.client.Close()
+	if err := r.client.Close(); err != nil {
+		return fmt.Errorf("failed to close redis client: %w", err)
+	}
+	return nil
 }
 
 func (r *RedisBackend) Ping(ctx context.Context) error {
-	return r.client.Ping(ctx).Err()
+	if err := r.client.Ping(ctx).Err(); err != nil {
+		return fmt.Errorf("failed to ping redis: %w", err)
+	}
+	return nil
 }

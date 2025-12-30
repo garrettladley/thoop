@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
@@ -21,7 +22,7 @@ func (r *sleepRepo) Upsert(ctx context.Context, sleep *whoop.Sleep) error {
 	if sleep.Score != nil {
 		data, err := go_json.Marshal(sleep.Score)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 		s := string(data)
 		scoreJSON = &s
@@ -32,7 +33,7 @@ func (r *sleepRepo) Upsert(ctx context.Context, sleep *whoop.Sleep) error {
 		nap = 1
 	}
 
-	return r.q.UpsertSleep(ctx, sqlitec.UpsertSleepParams{
+	err := r.q.UpsertSleep(ctx, sqlitec.UpsertSleepParams{
 		ID:             sleep.ID,
 		CycleID:        sleep.CycleID,
 		V1ID:           sleep.V1ID,
@@ -46,6 +47,10 @@ func (r *sleepRepo) Upsert(ctx context.Context, sleep *whoop.Sleep) error {
 		ScoreState:     string(sleep.ScoreState),
 		ScoreJson:      scoreJSON,
 	})
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }
 
 func (r *sleepRepo) UpsertBatch(ctx context.Context, sleeps []whoop.Sleep) error {
@@ -63,7 +68,7 @@ func (r *sleepRepo) Get(ctx context.Context, id string) (*whoop.Sleep, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 	return r.toDomain(row)
 }
@@ -74,7 +79,7 @@ func (r *sleepRepo) GetByCycleID(ctx context.Context, cycleID int64) (*whoop.Sle
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 	return r.toDomain(row)
 }
@@ -105,7 +110,7 @@ func (r *sleepRepo) GetByDateRange(ctx context.Context, start, end time.Time, cu
 		})
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 
 	hasMore := int64(len(rows)) > limit
@@ -148,7 +153,7 @@ func (r *sleepRepo) toDomain(row sqlitec.Sleep) (*whoop.Sleep, error) {
 	if row.ScoreJson != nil {
 		var score whoop.SleepScore
 		if err := json.Unmarshal([]byte(*row.ScoreJson), &score); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w", err)
 		}
 		sleep.Score = &score
 	}
@@ -169,5 +174,9 @@ func (r *sleepRepo) toDomainSlice(rows []sqlitec.Sleep) ([]whoop.Sleep, error) {
 }
 
 func (r *sleepRepo) Delete(ctx context.Context, id string) error {
-	return r.q.DeleteSleep(ctx, id)
+	err := r.q.DeleteSleep(ctx, id)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }

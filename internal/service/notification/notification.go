@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/garrettladley/thoop/internal/storage"
 )
@@ -19,7 +20,7 @@ func NewStore(store storage.NotificationStore) *Store {
 func (s *Store) GetUnacked(ctx context.Context, userID int64, cursor int64, limit int32) (*PollResult, error) {
 	notifications, err := s.store.GetUnacked(ctx, userID, cursor, limit)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting unacked notifications: %w", err)
 	}
 
 	if notifications == nil {
@@ -32,9 +33,16 @@ func (s *Store) GetUnacked(ctx context.Context, userID int64, cursor int64, limi
 }
 
 func (s *Store) Acknowledge(ctx context.Context, userID int64, traceIDs []string) error {
-	return s.store.Acknowledge(ctx, userID, traceIDs)
+	if err := s.store.Acknowledge(ctx, userID, traceIDs); err != nil {
+		return fmt.Errorf("acknowledging notifications: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) Subscribe(ctx context.Context, userID int64) (<-chan storage.Notification, func(), error) {
-	return s.store.Subscribe(ctx, userID)
+	ch, cleanup, err := s.store.Subscribe(ctx, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("subscribing to notifications: %w", err)
+	}
+	return ch, cleanup, nil
 }
