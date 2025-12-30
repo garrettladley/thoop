@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/apperr"
 	"github.com/garrettladley/thoop/internal/service/user"
 	"github.com/garrettladley/thoop/internal/xcontext"
+	"github.com/garrettladley/thoop/internal/xerrors"
 	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 )
@@ -24,7 +24,7 @@ func APIKeyAuth(userService user.Service) func(http.Handler) http.Handler {
 			if apiKey == "" {
 				logger.WarnContext(r.Context(), "missing API key header",
 					xslog.RequestPath(r))
-				apperr.WriteError(w, apperr.Unauthorized("unauthorized", "missing API key"))
+				xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("missing API key")))
 				return
 			}
 
@@ -36,13 +36,13 @@ func APIKeyAuth(userService user.Service) func(http.Handler) http.Handler {
 
 				switch {
 				case errors.Is(err, user.ErrAPIKeyNotFound):
-					apperr.WriteError(w, apperr.Unauthorized("unauthorized", "invalid API key"))
+					xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("invalid API key")))
 				case errors.Is(err, user.ErrAPIKeyRevoked):
-					apperr.WriteError(w, apperr.Unauthorized("unauthorized", "API key has been revoked"))
+					xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("API key has been revoked")))
 				case errors.Is(err, user.ErrUserBanned):
-					apperr.WriteError(w, apperr.Unauthorized("unauthorized", "account banned"))
+					xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("account banned")))
 				default:
-					apperr.WriteError(w, apperr.Internal("internal_error", "API key validation failed", err))
+					xerrors.WriteError(w, xerrors.Internal(xerrors.WithMessage("API key validation failed"), xerrors.WithCause(err)))
 				}
 				return
 			}

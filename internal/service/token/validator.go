@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/apperr"
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/storage"
+	"github.com/garrettladley/thoop/internal/xerrors"
 	"github.com/garrettladley/thoop/internal/xslog"
 	"golang.org/x/oauth2"
 )
@@ -122,7 +122,7 @@ func (v *Validator) validateWithWhoopAPI(ctx context.Context, token string, toke
 			retryAfter = time.Minute
 		}
 
-		return 0, apperr.TooManyRequests("rate_limited", "rate limit exceeded", retryAfter, string(reason))
+		return 0, xerrors.TooManyRequests(xerrors.WithRetryAfter(retryAfter), xerrors.WithReason(string(reason)))
 	}
 
 	tokenSource := &staticTokenSource{token: token}

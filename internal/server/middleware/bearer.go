@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/garrettladley/thoop/internal/apperr"
 	"github.com/garrettladley/thoop/internal/service/token"
 	"github.com/garrettladley/thoop/internal/xcontext"
+	"github.com/garrettladley/thoop/internal/xerrors"
 	"github.com/garrettladley/thoop/internal/xslog"
 )
 
@@ -26,16 +26,15 @@ func BearerAuth(tokenService token.Service) func(http.Handler) http.Handler {
 
 				switch {
 				case errors.Is(err, token.ErrMissingToken):
-					apperr.WriteError(w, apperr.Unauthorized("unauthorized", "missing Authorization header"))
+					xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("missing Authorization header")))
 				case errors.Is(err, token.ErrInvalidToken):
-					apperr.WriteError(w, apperr.Unauthorized("unauthorized", "invalid or expired token"))
+					xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("invalid or expired token")))
 				default:
-					// check for rate limit error
-					if rlErr := apperr.AsRateLimitError(err); rlErr != nil {
-						apperr.WriteError(w, rlErr)
+					if appErr := xerrors.As(err); appErr != nil && appErr.RateLimit != nil {
+						xerrors.WriteError(w, appErr)
 						return
 					}
-					apperr.WriteError(w, apperr.Internal("internal_error", "token validation failed", err))
+					xerrors.WriteError(w, xerrors.Internal(xerrors.WithMessage("token validation failed"), xerrors.WithCause(err)))
 				}
 				return
 			}
@@ -46,7 +45,7 @@ func BearerAuth(tokenService token.Service) func(http.Handler) http.Handler {
 					logger.WarnContext(r.Context(), "token user does not match API key user",
 						xslog.RequestPath(r),
 						xslog.BindingMismatchGroup(tokenUserID, apiKeyUserID))
-					apperr.WriteError(w, apperr.Forbidden("forbidden", "token does not match API key"))
+					xerrors.WriteError(w, xerrors.Forbidden(xerrors.WithMessage("token does not match API key")))
 					return
 				}
 			}

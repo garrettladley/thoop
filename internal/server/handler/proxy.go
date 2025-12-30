@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/garrettladley/thoop/internal/apperr"
 	"github.com/garrettladley/thoop/internal/service/proxy"
 	"github.com/garrettladley/thoop/internal/xcontext"
+	"github.com/garrettladley/thoop/internal/xerrors"
 	"github.com/garrettladley/thoop/internal/xslog"
 )
 
@@ -26,20 +26,20 @@ func (h *Proxy) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) {
 	userID, ok := xcontext.GetWhoopUserID(ctx)
 	if !ok || userID == 0 {
 		logger.WarnContext(ctx, "missing user key in context")
-		apperr.WriteError(w, apperr.Unauthorized("unauthorized", "missing user context"))
+		xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("missing user context")))
 		return
 	}
 
 	info, err := h.service.CheckRateLimit(ctx, userID)
 	if err != nil {
 		if errors.Is(err, proxy.ErrRateLimited) && info != nil {
-			apperr.WriteError(w, apperr.TooManyRequests("rate_limited", info.Message, info.RetryAfter, info.Reason))
+			xerrors.WriteError(w, xerrors.TooManyRequests(xerrors.WithMessage(info.Message), xerrors.WithRetryAfter(info.RetryAfter), xerrors.WithReason(info.Reason)))
 			return
 		}
 		logger.ErrorContext(ctx, "failed to check rate limit",
 			xslog.Error(err),
 			xslog.UserID(userID))
-		apperr.WriteError(w, apperr.Internal("internal_error", "failed to check rate limit", err))
+		xerrors.WriteError(w, xerrors.Internal(xerrors.WithMessage("failed to check rate limit"), xerrors.WithCause(err)))
 		return
 	}
 
@@ -55,13 +55,13 @@ func (h *Proxy) HandleWhoopProxy(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.service.ProxyRequest(ctx, proxyReq)
 	if err != nil {
 		if errors.Is(err, proxy.ErrInvalidPath) {
-			apperr.WriteError(w, apperr.BadRequest("invalid_request", "invalid path"))
+			xerrors.WriteError(w, xerrors.BadRequest(xerrors.WithMessage("invalid path")))
 			return
 		}
 		logger.ErrorContext(ctx, "failed to proxy request",
 			xslog.Error(err),
 			xslog.UserID(userID))
-		apperr.WriteError(w, apperr.Internal("internal_error", "failed to proxy request", err))
+		xerrors.WriteError(w, xerrors.Internal(xerrors.WithMessage("failed to proxy request"), xerrors.WithCause(err)))
 		return
 	}
 

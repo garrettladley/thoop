@@ -6,9 +6,10 @@ import (
 
 	go_json "github.com/goccy/go-json"
 
-	"github.com/garrettladley/thoop/internal/apperr"
 	"github.com/garrettladley/thoop/internal/service/notification"
+	"github.com/garrettladley/thoop/internal/validator"
 	"github.com/garrettladley/thoop/internal/xcontext"
+	"github.com/garrettladley/thoop/internal/xerrors"
 	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 )
@@ -29,7 +30,7 @@ func (h *Notifications) HandlePoll(w http.ResponseWriter, r *http.Request) {
 
 	userID, ok := xcontext.GetWhoopUserID(ctx)
 	if !ok {
-		apperr.WriteError(w, apperr.Unauthorized("unauthorized", "missing user context"))
+		xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("missing user context")))
 		return
 	}
 
@@ -38,7 +39,7 @@ func (h *Notifications) HandlePoll(w http.ResponseWriter, r *http.Request) {
 		var err error
 		cursor, err = strconv.ParseInt(cursorStr, 10, 64)
 		if err != nil || cursor < 0 {
-			apperr.WriteError(w, apperr.BadRequest("invalid_request", "invalid cursor parameter (expected non-negative integer)"))
+			xerrors.WriteError(w, xerrors.BadRequest(xerrors.WithMessage("invalid cursor parameter (expected non-negative integer)")))
 			return
 		}
 	}
@@ -48,7 +49,7 @@ func (h *Notifications) HandlePoll(w http.ResponseWriter, r *http.Request) {
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		l, err := strconv.ParseInt(limitStr, 10, 32)
 		if err != nil || l <= 0 || l > 1000 {
-			apperr.WriteError(w, apperr.BadRequest("invalid_request", "invalid limit parameter (must be 1-1000)"))
+			xerrors.WriteError(w, xerrors.BadRequest(xerrors.WithMessage("invalid limit parameter (must be 1-1000)")))
 			return
 		}
 		limit = int32(l)
@@ -60,7 +61,7 @@ func (h *Notifications) HandlePoll(w http.ResponseWriter, r *http.Request) {
 			xslog.Error(err),
 			xslog.UserID(userID),
 		)
-		apperr.WriteError(w, apperr.Internal("internal_error", "failed to fetch notifications", err))
+		xerrors.WriteError(w, xerrors.Internal(xerrors.WithMessage("failed to fetch notifications"), xerrors.WithCause(err)))
 		return
 	}
 
@@ -76,6 +77,15 @@ type acknowledgeRequest struct {
 	TraceIDs []string `json:"trace_ids"`
 }
 
+var _ validator.Validator = (*acknowledgeRequest)(nil)
+
+func (r *acknowledgeRequest) Validate() map[string]string {
+	if len(r.TraceIDs) == 0 {
+		return map[string]string{"trace_ids": "array cannot be empty"}
+	}
+	return nil
+}
+
 // HandleAcknowledge handles POST /api/notifications/ack requests.
 func (h *Notifications) HandleAcknowledge(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -83,18 +93,18 @@ func (h *Notifications) HandleAcknowledge(w http.ResponseWriter, r *http.Request
 
 	userID, ok := xcontext.GetWhoopUserID(ctx)
 	if !ok {
-		apperr.WriteError(w, apperr.Unauthorized("unauthorized", "missing user context"))
+		xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("missing user context")))
 		return
 	}
 
 	var req acknowledgeRequest
 	if err := go_json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apperr.WriteError(w, apperr.BadRequest("invalid_request", "invalid JSON body"))
+		xerrors.WriteError(w, xerrors.BadRequest(xerrors.WithMessage("invalid JSON body")))
 		return
 	}
 
-	if len(req.TraceIDs) == 0 {
-		apperr.WriteError(w, apperr.BadRequest("invalid_request", "trace_ids array cannot be empty"))
+	if xerr := validator.Validate(&req); xerr != nil {
+		xerrors.WriteError(w, xerr)
 		return
 	}
 
@@ -103,7 +113,7 @@ func (h *Notifications) HandleAcknowledge(w http.ResponseWriter, r *http.Request
 			xslog.Error(err),
 			xslog.UserID(userID),
 		)
-		apperr.WriteError(w, apperr.Internal("internal_error", "failed to acknowledge notifications", err))
+		xerrors.WriteError(w, xerrors.Internal(xerrors.WithMessage("failed to acknowledge notifications"), xerrors.WithCause(err)))
 		return
 	}
 
