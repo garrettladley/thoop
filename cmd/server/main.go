@@ -39,9 +39,6 @@ const (
 	keyPerUserDay    = "per_user_day"
 	keyGlobalMinute  = "global_minute"
 	keyGlobalDay     = "global_day"
-	keyGracePeriod   = "grace_period"
-
-	sseShutdownGracePeriod = 2 * time.Second
 )
 
 func main() {
@@ -161,7 +158,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		middleware.SecurityHeaders,
 	)
 
-	shutdownCoordinator := server.NewShutdownCoordinator(sseShutdownGracePeriod)
+	baseCtx, cancelBase := context.WithCancel(context.Background())
 
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -170,9 +167,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      0, // disabled for SSE; use SetWriteDeadline per-request
 		IdleTimeout:       60 * time.Second,
-		BaseContext: func(_ net.Listener) context.Context {
-			return shutdownCoordinator.BaseContext()
-		},
+		BaseContext:       func(_ net.Listener) context.Context { return baseCtx },
 	}
 
 	done := make(chan os.Signal, 1)
@@ -190,13 +185,10 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	<-done
 	logger.InfoContext(ctx, "shutdown signal received, initiating graceful shutdown")
 
-	// cancel base context and wait grace period for SSE connections to close
-	shutdownCoordinator.InitiateShutdown()
-	logger.InfoContext(ctx, "SSE grace period complete, shutting down server",
-		slog.Duration(keyGracePeriod, sseShutdownGracePeriod))
+	cancelBase()
 
-	shutdownCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
+	shutdownCtx, cancelShutdown := context.WithTimeout(ctx, 30*time.Second)
+	defer cancelShutdown()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("server shutdown failed: %w", err)
