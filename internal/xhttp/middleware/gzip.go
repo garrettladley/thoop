@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -51,9 +52,17 @@ func (g *gzipResponseWriter) Write(b []byte) (int, error) {
 
 	if g.decided {
 		if g.useGzip {
-			return g.writer.Write(b)
+			n, err := g.writer.Write(b)
+			if err != nil {
+				return n, fmt.Errorf("failed to write gzip: %w", err)
+			}
+			return n, nil
 		}
-		return g.ResponseWriter.Write(b)
+		n, err := g.ResponseWriter.Write(b)
+		if err != nil {
+			return n, fmt.Errorf("failed to write response: %w", err)
+		}
+		return n, nil
 	}
 
 	g.buf.Write(b)
@@ -78,12 +87,20 @@ func (g *gzipResponseWriter) startGzip() (int, error) {
 	g.writer = gzipWriterPool.Get().(*gzip.Writer)
 	g.writer.Reset(g.ResponseWriter)
 
-	return g.writer.Write(g.buf.Bytes())
+	n, err := g.writer.Write(g.buf.Bytes())
+	if err != nil {
+		return n, fmt.Errorf("failed to write to gzip writer: %w", err)
+	}
+	return n, nil
 }
 
 func (g *gzipResponseWriter) flushUncompressed() (int, error) {
 	g.ResponseWriter.WriteHeader(g.statusCode)
-	return g.ResponseWriter.Write(g.buf.Bytes())
+	n, err := g.ResponseWriter.Write(g.buf.Bytes())
+	if err != nil {
+		return n, fmt.Errorf("failed to write uncompressed response: %w", err)
+	}
+	return n, nil
 }
 
 func (g *gzipResponseWriter) Close() error {
@@ -91,14 +108,19 @@ func (g *gzipResponseWriter) Close() error {
 		g.decided = true
 		g.ResponseWriter.WriteHeader(g.statusCode)
 		_, err := g.ResponseWriter.Write(g.buf.Bytes())
-		return err
+		if err != nil {
+			return fmt.Errorf("failed to write buffered response: %w", err)
+		}
+		return nil
 	}
 
 	if g.useGzip && g.writer != nil {
 		err := g.writer.Close()
 		gzipWriterPool.Put(g.writer)
 		g.writer = nil
-		return err
+		if err != nil {
+			return fmt.Errorf("failed to close gzip writer: %w", err)
+		}
 	}
 
 	return nil

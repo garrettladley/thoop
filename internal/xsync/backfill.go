@@ -2,6 +2,7 @@ package xsync
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
@@ -55,17 +56,17 @@ func (s *Service) backfillCycles(ctx context.Context, start, end time.Time) erro
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
 		default:
 		}
 
 		resp, err := s.client.Cycle.List(ctx, params)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to list cycles: %w", err)
 		}
 
 		if err := s.repo.Cycles.UpsertBatch(ctx, resp.Records); err != nil {
-			return err
+			return fmt.Errorf("failed to upsert cycles batch: %w", err)
 		}
 
 		g, gctx := errgroup.WithContext(ctx)
@@ -107,9 +108,12 @@ func (s *Service) backfillCycles(ctx context.Context, start, end time.Time) erro
 func (s *Service) backfillRecoveryForCycle(ctx context.Context, cycleID int64) error {
 	recovery, err := s.client.Cycle.GetRecovery(ctx, cycleID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get recovery: %w", err)
 	}
-	return s.repo.Recoveries.Upsert(ctx, recovery)
+	if err := s.repo.Recoveries.Upsert(ctx, recovery); err != nil {
+		return fmt.Errorf("failed to upsert recovery: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) backfillSleeps(ctx context.Context, start, end time.Time) error {
@@ -127,17 +131,17 @@ func (s *Service) backfillSleeps(ctx context.Context, start, end time.Time) erro
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
 		default:
 		}
 
 		resp, err := s.client.Sleep.List(ctx, params)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to list sleeps: %w", err)
 		}
 
 		if err := s.repo.Sleeps.UpsertBatch(ctx, resp.Records); err != nil {
-			return err
+			return fmt.Errorf("failed to upsert sleeps batch: %w", err)
 		}
 
 		totalSleeps += len(resp.Records)
@@ -167,17 +171,17 @@ func (s *Service) backfillWorkouts(ctx context.Context, start, end time.Time) er
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
 		default:
 		}
 
 		resp, err := s.client.Workout.List(ctx, params)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to list workouts: %w", err)
 		}
 
 		if err := s.repo.Workouts.UpsertBatch(ctx, resp.Records); err != nil {
-			return err
+			return fmt.Errorf("failed to upsert workouts batch: %w", err)
 		}
 
 		totalWorkouts += len(resp.Records)

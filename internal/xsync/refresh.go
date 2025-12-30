@@ -2,6 +2,7 @@ package xsync
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
@@ -17,7 +18,7 @@ func (s *Service) refreshCurrent(ctx context.Context) error {
 	// fetch the 2 most recent cycles
 	resp, err := s.client.Cycle.List(ctx, &whoop.ListParams{Limit: 2})
 	if err != nil {
-		return err
+		return fmt.Errorf("%w", err)
 	}
 
 	if len(resp.Records) == 0 {
@@ -27,7 +28,7 @@ func (s *Service) refreshCurrent(ctx context.Context) error {
 
 	// save cycles
 	if err := s.repo.Cycles.UpsertBatch(ctx, resp.Records); err != nil {
-		return err
+		return fmt.Errorf("%w", err)
 	}
 
 	// fetch recovery and sleep for each cycle in parallel
@@ -65,15 +66,21 @@ func (s *Service) refreshCurrent(ctx context.Context) error {
 func (s *Service) refreshRecoveryForCycle(ctx context.Context, cycleID int64) error {
 	recovery, err := s.client.Cycle.GetRecovery(ctx, cycleID)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w", err)
 	}
-	return s.repo.Recoveries.Upsert(ctx, recovery)
+	if err := s.repo.Recoveries.Upsert(ctx, recovery); err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }
 
 func (s *Service) refreshSleepForCycle(ctx context.Context, cycleID int64) error {
 	sleep, err := s.client.Cycle.GetSleep(ctx, cycleID)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w", err)
 	}
-	return s.repo.Sleeps.Upsert(ctx, sleep)
+	if err := s.repo.Sleeps.Upsert(ctx, sleep); err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }

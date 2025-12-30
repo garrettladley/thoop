@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	pgc "github.com/garrettladley/thoop/internal/sqlc/postgres"
 	"github.com/jackc/pgx/v5"
@@ -30,7 +31,7 @@ func (s *PostgresService) ValidateAPIKey(ctx context.Context, apiKey string) (*V
 		return nil, ErrAPIKeyNotFound
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting API key by hash: %w", err)
 	}
 
 	if apiKeyRecord.Revoked {
@@ -42,7 +43,7 @@ func (s *PostgresService) ValidateAPIKey(ctx context.Context, apiKey string) (*V
 		return nil, ErrUserNotFound
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting user: %w", err)
 	}
 
 	if user.Banned {
@@ -62,12 +63,12 @@ func (s *PostgresService) GetOrCreateUser(ctx context.Context, whoopUserID int64
 	}
 
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return "", false, err
+		return "", false, fmt.Errorf("getting user: %w", err)
 	}
 
 	user, err = s.db.CreateUser(ctx, whoopUserID)
 	if err != nil {
-		return "", false, err
+		return "", false, fmt.Errorf("creating user: %w", err)
 	}
 
 	apiKey, err := generateAPIKey()
@@ -83,14 +84,17 @@ func (s *PostgresService) GetOrCreateUser(ctx context.Context, whoopUserID int64
 		Name:        &keyName,
 	})
 	if err != nil {
-		return "", false, err
+		return "", false, fmt.Errorf("creating API key: %w", err)
 	}
 
 	return apiKey, user.Banned, nil
 }
 
 func (s *PostgresService) UpdateAPIKeyLastUsed(ctx context.Context, apiKeyID int64) error {
-	return s.db.UpdateAPIKeyLastUsed(ctx, apiKeyID)
+	if err := s.db.UpdateAPIKeyLastUsed(ctx, apiKeyID); err != nil {
+		return fmt.Errorf("updating API key last used: %w", err)
+	}
+	return nil
 }
 
 func (s *PostgresService) IsBanned(ctx context.Context, whoopUserID int64) (bool, error) {
@@ -99,7 +103,7 @@ func (s *PostgresService) IsBanned(ctx context.Context, whoopUserID int64) (bool
 		return false, ErrUserNotFound
 	}
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("getting user: %w", err)
 	}
 	return user.Banned, nil
 }
@@ -117,7 +121,7 @@ const (
 func generateAPIKey() (string, error) {
 	b := make([]byte, apiKeyLength)
 	if _, err := rand.Read(b); err != nil {
-		return "", err
+		return "", fmt.Errorf("generating random bytes: %w", err)
 	}
 	return apiKeyPrefix + base64.RawURLEncoding.EncodeToString(b), nil
 }

@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -225,9 +226,13 @@ func TestGzipUnwrap(t *testing.T) {
 func decompressGzip(data []byte) ([]byte, error) {
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 	defer reader.Close() //nolint:errcheck
 
-	return io.ReadAll(reader)
+	result, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read gzip data: %w", err)
+	}
+	return result, nil
 }

@@ -92,7 +92,7 @@ func (s *DBTokenSource) HasToken(ctx context.Context) (bool, error) {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
-		return false, err
+		return false, fmt.Errorf("failed to get token: %w", err)
 	}
 	return true, nil
 }
@@ -139,7 +139,11 @@ func (s *DBTokenSource) saveToken(ctx context.Context, token *oauth2.Token) erro
 		params.RefreshToken = &token.RefreshToken
 	}
 
-	return s.querier.UpsertToken(ctx, params)
+	err := s.querier.UpsertToken(ctx, params)
+	if err != nil {
+		return fmt.Errorf("failed to upsert token: %w", err)
+	}
+	return nil
 }
 
 func dbTokenToOAuth2(t sqlitec.Token) *oauth2.Token {

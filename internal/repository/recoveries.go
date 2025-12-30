@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
@@ -19,13 +20,13 @@ func (r *recoveryRepo) Upsert(ctx context.Context, recovery *whoop.Recovery) err
 	if recovery.Score != nil {
 		data, err := go_json.Marshal(recovery.Score)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 		s := string(data)
 		scoreJSON = &s
 	}
 
-	return r.q.UpsertRecovery(ctx, sqlitec.UpsertRecoveryParams{
+	err := r.q.UpsertRecovery(ctx, sqlitec.UpsertRecoveryParams{
 		CycleID:    recovery.CycleID,
 		SleepID:    recovery.SleepID,
 		UserID:     recovery.UserID,
@@ -34,6 +35,10 @@ func (r *recoveryRepo) Upsert(ctx context.Context, recovery *whoop.Recovery) err
 		ScoreState: string(recovery.ScoreState),
 		ScoreJson:  scoreJSON,
 	})
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }
 
 func (r *recoveryRepo) UpsertBatch(ctx context.Context, recoveries []whoop.Recovery) error {
@@ -51,7 +56,7 @@ func (r *recoveryRepo) Get(ctx context.Context, cycleID int64) (*whoop.Recovery,
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 	return r.toDomain(row)
 }
@@ -63,7 +68,7 @@ func (r *recoveryRepo) GetByCycleIDs(ctx context.Context, cycleIDs []int64) ([]w
 
 	rows, err := r.q.GetRecoveriesByCycleIDs(ctx, cycleIDs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 	return r.toDomainSlice(rows)
 }
@@ -81,7 +86,7 @@ func (r *recoveryRepo) toDomain(row sqlitec.Recovery) (*whoop.Recovery, error) {
 	if row.ScoreJson != nil {
 		var score whoop.RecoveryScore
 		if err := go_json.Unmarshal([]byte(*row.ScoreJson), &score); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w", err)
 		}
 		recovery.Score = &score
 	}
@@ -102,5 +107,9 @@ func (r *recoveryRepo) toDomainSlice(rows []sqlitec.Recovery) ([]whoop.Recovery,
 }
 
 func (r *recoveryRepo) Delete(ctx context.Context, cycleID int64) error {
-	return r.q.DeleteRecovery(ctx, cycleID)
+	err := r.q.DeleteRecovery(ctx, cycleID)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }

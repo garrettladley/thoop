@@ -91,18 +91,18 @@ func (s *ProxyTokenSource) refreshViaProxy(ctx context.Context, refreshToken str
 
 	body, err := go_json.Marshal(reqBody)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.serverURL+"/auth/refresh", bytes.NewReader(body))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -118,7 +118,7 @@ func (s *ProxyTokenSource) refreshViaProxy(ctx context.Context, refreshToken str
 	}
 
 	if err := go_json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	token := &oauth2.Token{
@@ -137,7 +137,7 @@ func (s *ProxyTokenSource) HasToken(ctx context.Context) (bool, error) {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
-		return false, err
+		return false, fmt.Errorf("failed to get token: %w", err)
 	}
 	return true, nil
 }
@@ -184,5 +184,9 @@ func (s *ProxyTokenSource) saveToken(ctx context.Context, token *oauth2.Token) e
 		params.RefreshToken = &token.RefreshToken
 	}
 
-	return s.querier.UpsertToken(ctx, params)
+	err := s.querier.UpsertToken(ctx, params)
+	if err != nil {
+		return fmt.Errorf("failed to upsert token: %w", err)
+	}
+	return nil
 }

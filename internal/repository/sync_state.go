@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
@@ -17,12 +18,12 @@ func (r *syncStateRepo) Get(ctx context.Context) (*SyncState, error) {
 	row, err := r.q.GetSyncState(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		if err := r.q.UpsertSyncState(ctx, sqlitec.UpsertSyncStateParams{}); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w", err)
 		}
 		return &SyncState{}, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 
 	return &SyncState{
@@ -39,29 +40,53 @@ func (r *syncStateRepo) Upsert(ctx context.Context, state *SyncState) error {
 		backfillComplete = 1
 	}
 
-	return r.q.UpsertSyncState(ctx, sqlitec.UpsertSyncStateParams{
+	err := r.q.UpsertSyncState(ctx, sqlitec.UpsertSyncStateParams{
 		BackfillComplete:  backfillComplete,
 		BackfillWatermark: state.BackfillWatermark,
 		LastFullSync:      state.LastFullSync,
 	})
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }
 
 func (r *syncStateRepo) MarkBackfillComplete(ctx context.Context) error {
-	return r.q.MarkBackfillComplete(ctx)
+	err := r.q.MarkBackfillComplete(ctx)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }
 
 func (r *syncStateRepo) UpdateBackfillWatermark(ctx context.Context, watermark time.Time) error {
-	return r.q.UpdateBackfillWatermark(ctx, &watermark)
+	err := r.q.UpdateBackfillWatermark(ctx, &watermark)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }
 
 func (r *syncStateRepo) UpdateLastFullSync(ctx context.Context, syncTime time.Time) error {
-	return r.q.UpdateLastFullSync(ctx, &syncTime)
+	err := r.q.UpdateLastFullSync(ctx, &syncTime)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }
 
 func (r *syncStateRepo) GetLastNotificationPoll(ctx context.Context) (*time.Time, error) {
-	return r.q.GetLastNotificationPoll(ctx)
+	result, err := r.q.GetLastNotificationPoll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%w", err)
+	}
+	return result, nil
 }
 
 func (r *syncStateRepo) UpdateLastNotificationPoll(ctx context.Context, pollTime time.Time) error {
-	return r.q.UpdateLastNotificationPoll(ctx, &pollTime)
+	err := r.q.UpdateLastNotificationPoll(ctx, &pollTime)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	return nil
 }

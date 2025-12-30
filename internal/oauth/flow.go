@@ -183,7 +183,7 @@ func runFlow(
 
 		_ = server.Shutdown(shutdownCtx)
 
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("context cancelled: %w", ctx.Err())
 	}
 }
 
@@ -331,7 +331,11 @@ func saveToken(ctx context.Context, querier sqlitec.Querier, token *oauth2.Token
 		params.RefreshToken = &token.RefreshToken
 	}
 
-	return querier.UpsertToken(ctx, params)
+	err := querier.UpsertToken(ctx, params)
+	if err != nil {
+		return fmt.Errorf("failed to upsert token: %w", err)
+	}
+	return nil
 }
 
 func writeSuccessHTML(w http.ResponseWriter) {
@@ -360,5 +364,8 @@ func openBrowser(ctx context.Context, url string) error {
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
 
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start browser: %w", err)
+	}
+	return nil
 }

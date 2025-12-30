@@ -2,6 +2,7 @@ package xsync
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -44,7 +45,7 @@ func NewService(client *whoop.Client, repo *repository.Repository, logger *slog.
 func (s *Service) StartBackfill(ctx context.Context) error {
 	state, err := s.repo.SyncState.Get(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w", err)
 	}
 
 	if state.BackfillComplete {
@@ -67,7 +68,7 @@ func (s *Service) FetchHistorical(ctx context.Context, start, end time.Time) err
 func (s *Service) IsBackfillComplete(ctx context.Context) (bool, error) {
 	state, err := s.repo.SyncState.Get(ctx)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("%w", err)
 	}
 	return state.BackfillComplete, nil
 }

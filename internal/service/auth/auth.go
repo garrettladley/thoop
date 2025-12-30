@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -55,7 +56,7 @@ func (s *OAuth) StartAuth(ctx context.Context, req StartAuthRequest) (*StartAuth
 
 	state, err := intoauth.GenerateState()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generating state: %w", err)
 	}
 
 	entry := storage.StateEntry{
@@ -65,7 +66,7 @@ func (s *OAuth) StartAuth(ctx context.Context, req StartAuthRequest) (*StartAuth
 	}
 
 	if err := s.stateStore.Set(ctx, state, entry, stateTTL); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("storing state: %w", err)
 	}
 
 	authURL := s.config.AuthCodeURL(state, oauth2.AccessTypeOffline)
@@ -83,7 +84,7 @@ func (s *OAuth) HandleCallback(ctx context.Context, req CallbackRequest) (*Callb
 		return nil, ErrInvalidState
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("retrieving state: %w", err)
 	}
 
 	if req.ErrorCode != "" {
@@ -109,12 +110,12 @@ func (s *OAuth) HandleCallback(ctx context.Context, req CallbackRequest) (*Callb
 
 	token, err := s.config.Exchange(exchangeCtx, req.Code)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("exchanging code for token: %w", err)
 	}
 
 	rlState, err := s.whoopLimiter.CheckAndIncrement(ctx, "oauth")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("checking rate limit: %w", err)
 	}
 	if !rlState.Allowed {
 		return nil, &AuthError{
@@ -130,12 +131,12 @@ func (s *OAuth) HandleCallback(ctx context.Context, req CallbackRequest) (*Callb
 
 	profile, err := whoopClient.User.GetProfile(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting whoop profile: %w", err)
 	}
 
 	apiKey, banned, err := s.userService.GetOrCreateUser(ctx, profile.UserID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting or creating user: %w", err)
 	}
 
 	if banned {
