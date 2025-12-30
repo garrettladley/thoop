@@ -39,7 +39,7 @@ func BadRequest(opts ...Option) *Error         { return newErr(http.StatusBadReq
 func NotFound(opts ...Option) *Error           { return newErr(http.StatusNotFound, opts) }
 func Internal(opts ...Option) *Error           { return newErr(http.StatusInternalServerError, opts) }
 func ServiceUnavailable(opts ...Option) *Error { return newErr(http.StatusServiceUnavailable, opts) }
-func TooManyRequests(opts ...Option) *Error { return newErr(http.StatusTooManyRequests, opts) }
+func TooManyRequests(opts ...Option) *Error    { return newErr(http.StatusTooManyRequests, opts) }
 
 func Validation(fields map[string]string, opts ...Option) *Error {
 	e := newErr(http.StatusUnprocessableEntity, opts)

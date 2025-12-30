@@ -1,9 +1,12 @@
 package xerrors
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/garrettladley/thoop/internal/xhttp"
+	"github.com/garrettladley/thoop/internal/xslog"
 	go_json "github.com/goccy/go-json"
 )
 
@@ -12,11 +15,13 @@ type errorResponse struct {
 	Fields  map[string]string `json:"fields,omitempty"`
 }
 
-func WriteError(w http.ResponseWriter, err error) {
+func WriteError(ctx context.Context, w http.ResponseWriter, err error) {
 	appErr := As(err)
 	if appErr == nil {
 		appErr = Internal(WithCause(err))
 	}
+
+	logError(ctx, appErr)
 
 	xhttp.SetHeaderContentTypeApplicationJSON(w)
 
@@ -37,4 +42,30 @@ func WriteError(w http.ResponseWriter, err error) {
 	}
 
 	_ = go_json.NewEncoder(w).Encode(resp)
+}
+
+func logError(ctx context.Context, err *Error) {
+	logger := xslog.FromContext(ctx)
+	attrs := []any{
+		xslog.HTTPStatus(err.StatusCode),
+		slog.String("message", err.Message),
+	}
+	if err.Cause != nil {
+		attrs = append(attrs, xslog.Error(err.Cause))
+	}
+	if err.RateLimit != nil {
+		attrs = append(attrs, slog.Any("rate_limit", err.RateLimit))
+	}
+	if err.Validation != nil {
+		attrs = append(attrs, slog.Any("validation", err.Validation))
+	}
+
+	switch err.StatusCode / 100 {
+	case 5:
+		logger.ErrorContext(ctx, "server error", attrs...)
+	case 4:
+		logger.WarnContext(ctx, "client error", attrs...)
+	default:
+		logger.InfoContext(ctx, "error response", attrs...)
+	}
 }

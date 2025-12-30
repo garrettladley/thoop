@@ -30,7 +30,7 @@ func (h *Notifications) HandlePoll(w http.ResponseWriter, r *http.Request) {
 
 	userID, ok := xcontext.GetWhoopUserID(ctx)
 	if !ok {
-		xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("missing user context")))
+		xerrors.WriteError(ctx, w, xerrors.Unauthorized(xerrors.WithMessage("missing user context")))
 		return
 	}
 
@@ -39,7 +39,7 @@ func (h *Notifications) HandlePoll(w http.ResponseWriter, r *http.Request) {
 		var err error
 		cursor, err = strconv.ParseInt(cursorStr, 10, 64)
 		if err != nil || cursor < 0 {
-			xerrors.WriteError(w, xerrors.BadRequest(xerrors.WithMessage("invalid cursor parameter (expected non-negative integer)")))
+			xerrors.WriteError(ctx, w, xerrors.BadRequest(xerrors.WithMessage("invalid cursor parameter (expected non-negative integer)")))
 			return
 		}
 	}
@@ -49,7 +49,7 @@ func (h *Notifications) HandlePoll(w http.ResponseWriter, r *http.Request) {
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		l, err := strconv.ParseInt(limitStr, 10, 32)
 		if err != nil || l <= 0 || l > 1000 {
-			xerrors.WriteError(w, xerrors.BadRequest(xerrors.WithMessage("invalid limit parameter (must be 1-1000)")))
+			xerrors.WriteError(ctx, w, xerrors.BadRequest(xerrors.WithMessage("invalid limit parameter (must be 1-1000)")))
 			return
 		}
 		limit = int32(l)
@@ -61,7 +61,7 @@ func (h *Notifications) HandlePoll(w http.ResponseWriter, r *http.Request) {
 			xslog.Error(err),
 			xslog.UserID(userID),
 		)
-		xerrors.WriteError(w, xerrors.Internal(xerrors.WithMessage("failed to fetch notifications"), xerrors.WithCause(err)))
+		xerrors.WriteError(ctx, w, xerrors.Internal(xerrors.WithMessage("failed to fetch notifications"), xerrors.WithCause(err)))
 		return
 	}
 
@@ -93,18 +93,18 @@ func (h *Notifications) HandleAcknowledge(w http.ResponseWriter, r *http.Request
 
 	userID, ok := xcontext.GetWhoopUserID(ctx)
 	if !ok {
-		xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("missing user context")))
+		xerrors.WriteError(ctx, w, xerrors.Unauthorized(xerrors.WithMessage("missing user context")))
 		return
 	}
 
 	var req acknowledgeRequest
 	if err := go_json.NewDecoder(r.Body).Decode(&req); err != nil {
-		xerrors.WriteError(w, xerrors.BadRequest(xerrors.WithMessage("invalid JSON body")))
+		xerrors.WriteError(ctx, w, xerrors.BadRequest(xerrors.WithMessage("invalid JSON body")))
 		return
 	}
 
 	if xerr := validator.Validate(&req); xerr != nil {
-		xerrors.WriteError(w, xerr)
+		xerrors.WriteError(ctx, w, xerr)
 		return
 	}
 
@@ -113,7 +113,7 @@ func (h *Notifications) HandleAcknowledge(w http.ResponseWriter, r *http.Request
 			xslog.Error(err),
 			xslog.UserID(userID),
 		)
-		xerrors.WriteError(w, xerrors.Internal(xerrors.WithMessage("failed to acknowledge notifications"), xerrors.WithCause(err)))
+		xerrors.WriteError(ctx, w, xerrors.Internal(xerrors.WithMessage("failed to acknowledge notifications"), xerrors.WithCause(err)))
 		return
 	}
 

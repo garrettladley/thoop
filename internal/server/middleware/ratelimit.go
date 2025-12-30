@@ -22,12 +22,12 @@ func RateLimitWithBackend(backend storage.RateLimiter) func(http.Handler) http.H
 					xslog.ErrorGroup(err),
 					xslog.IP(ip),
 				)
-				xerrors.WriteError(w, xerrors.ServiceUnavailable(xerrors.WithMessage("rate limit check failed")))
+				xerrors.WriteError(r.Context(), w, xerrors.ServiceUnavailable(xerrors.WithMessage("rate limit check failed")))
 				return
 			}
 
 			if !result.Allowed {
-				xerrors.WriteError(w, xerrors.TooManyRequests(xerrors.WithRetryAfter(result.RetryAfter), xerrors.WithReason("ip_rate_limit")))
+				xerrors.WriteError(r.Context(), w, xerrors.TooManyRequests(xerrors.WithRetryAfter(result.RetryAfter), xerrors.WithReason("ip_rate_limit")))
 				return
 			}
 

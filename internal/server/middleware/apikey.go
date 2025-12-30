@@ -24,7 +24,7 @@ func APIKeyAuth(userService user.Service) func(http.Handler) http.Handler {
 			if apiKey == "" {
 				logger.WarnContext(r.Context(), "missing API key header",
 					xslog.RequestPath(r))
-				xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("missing API key")))
+				xerrors.WriteError(r.Context(), w, xerrors.Unauthorized(xerrors.WithMessage("missing API key")))
 				return
 			}
 
@@ -36,13 +36,13 @@ func APIKeyAuth(userService user.Service) func(http.Handler) http.Handler {
 
 				switch {
 				case errors.Is(err, user.ErrAPIKeyNotFound):
-					xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("invalid API key")))
+					xerrors.WriteError(r.Context(), w, xerrors.Unauthorized(xerrors.WithMessage("invalid API key")))
 				case errors.Is(err, user.ErrAPIKeyRevoked):
-					xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("API key has been revoked")))
+					xerrors.WriteError(r.Context(), w, xerrors.Unauthorized(xerrors.WithMessage("API key has been revoked")))
 				case errors.Is(err, user.ErrUserBanned):
-					xerrors.WriteError(w, xerrors.Unauthorized(xerrors.WithMessage("account banned")))
+					xerrors.WriteError(r.Context(), w, xerrors.Unauthorized(xerrors.WithMessage("account banned")))
 				default:
-					xerrors.WriteError(w, xerrors.Internal(xerrors.WithMessage("API key validation failed"), xerrors.WithCause(err)))
+					xerrors.WriteError(r.Context(), w, xerrors.Internal(xerrors.WithMessage("API key validation failed"), xerrors.WithCause(err)))
 				}
 				return
 			}
