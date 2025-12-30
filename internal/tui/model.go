@@ -123,10 +123,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.page == page.Dashboard {
 			return m, tea.Batch(
 				dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
-				ListenNotificationsCmd(m.deps.Ctx, m.deps.NotificationChan, m.deps.NotifProcessor),
+				ListenNotificationsCmd(m.deps.Ctx, m.deps.NotificationChan, m.deps.NotifProcessor, m.deps.SSEClient),
 			)
 		}
-		return m, ListenNotificationsCmd(m.deps.Ctx, m.deps.NotificationChan, m.deps.NotifProcessor)
+		return m, ListenNotificationsCmd(m.deps.Ctx, m.deps.NotificationChan, m.deps.NotifProcessor, m.deps.SSEClient)
 
 	case SSEDisconnectedMsg:
 		if msg.Err != nil {
@@ -245,7 +245,7 @@ func (m *Model) startDashboard() tea.Cmd {
 	m.sseOnce.Do(func() {
 		cmds = append(cmds,
 			StartSSECmd(m.deps.Ctx, m.deps.SSEClient, m.deps.NotificationChan),
-			ListenNotificationsCmd(m.deps.Ctx, m.deps.NotificationChan, m.deps.NotifProcessor),
+			ListenNotificationsCmd(m.deps.Ctx, m.deps.NotificationChan, m.deps.NotifProcessor, m.deps.SSEClient),
 		)
 	})
 

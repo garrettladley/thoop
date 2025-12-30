@@ -1,6 +1,7 @@
 package sse
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -75,6 +76,35 @@ func (c *PollClient) Poll(ctx context.Context, cursor int64, limit int32) (*Poll
 	}
 
 	return &result, nil
+}
+
+func (c *PollClient) Ack(ctx context.Context, traceIDs []string) error {
+	if len(traceIDs) == 0 {
+		return nil
+	}
+
+	body, err := go_json.Marshal(map[string][]string{"trace_ids": traceIDs})
+	if err != nil {
+		return fmt.Errorf("marshaling request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/notifications/ack", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("executing request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	return nil
 }
 
 // PollAll fetches all unacknowledged notifications by paginating until exhausted.
