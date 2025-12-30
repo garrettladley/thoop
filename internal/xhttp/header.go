@@ -16,6 +16,10 @@ const (
 
 const (
 	ContentType      = "Content-Type"
+	ContentLength    = "Content-Length"
+	ContentEncoding  = "Content-Encoding"
+	AcceptEncoding   = "Accept-Encoding"
+	Vary             = "Vary"
 	XRateLimitReason = "X-Ratelimit-Reason"
 	XSessionID       = "X-Session-Id"
 	XAPIKey          = "X-Api-Key" //nolint:gosec // this is a header name, not a credential
