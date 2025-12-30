@@ -11,17 +11,20 @@ import (
 type Event interface {
 	webhookEvent()
 	GetUserID() int64
+	GetTraceID() string
 	GetAction() storage.Action
 	GetEntityType() storage.EntityType
 	GetEntityID() string
 }
 
 type eventBase struct {
-	Type   string `json:"type"`
-	UserID int64  `json:"user_id"`
+	Type    string `json:"type"`
+	UserID  int64  `json:"user_id"`
+	TraceID string `json:"trace_id"`
 }
 
-func (e eventBase) GetUserID() int64 { return e.UserID }
+func (e eventBase) GetUserID() int64   { return e.UserID }
+func (e eventBase) GetTraceID() string { return e.TraceID }
 
 type WorkoutEvent struct {
 	eventBase
@@ -57,9 +60,10 @@ func (e RecoveryEvent) GetEntityType() storage.EntityType { return storage.Entit
 func (e RecoveryEvent) GetEntityID() string               { return e.SleepID }
 
 type rawPayload struct {
-	Type   string `json:"type"`
-	UserID int64  `json:"user_id"`
-	ID     string `json:"id"`
+	Type    string `json:"type"`
+	UserID  int64  `json:"user_id"`
+	ID      string `json:"id"`
+	TraceID string `json:"trace_id"`
 }
 
 // ParseEvent parses a raw webhook payload into a typed event.
@@ -87,7 +91,7 @@ func ParseEvent(data []byte) (Event, error) {
 		return nil, fmt.Errorf("%w: unknown action: %s", ErrUnknownEventType, actionStr)
 	}
 
-	base := eventBase{Type: raw.Type, UserID: raw.UserID}
+	base := eventBase{Type: raw.Type, UserID: raw.UserID, TraceID: raw.TraceID}
 
 	switch entity {
 	case "workout":

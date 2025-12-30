@@ -23,3 +23,14 @@ type User struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	Banned      bool               `json:"banned"`
 }
+
+type WebhookEvent struct {
+	TraceID        string             `json:"trace_id"`
+	ID             *int64             `json:"id"`
+	WhoopUserID    int64              `json:"whoop_user_id"`
+	Timestamp      pgtype.Timestamptz `json:"timestamp"`
+	EntityID       string             `json:"entity_id"`
+	EntityType     string             `json:"entity_type"`
+	Action         string             `json:"action"`
+	AcknowledgedAt pgtype.Timestamptz `json:"acknowledged_at"`
+}
