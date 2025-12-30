@@ -6,6 +6,7 @@ import (
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/xslog"
+	"golang.org/x/sync/errgroup"
 )
 
 // refreshCurrent fetches the current cycle and the previous (n-1) cycle.
@@ -30,21 +31,26 @@ func (s *Service) refreshCurrent(ctx context.Context) error {
 	}
 
 	// fetch recovery and sleep for each cycle in parallel
+	g, gctx := errgroup.WithContext(ctx)
 	for _, cycle := range resp.Records {
-		// Fetch recovery
-		if err := s.refreshRecoveryForCycle(ctx, cycle.ID); err != nil {
-			s.logger.WarnContext(ctx, "failed to refresh recovery",
-				xslog.CycleID(cycle.ID),
-				xslog.Error(err))
-		}
-
-		// fetch sleep
-		if err := s.refreshSleepForCycle(ctx, cycle.ID); err != nil {
-			s.logger.WarnContext(ctx, "failed to refresh sleep",
-				xslog.CycleID(cycle.ID),
-				xslog.Error(err))
-		}
+		g.Go(func() error {
+			if err := s.refreshRecoveryForCycle(gctx, cycle.ID); err != nil {
+				s.logger.WarnContext(gctx, "failed to refresh recovery",
+					xslog.CycleID(cycle.ID),
+					xslog.Error(err))
+			}
+			return nil
+		})
+		g.Go(func() error {
+			if err := s.refreshSleepForCycle(gctx, cycle.ID); err != nil {
+				s.logger.WarnContext(gctx, "failed to refresh sleep",
+					xslog.CycleID(cycle.ID),
+					xslog.Error(err))
+			}
+			return nil
+		})
 	}
+	_ = g.Wait()
 
 	// update last sync time
 	now := time.Now()

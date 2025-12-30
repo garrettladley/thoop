@@ -23,18 +23,12 @@ func (s *Service) runBackfill(ctx context.Context) {
 	end := time.Now()
 	start := end.Add(-BackfillDuration)
 
-	if err := s.backfillCycles(ctx, start, end); err != nil {
-		s.logger.ErrorContext(ctx, "backfill cycles failed", xslog.Error(err))
-		return
-	}
-
-	if err := s.backfillSleeps(ctx, start, end); err != nil {
-		s.logger.ErrorContext(ctx, "backfill sleeps failed", xslog.Error(err))
-		return
-	}
-
-	if err := s.backfillWorkouts(ctx, start, end); err != nil {
-		s.logger.ErrorContext(ctx, "backfill workouts failed", xslog.Error(err))
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return s.backfillCycles(gctx, start, end) })
+	g.Go(func() error { return s.backfillSleeps(gctx, start, end) })
+	g.Go(func() error { return s.backfillWorkouts(gctx, start, end) })
+	if err := g.Wait(); err != nil {
+		s.logger.ErrorContext(ctx, "backfill failed", xslog.Error(err))
 		return
 	}
 

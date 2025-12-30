@@ -76,7 +76,7 @@ func NewLogger(w io.Writer, level Level) *slog.Logger {
 }
 
 func NewLoggerFromEnv(w io.Writer) *slog.Logger {
-	return NewLogger(w, FromEnv())
+	return NewLogger(w, DefaultLevel())
 }
 
 func NewTextLogger(w io.Writer, level Level) *slog.Logger {
@@ -86,5 +86,5 @@ func NewTextLogger(w io.Writer, level Level) *slog.Logger {
 }
 
 func NewTextLoggerFromEnv(w io.Writer) *slog.Logger {
-	return NewTextLogger(w, FromEnv())
+	return NewTextLogger(w, DefaultLevel())
 }
