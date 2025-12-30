@@ -16,8 +16,9 @@ type AuthStatusMsg struct {
 }
 
 type AuthFlowResultMsg struct {
-	Token *oauth2.Token
-	Err   error
+	Token  *oauth2.Token
+	APIKey string
+	Err    error
 }
 
 type TokenCheckTickMsg struct{}
@@ -38,8 +39,11 @@ func CheckAuthCmd(ctx context.Context, checker oauth.TokenChecker) tea.Cmd {
 
 func StartAuthFlowCmd(ctx context.Context, flow oauth.Flow) tea.Cmd {
 	return func() tea.Msg {
-		token, err := flow.Run(ctx)
-		return AuthFlowResultMsg{Token: token, Err: err}
+		result, err := flow.Run(ctx)
+		if err != nil {
+			return AuthFlowResultMsg{Err: err}
+		}
+		return AuthFlowResultMsg{Token: result.Token, APIKey: result.APIKey}
 	}
 }
 

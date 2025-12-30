@@ -31,8 +31,13 @@ var (
 	ErrMissingAccessToken = errors.New("missing access_token")
 )
 
+type AuthResult struct {
+	Token  *oauth2.Token
+	APIKey string
+}
+
 type Flow interface {
-	Run(ctx context.Context) (*oauth2.Token, error)
+	Run(ctx context.Context) (*AuthResult, error)
 }
 
 type tokenResult struct {
@@ -64,7 +69,7 @@ func NewServerFlowWithURL(serverURL string, querier sqlitec.Querier) *ServerFlow
 	}
 }
 
-func (f *ServerFlow) Run(ctx context.Context) (*oauth2.Token, error) {
+func (f *ServerFlow) Run(ctx context.Context) (*AuthResult, error) {
 	return runFlow(ctx, f.querier, f.authURL, serverCallbackHandler)
 }
 
@@ -95,7 +100,7 @@ func NewDirectFlow(config *oauth2.Config, querier sqlitec.Querier) (*DirectFlow,
 	}, nil
 }
 
-func (f *DirectFlow) Run(ctx context.Context) (*oauth2.Token, error) {
+func (f *DirectFlow) Run(ctx context.Context) (*AuthResult, error) {
 	return runFlow(ctx, f.querier, f.authURL, f.callbackHandler())
 }
 
@@ -137,7 +142,7 @@ func runFlow(
 	querier sqlitec.Querier,
 	authURL func(port string) string,
 	handler callbackHandler,
-) (*oauth2.Token, error) {
+) (*AuthResult, error) {
 	resultCh := make(chan tokenResult, 1)
 
 	server, port, err := startCallbackServer(handler, resultCh)
@@ -177,7 +182,7 @@ func runFlow(
 			}
 		}
 
-		return result.token, nil
+		return &AuthResult{Token: result.token, APIKey: result.apiKey}, nil
 
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTime)
