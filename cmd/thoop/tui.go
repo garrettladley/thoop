@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 
 	tea "charm.land/bubbletea/v2"
@@ -68,6 +69,7 @@ func tuiCmd() *cobra.Command {
 
 			baseLogger := xslog.NewTextLoggerFromEnv(logFile)
 			logger := baseLogger.With(xslog.SessionID(sessionID))
+			slog.SetDefault(logger)
 
 			oauthCfg := oauth.NewConfig(cfg.Whoop)
 			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)

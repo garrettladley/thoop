@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/garrettladley/thoop/internal/apperr"
 	"github.com/garrettladley/thoop/internal/service/webhook"
+	"github.com/garrettladley/thoop/internal/xerrors"
 	"github.com/garrettladley/thoop/internal/xslog"
 )
 
@@ -31,7 +31,7 @@ func (h *Webhook) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to read webhook body", xslog.Error(err))
-		apperr.WriteError(w, apperr.BadRequest("invalid_request", "failed to read request body"))
+		xerrors.WriteError(ctx, w, xerrors.BadRequest(xerrors.WithMessage("failed to read request body")))
 		return
 	}
 
@@ -51,24 +51,24 @@ func (h *Webhook) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 
 		if errors.Is(err, webhook.ErrMissingSignature) {
 			logger.WarnContext(ctx, "missing webhook signature headers")
-			apperr.WriteError(w, apperr.Unauthorized("unauthorized", "missing signature headers"))
+			xerrors.WriteError(ctx, w, xerrors.Unauthorized(xerrors.WithMessage("missing signature headers")))
 			return
 		}
 
 		if errors.Is(err, webhook.ErrInvalidSignature) {
 			logger.WarnContext(ctx, "invalid webhook signature")
-			apperr.WriteError(w, apperr.Unauthorized("unauthorized", "invalid signature"))
+			xerrors.WriteError(ctx, w, xerrors.Unauthorized(xerrors.WithMessage("invalid signature")))
 			return
 		}
 
 		if errors.Is(err, webhook.ErrTimestampExpired) {
 			logger.WarnContext(ctx, "webhook timestamp too old")
-			apperr.WriteError(w, apperr.Unauthorized("unauthorized", "timestamp too old"))
+			xerrors.WriteError(ctx, w, xerrors.Unauthorized(xerrors.WithMessage("timestamp too old")))
 			return
 		}
 
 		logger.ErrorContext(ctx, "failed to process webhook", xslog.Error(err))
-		apperr.WriteError(w, apperr.Internal("internal_error", "failed to process webhook", err))
+		xerrors.WriteError(ctx, w, xerrors.Internal(xerrors.WithMessage("failed to process webhook"), xerrors.WithCause(err)))
 		return
 	}
 

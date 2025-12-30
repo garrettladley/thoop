@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/garrettladley/thoop/internal/apperr"
 	"github.com/garrettladley/thoop/internal/storage"
+	"github.com/garrettladley/thoop/internal/xerrors"
 	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 )
@@ -22,12 +22,12 @@ func RateLimitWithBackend(backend storage.RateLimiter) func(http.Handler) http.H
 					xslog.ErrorGroup(err),
 					xslog.IP(ip),
 				)
-				apperr.WriteError(w, apperr.ServiceUnavailable("service_unavailable", "rate limit check failed"))
+				xerrors.WriteError(r.Context(), w, xerrors.ServiceUnavailable(xerrors.WithMessage("rate limit check failed")))
 				return
 			}
 
 			if !result.Allowed {
-				apperr.WriteError(w, apperr.TooManyRequests("rate_limited", "rate limit exceeded", result.RetryAfter, "ip_rate_limit"))
+				xerrors.WriteError(r.Context(), w, xerrors.TooManyRequests(xerrors.WithRetryAfter(result.RetryAfter), xerrors.WithReason("ip_rate_limit")))
 				return
 			}
 
