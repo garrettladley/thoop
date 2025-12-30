@@ -7,20 +7,34 @@ formatters:
 
 linters:
   enable:
-    - sloglint
+    - bodyclose
+    - canonicalheader
     - errcheck
+    - exhaustive
+    - gochecknoinits
+    - goconst
+    - gomoddirectives
+    - goprintffuncname
     - gosec
     - govet
     - ineffassign
-    - staticcheck
-    - unused
-    - gochecknoinits
-    - unconvert
     - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - noctx
     - nolintlint
     - paralleltest
-    - canonicalheader
-    - exhaustive
+    - prealloc
+    - rowserrcheck
+    - sloglint
+    - sqlclosecheck
+    - staticcheck
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
 
   settings:
     exhaustive:

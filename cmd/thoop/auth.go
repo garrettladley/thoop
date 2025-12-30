@@ -1,3 +1,5 @@
+//go:build !release
+
 package main
 
 import (
@@ -29,15 +31,15 @@ func authCmd() *cobra.Command {
 			}
 
 			if _, err := paths.EnsureDir(); err != nil {
-				return err
+				return fmt.Errorf("failed to ensure directory: %w", err)
 			}
 
 			dbPath, err := paths.DB()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get database path: %w", err)
 			}
 
-			sqlDB, querier, err := db.Open(dbPath)
+			sqlDB, querier, err := db.Open(ctx, dbPath)
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
@@ -45,7 +47,7 @@ func authCmd() *cobra.Command {
 				_ = sqlDB.Close()
 			}()
 
-			flow := oauth.NewServerFlowWithURL(cfg.ProxyURL, querier)
+			flow := oauth.NewServerFlow(cfg.ServerURL, querier)
 
 			token, err := flow.Run(ctx)
 			if err != nil {
@@ -57,8 +59,7 @@ func authCmd() *cobra.Command {
 
 			// start backfill in background after successful auth
 			logger := xslog.NewLoggerFromEnv(os.Stderr)
-			oauthCfg := oauth.NewConfig(cfg.Whoop)
-			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
+			tokenSource := oauth.NewProxyTokenSource(cfg.ServerURL, querier)
 
 			var apiKey string
 			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
@@ -66,7 +67,7 @@ func authCmd() *cobra.Command {
 			}
 
 			client := whoop.New(tokenSource,
-				whoop.WithProxyURL(cfg.ProxyURL+"/api/whoop"),
+				whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
 				whoop.WithAPIKey(apiKey),
 			)
 			repo := repository.New(querier)
@@ -96,19 +97,19 @@ func purgeCmd() *cobra.Command {
 
 			cfg, err := config.Read()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to read config: %w", err)
 			}
 
 			if _, err := paths.EnsureDir(); err != nil {
-				return err
+				return fmt.Errorf("failed to ensure directory: %w", err)
 			}
 
 			dbPath, err := paths.DB()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get database path: %w", err)
 			}
 
-			sqlDB, querier, err := db.Open(dbPath)
+			sqlDB, querier, err := db.Open(ctx, dbPath)
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
@@ -116,8 +117,7 @@ func purgeCmd() *cobra.Command {
 				_ = sqlDB.Close()
 			}()
 
-			oauthCfg := oauth.NewConfig(cfg.Whoop)
-			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
+			tokenSource := oauth.NewProxyTokenSource(cfg.ServerURL, querier)
 
 			var apiKey string
 			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
@@ -125,7 +125,7 @@ func purgeCmd() *cobra.Command {
 			}
 
 			client := whoop.New(tokenSource,
-				whoop.WithProxyURL(cfg.ProxyURL+"/api/whoop"),
+				whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
 				whoop.WithAPIKey(apiKey),
 			)
 			_ = client.User.RevokeAccess(ctx) // best effort - token may already be invalid

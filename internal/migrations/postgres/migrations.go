@@ -26,7 +26,7 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("failed to read migrations directory: %w", err)
 	}
 
-	var upFiles []string
+	upFiles := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		upFiles = append(upFiles, entry.Name())
 	}

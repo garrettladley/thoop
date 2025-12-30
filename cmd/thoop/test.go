@@ -1,3 +1,5 @@
+//go:build !release
+
 package main
 
 import (
@@ -29,14 +31,13 @@ func testCmd() *cobra.Command {
 				return err
 			}
 
-			sqlDB, querier, err := db.Open(dbPath)
+			sqlDB, querier, err := db.Open(ctx, dbPath)
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
 			defer func() { _ = sqlDB.Close() }()
 
-			oauthCfg := oauth.NewConfig(cfg.Whoop)
-			tokenSource := oauth.NewDBTokenSource(oauthCfg, querier)
+			tokenSource := oauth.NewProxyTokenSource(cfg.ServerURL, querier)
 
 			var apiKey string
 			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
@@ -44,7 +45,7 @@ func testCmd() *cobra.Command {
 			}
 
 			client := whoop.New(tokenSource,
-				whoop.WithProxyURL(cfg.ProxyURL+"/api/whoop"),
+				whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
 				whoop.WithAPIKey(apiKey),
 			)
 
@@ -77,41 +78,6 @@ func testCmd() *cobra.Command {
 				fmt.Printf("  OK: %d cycles\n", len(cycles.Records))
 				for _, c := range cycles.Records {
 					fmt.Printf("    - id=%d, start=%s, score_state=%s\n", c.ID, c.Start.Format("2006-01-02"), c.ScoreState)
-				}
-			}
-
-			if cycles != nil && len(cycles.Records) > 0 {
-				cycleID := cycles.Records[0].ID
-
-				fmt.Printf("\n[Cycle.Get] id=%d\n", cycleID)
-				cycle, err := client.Cycle.Get(ctx, cycleID)
-				if err != nil {
-					fmt.Printf("  ERROR: %v\n", err)
-					failures++
-				} else {
-					fmt.Printf("  OK: id=%d, score_state=%s\n", cycle.ID, cycle.ScoreState)
-				}
-
-				fmt.Printf("\n[Cycle.GetRecovery] cycleID=%d\n", cycleID)
-				recovery, err := client.Cycle.GetRecovery(ctx, cycleID)
-				if err != nil {
-					fmt.Printf("  ERROR: %v\n", err)
-					failures++
-				} else {
-					fmt.Printf("  OK: score_state=%s\n", recovery.ScoreState)
-					if recovery.Score != nil {
-						fmt.Printf("    recovery=%.0f%%, hrv=%.1f, rhr=%.0f\n",
-							recovery.Score.RecoveryScore, recovery.Score.HRVRmssdMilli, recovery.Score.RestingHeartRate)
-					}
-				}
-
-				fmt.Printf("\n[Cycle.GetSleep] cycleID=%d\n", cycleID)
-				cycleSleep, err := client.Cycle.GetSleep(ctx, cycleID)
-				if err != nil {
-					fmt.Printf("  ERROR: %v\n", err)
-					failures++
-				} else {
-					fmt.Printf("  OK: id=%s, nap=%v, score_state=%s\n", cycleSleep.ID, cycleSleep.Nap, cycleSleep.ScoreState)
 				}
 			}
 

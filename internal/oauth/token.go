@@ -16,10 +16,14 @@ type TokenChecker interface {
 	HasToken(ctx context.Context) (bool, error)
 }
 
-var (
-	_ TokenChecker       = (*DBTokenSource)(nil)
-	_ oauth2.TokenSource = (*DBTokenSource)(nil)
-)
+// TokenSource combines oauth2.TokenSource with token management capabilities.
+type TokenSource interface {
+	oauth2.TokenSource
+	TokenChecker
+	RefreshIfNeeded(ctx context.Context, threshold time.Duration) (*oauth2.Token, error)
+}
+
+var _ TokenSource = (*DBTokenSource)(nil)
 
 type DBTokenSource struct {
 	config  *oauth2.Config

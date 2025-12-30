@@ -119,6 +119,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	unauthedMux := http.NewServeMux()
 	unauthedMux.HandleFunc("GET /auth/start", authHandler.HandleAuthStart)
 	unauthedMux.HandleFunc("GET /auth/callback", authHandler.HandleAuthCallback)
+	unauthedMux.HandleFunc("POST /auth/refresh", authHandler.HandleRefresh)
 	unauthedMux.HandleFunc("POST /webhooks/whoop", webhookHandler.HandleWebhook)
 	unauthedMux.HandleFunc("GET /health", handler.HandleHealth)
 	unauthedWrapped := middleware.Chain(unauthedMux,
@@ -202,7 +203,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 func initBackend(ctx context.Context, cfg server.Config, redisClient *redis.Client, logger *slog.Logger) (storage.Backend, error) {
 	logger.InfoContext(ctx, "initializing Redis backend")
-	return storage.NewRedisBackend(storage.RedisConfig{Client: redisClient}, int(cfg.RateLimit.Limit))
+	backend, err := storage.NewRedisBackend(storage.RedisConfig{Client: redisClient}, int(cfg.RateLimit.Limit))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create redis backend: %w", err)
+	}
+	return backend, nil
 }
 
 func initWhoopLimiter(ctx context.Context, cfg server.Config, redisClient *redis.Client, logger *slog.Logger) storage.WhoopRateLimiter {

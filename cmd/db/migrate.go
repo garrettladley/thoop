@@ -14,17 +14,17 @@ func migrateCmd() *cobra.Command {
 		Short: "Apply pending database migrations",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, err := paths.EnsureDir(); err != nil {
-				return err
+				return fmt.Errorf("failed to ensure directory: %w", err)
 			}
 
 			dbPath, err := paths.DB()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get database path: %w", err)
 			}
 
-			sqlDB, _, err := db.Open(dbPath)
+			sqlDB, _, err := db.Open(cmd.Context(), dbPath)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to open database: %w", err)
 			}
 			defer func() {
 				_ = sqlDB.Close()

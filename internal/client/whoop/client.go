@@ -159,5 +159,9 @@ func (t *whoopTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	return t.base.RoundTrip(req)
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return nil, fmt.Errorf("round trip: %w", err)
+	}
+	return resp, nil
 }

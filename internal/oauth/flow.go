@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	callbackPath    = "/callback"
-	shutdownTime    = 5 * time.Second
-	defaultProxyURL = "https://thoop.fly.dev"
+	callbackPath     = "/callback"
+	shutdownTime     = 5 * time.Second
+	defaultServerURL = "https://thoop.fly.dev"
 )
 
 var (
@@ -50,14 +50,7 @@ type ServerFlow struct {
 
 var _ Flow = (*ServerFlow)(nil)
 
-func NewServerFlow(querier sqlitec.Querier) *ServerFlow {
-	return &ServerFlow{
-		serverURL: defaultProxyURL,
-		querier:   querier,
-	}
-}
-
-func NewServerFlowWithURL(serverURL string, querier sqlitec.Querier) *ServerFlow {
+func NewServerFlow(serverURL string, querier sqlitec.Querier) *ServerFlow {
 	return &ServerFlow{
 		serverURL: serverURL,
 		querier:   querier,
@@ -140,7 +133,7 @@ func runFlow(
 ) (*oauth2.Token, error) {
 	resultCh := make(chan tokenResult, 1)
 
-	server, port, err := startCallbackServer(handler, resultCh)
+	server, port, err := startCallbackServer(ctx, handler, resultCh)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start callback server: %w", err)
 	}
@@ -150,7 +143,7 @@ func runFlow(
 	fmt.Printf("Opening browser for authorization...\n")
 	fmt.Printf("If the browser doesn't open, visit:\n%s\n\n", url)
 
-	if err := openBrowser(url); err != nil {
+	if err := openBrowser(ctx, url); err != nil {
 		fmt.Printf("Failed to open browser: %v\n", err)
 	}
 
@@ -189,7 +182,7 @@ func runFlow(
 	}
 }
 
-func startCallbackServer(handler callbackHandler, resultCh chan<- tokenResult) (*http.Server, string, error) {
+func startCallbackServer(ctx context.Context, handler callbackHandler, resultCh chan<- tokenResult) (*http.Server, string, error) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc(callbackPath, func(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +195,8 @@ func startCallbackServer(handler callbackHandler, resultCh chan<- tokenResult) (
 		resultCh <- tokenResult{token: token, apiKey: apiKey}
 	})
 
-	listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", "0"))
+	lc := &net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "tcp", net.JoinHostPort("127.0.0.1", "0"))
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to start listener: %w", err)
 	}
@@ -347,16 +341,16 @@ func writeSuccessHTML(w http.ResponseWriter) {
 </html>`)
 }
 
-func openBrowser(url string) error {
+func openBrowser(ctx context.Context, url string) error {
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		cmd = exec.CommandContext(ctx, "open", url)
 	case "linux":
-		cmd = exec.Command("xdg-open", url)
+		cmd = exec.CommandContext(ctx, "xdg-open", url)
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", url)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}

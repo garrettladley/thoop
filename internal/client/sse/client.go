@@ -60,14 +60,14 @@ func (c *Client) Connect(ctx context.Context, handler NotificationHandler) error
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
 		default:
 		}
 
 		err := c.connectOnce(ctx, handler)
 		if err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return fmt.Errorf("context cancelled: %w", ctxErr)
 			}
 
 			c.logger.WarnContext(ctx, "SSE connection failed, reconnecting",
@@ -79,7 +79,7 @@ func (c *Client) Connect(ctx context.Context, handler NotificationHandler) error
 			select {
 			case <-ctx.Done():
 				timer.Stop()
-				return ctx.Err()
+				return fmt.Errorf("context cancelled: %w", ctx.Err())
 			case <-timer.C:
 			}
 
@@ -231,5 +231,9 @@ func (t *sseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Header.Set(xhttp.XAPIKey, t.apiKey)
 	}
 
-	return t.base.RoundTrip(req)
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return nil, fmt.Errorf("round trip: %w", err)
+	}
+	return resp, nil
 }

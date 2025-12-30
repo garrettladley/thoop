@@ -154,6 +154,22 @@ func (s *OAuth) HandleCallback(ctx context.Context, req CallbackRequest) (*Callb
 	}, nil
 }
 
+func (s *OAuth) RefreshToken(ctx context.Context, req RefreshRequest) (*RefreshResult, error) {
+	if req.RefreshToken == "" {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	token := &oauth2.Token{RefreshToken: req.RefreshToken}
+	tokenSource := s.config.TokenSource(ctx, token)
+
+	newToken, err := tokenSource.Token()
+	if err != nil {
+		return nil, ErrRefreshFailed
+	}
+
+	return &RefreshResult{Token: newToken}, nil
+}
+
 func isValidPort(s string) bool {
 	if s == "" {
 		return false

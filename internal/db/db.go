@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -12,15 +13,15 @@ import (
 // Open opens a connection to the SQLite database and returns a querier.
 // It automatically applies any pending migrations.
 // The caller is responsible for closing the returned *sql.DB.
-func Open(dbPath string) (*sql.DB, sqlitec.Querier, error) {
+func Open(ctx context.Context, dbPath string) (*sql.DB, sqlitec.Querier, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err := migrations.Apply(db); err != nil {
+	if err := migrations.Apply(ctx, db); err != nil {
 		_ = db.Close()
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("applying migrations: %w", err)
 	}
 
 	querier := sqlitec.New(db)
