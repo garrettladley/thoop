@@ -205,6 +205,11 @@ func (m *Model) handleAuthFlowResult(msg onboarding.AuthFlowResultMsg) (tea.Mode
 		return m, nil
 	}
 
+	if msg.APIKey != "" {
+		m.deps.WhoopClient.SetAPIKey(msg.APIKey)
+		m.deps.SSEClient.SetAPIKey(msg.APIKey)
+	}
+
 	m.state.dashboard.AuthIndicator.Authenticated = true
 	m.page = page.Dashboard
 	return m, m.startDashboard()
