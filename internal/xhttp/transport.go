@@ -10,6 +10,8 @@ type thoopTransport struct {
 	base http.RoundTripper
 }
 
+var _ http.RoundTripper = (*thoopTransport)(nil)
+
 func (t *thoopTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", "thoop/"+version.Get())
 	req.Header.Set(version.Header, version.Get())
