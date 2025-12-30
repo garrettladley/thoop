@@ -1,4 +1,4 @@
-package server
+package middleware
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/garrettladley/thoop/internal/apperr"
 	"github.com/garrettladley/thoop/internal/service/user"
 	"github.com/garrettladley/thoop/internal/xcontext"
 	"github.com/garrettladley/thoop/internal/xhttp"
@@ -13,7 +14,7 @@ import (
 )
 
 // APIKeyAuth validates API keys and sets the verified user ID in context.
-// Must be called before WhoopAuth to enable the binding check.
+// Must be called before BearerAuth to enable the binding check.
 func APIKeyAuth(userService user.Service) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -23,9 +24,7 @@ func APIKeyAuth(userService user.Service) func(http.Handler) http.Handler {
 			if apiKey == "" {
 				logger.WarnContext(r.Context(), "missing API key header",
 					xslog.RequestPath(r))
-				xhttp.SetHeaderContentTypeApplicationJSON(w)
-				w.WriteHeader(http.StatusUnauthorized)
-				_, _ = w.Write([]byte(`{"error":"unauthorized","message":"missing API key"}`))
+				apperr.WriteError(w, apperr.Unauthorized("unauthorized", "missing API key"))
 				return
 			}
 
@@ -35,21 +34,15 @@ func APIKeyAuth(userService user.Service) func(http.Handler) http.Handler {
 					xslog.RequestPath(r),
 					xslog.ErrorGroup(err))
 
-				xhttp.SetHeaderContentTypeApplicationJSON(w)
-
 				switch {
 				case errors.Is(err, user.ErrAPIKeyNotFound):
-					w.WriteHeader(http.StatusUnauthorized)
-					_, _ = w.Write([]byte(`{"error":"unauthorized","message":"invalid API key"}`))
+					apperr.WriteError(w, apperr.Unauthorized("unauthorized", "invalid API key"))
 				case errors.Is(err, user.ErrAPIKeyRevoked):
-					w.WriteHeader(http.StatusUnauthorized)
-					_, _ = w.Write([]byte(`{"error":"unauthorized","message":"API key has been revoked"}`))
+					apperr.WriteError(w, apperr.Unauthorized("unauthorized", "API key has been revoked"))
 				case errors.Is(err, user.ErrUserBanned):
-					w.WriteHeader(http.StatusUnauthorized)
-					_, _ = w.Write([]byte(`{"error":"unauthorized","message":"account banned"}`))
+					apperr.WriteError(w, apperr.Unauthorized("unauthorized", "account banned"))
 				default:
-					w.WriteHeader(http.StatusInternalServerError)
-					_, _ = w.Write([]byte(`{"error":"internal_error","message":"API key validation failed"}`))
+					apperr.WriteError(w, apperr.Internal("internal_error", "API key validation failed", err))
 				}
 				return
 			}

@@ -13,9 +13,17 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/migrations/postgres"
+	"github.com/garrettladley/thoop/internal/oauth"
 	xredis "github.com/garrettladley/thoop/internal/redis"
 	"github.com/garrettladley/thoop/internal/server"
+	"github.com/garrettladley/thoop/internal/server/handler"
+	servermw "github.com/garrettladley/thoop/internal/server/middleware"
+	"github.com/garrettladley/thoop/internal/service/auth"
+	"github.com/garrettladley/thoop/internal/service/notification"
+	"github.com/garrettladley/thoop/internal/service/proxy"
+	"github.com/garrettladley/thoop/internal/service/token"
 	"github.com/garrettladley/thoop/internal/service/user"
+	"github.com/garrettladley/thoop/internal/service/webhook"
 	pgc "github.com/garrettladley/thoop/internal/sqlc/postgres"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/xhttp/middleware"
@@ -78,42 +86,58 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	whoopLimiter := initWhoopLimiter(ctx, cfg, redisClient, logger)
 	tokenCache := initTokenCache(ctx, redisClient, logger)
-	tokenValidator := server.NewTokenValidator(tokenCache, whoopLimiter)
 	notificationStore := initNotificationStore(ctx, redisClient, logger)
 
+	// Database layer
 	queries := pgc.New(pool)
+
+	// Services
 	userService := user.NewPostgresService(queries)
-	handler := server.NewHandler(cfg, backend, userService, whoopLimiter)
-	whoopHandler := server.NewWhoopHandler(cfg, whoopLimiter)
-	webhookHandler := server.NewWebhookHandler(cfg.Whoop.ClientSecret, notificationStore)
-	sseHandler := server.NewSSEHandler(notificationStore)
-	notificationsHandler := server.NewNotificationsHandler(notificationStore)
+	tokenService := token.NewValidator(tokenCache, whoopLimiter)
+	notificationService := notification.NewStore(notificationStore)
+	webhookService := webhook.NewProcessor(cfg.Whoop.ClientSecret, notificationStore)
+	proxyService := proxy.NewProxy(whoopLimiter, proxy.RateLimitConfig{
+		PerUserMinuteLimit: cfg.WhoopRateLimit.PerUserMinuteLimit,
+		PerUserDayLimit:    cfg.WhoopRateLimit.PerUserDayLimit,
+		GlobalMinuteLimit:  cfg.WhoopRateLimit.GlobalMinuteLimit,
+		GlobalDayLimit:     cfg.WhoopRateLimit.GlobalDayLimit,
+	})
+	authService := auth.NewOAuth(
+		oauth.NewConfig(cfg),
+		backend, // StateStore
+		userService,
+		whoopLimiter,
+	)
+
+	// Handlers
+	authHandler := handler.NewAuth(authService)
+	webhookHandler := handler.NewWebhook(webhookService)
+	proxyHandler := handler.NewProxy(proxyService)
+	notificationsHandler := handler.NewNotifications(notificationService)
+	sseHandler := handler.NewSSE(notificationService)
 
 	mux := http.NewServeMux()
 
-	// unauthenticated routes - protected by global IP rate limiter
+	// Unauthenticated routes - protected by global IP rate limiter
 	unauthedMux := http.NewServeMux()
-	unauthedMux.HandleFunc("GET /auth/start", handler.HandleAuthStart)
-	unauthedMux.HandleFunc("GET /auth/callback", handler.HandleAuthCallback)
+	unauthedMux.HandleFunc("GET /auth/start", authHandler.HandleAuthStart)
+	unauthedMux.HandleFunc("GET /auth/callback", authHandler.HandleAuthCallback)
 	unauthedMux.HandleFunc("POST /webhooks/whoop", webhookHandler.HandleWebhook)
-	unauthedMux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
+	unauthedMux.HandleFunc("GET /health", handler.HandleHealth)
 	unauthedWrapped := middleware.Chain(unauthedMux,
-		server.RateLimitWithBackend(backend),
+		servermw.RateLimitWithBackend(backend),
 	)
 	mux.Handle("/auth/", unauthedWrapped)
 	mux.Handle("/webhooks/", unauthedWrapped)
 	mux.Handle("/health", unauthedWrapped)
 
-	// authenticated routes - protected by API key + WHOOP token + rate limiter
+	// Authenticated routes - protected by API key + WHOOP token + rate limiter
 	whoopMux := http.NewServeMux()
-	whoopMux.HandleFunc("/api/whoop/", whoopHandler.HandleWhoopProxy)
+	whoopMux.HandleFunc("/api/whoop/", proxyHandler.HandleWhoopProxy)
 	whoopWrapped := middleware.Chain(whoopMux,
 		middleware.VersionCheck,
-		server.APIKeyAuth(userService),
-		server.WhoopAuth(tokenValidator),
+		servermw.APIKeyAuth(userService),
+		servermw.BearerAuth(tokenService),
 	)
 	mux.Handle("/api/whoop/", whoopWrapped)
 
@@ -121,8 +145,8 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	notificationsMux.HandleFunc("GET /api/notifications", notificationsHandler.HandlePoll)
 	notificationsMux.HandleFunc("GET /api/notifications/stream", sseHandler.HandleStream)
 	notificationsWrapped := middleware.Chain(notificationsMux,
-		server.APIKeyAuth(userService),
-		server.WhoopAuth(tokenValidator),
+		servermw.APIKeyAuth(userService),
+		servermw.BearerAuth(tokenService),
 	)
 	mux.Handle("/api/notifications", notificationsWrapped)
 	mux.Handle("/api/notifications/stream", notificationsWrapped)

@@ -1,36 +1,35 @@
-package server
+package token
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/garrettladley/thoop/internal/apperr"
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/storage"
-	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 	"golang.org/x/oauth2"
 )
 
-var (
-	ErrMissingToken = errors.New("missing bearer token")
-	ErrInvalidToken = errors.New("invalid bearer token")
-)
-
 const defaultTokenCacheTTL = 5 * time.Minute
 
-type TokenValidator struct {
+type Validator struct {
 	cache        storage.TokenCache
 	whoopLimiter storage.WhoopRateLimiter
 	httpClient   *http.Client
 	ttl          time.Duration
 }
 
-func NewTokenValidator(cache storage.TokenCache, whoopLimiter storage.WhoopRateLimiter) *TokenValidator {
-	return &TokenValidator{
+var _ Service = (*Validator)(nil)
+
+func NewValidator(cache storage.TokenCache, whoopLimiter storage.WhoopRateLimiter) *Validator {
+	return &Validator{
 		cache:        cache,
 		whoopLimiter: whoopLimiter,
 		httpClient:   &http.Client{Timeout: 10 * time.Second},
@@ -38,7 +37,7 @@ func NewTokenValidator(cache storage.TokenCache, whoopLimiter storage.WhoopRateL
 	}
 }
 
-func (v *TokenValidator) ValidateAndGetUserID(ctx context.Context, authHeader string) (int64, error) {
+func (v *Validator) ValidateAndGetUserID(ctx context.Context, authHeader string) (int64, error) {
 	logger := xslog.FromContext(ctx)
 
 	token, err := extractBearerToken(authHeader)
@@ -46,7 +45,7 @@ func (v *TokenValidator) ValidateAndGetUserID(ctx context.Context, authHeader st
 		return 0, err
 	}
 
-	tokenHash := HashSecret(token)
+	tokenHash := hashSecret(token)
 
 	userID, err := v.cache.GetUserID(ctx, tokenHash)
 	if err == nil {
@@ -99,7 +98,7 @@ func (s *staticTokenSource) Token() (*oauth2.Token, error) {
 	return &oauth2.Token{AccessToken: s.token}, nil
 }
 
-func (v *TokenValidator) validateWithWhoopAPI(ctx context.Context, token string, tokenHash string) (int64, error) {
+func (v *Validator) validateWithWhoopAPI(ctx context.Context, token string, tokenHash string) (int64, error) {
 	logger := xslog.FromContext(ctx)
 
 	state, err := v.whoopLimiter.CheckAndIncrement(ctx, tokenHash)
@@ -125,7 +124,7 @@ func (v *TokenValidator) validateWithWhoopAPI(ctx context.Context, token string,
 			retryAfter = time.Minute
 		}
 
-		return 0, &xhttp.RateLimitError{RetryAfter: retryAfter, Reason: string(reason)}
+		return 0, apperr.TooManyRequests("rate_limited", "rate limit exceeded", retryAfter, string(reason))
 	}
 
 	tokenSource := &staticTokenSource{token: token}
@@ -143,4 +142,9 @@ func (v *TokenValidator) validateWithWhoopAPI(ctx context.Context, token string,
 	}
 
 	return profile.UserID, nil
+}
+
+func hashSecret(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:])
 }

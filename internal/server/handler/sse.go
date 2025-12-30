@@ -1,4 +1,4 @@
-package server
+package handler
 
 import (
 	"errors"
@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/storage"
+	"github.com/garrettladley/thoop/internal/service/notification"
 	"github.com/garrettladley/thoop/internal/xcontext"
-	"github.com/garrettladley/thoop/internal/xhttp"
 	"github.com/garrettladley/thoop/internal/xslog"
 	go_json "github.com/goccy/go-json"
 )
@@ -18,17 +17,16 @@ const (
 	sseWriteTimeout      = 45 * time.Second
 )
 
-type SSEHandler struct {
-	notificationStore storage.NotificationStore
+type SSE struct {
+	service notification.Service
 }
 
-func NewSSEHandler(notificationStore storage.NotificationStore) *SSEHandler {
-	return &SSEHandler{
-		notificationStore: notificationStore,
-	}
+func NewSSE(service notification.Service) *SSE {
+	return &SSE{service: service}
 }
 
-func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
+// HandleStream handles GET /api/notifications/stream requests.
+func (h *SSE) HandleStream(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := xslog.FromContext(ctx)
 
@@ -37,7 +35,7 @@ func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 	userID, ok := xcontext.GetWhoopUserID(ctx)
 	if !ok {
 		logger.WarnContext(ctx, "SSE: no user ID in context")
-		xhttp.Error(w, http.StatusUnauthorized)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -57,7 +55,7 @@ func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 
 	logger.DebugContext(ctx, "SSE: subscribing to notifications")
 
-	notifCh, unsubscribe, err := h.notificationStore.Subscribe(ctx, userID)
+	notifCh, unsubscribe, err := h.service.Subscribe(ctx, userID)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to subscribe to notifications",
 			xslog.Error(err),
@@ -102,13 +100,13 @@ func (h *SSEHandler) HandleStream(w http.ResponseWriter, r *http.Request) {
 			logger.InfoContext(ctx, "SSE connection closed by client", xslog.UserID(userID))
 			return
 
-		case notification, ok := <-notifCh:
+		case n, ok := <-notifCh:
 			if !ok {
 				logger.InfoContext(ctx, "notification channel closed", xslog.UserID(userID))
 				return
 			}
 
-			if err := writeSSEEvent(rc, w, flusher, "notification", notification); err != nil {
+			if err := writeSSEEvent(rc, w, flusher, "notification", n); err != nil {
 				logger.ErrorContext(ctx, "failed to send notification event", xslog.Error(err))
 				return
 			}
