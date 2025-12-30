@@ -243,3 +243,7 @@ func (t *sseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 func (c *Client) SetAPIKey(apiKey string) {
 	c.transport.apiKey = apiKey
 }
+
+func (c *Client) Ack(ctx context.Context, traceIDs []string) error {
+	return c.poller.Ack(ctx, traceIDs)
+}

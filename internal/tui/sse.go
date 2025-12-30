@@ -40,7 +40,8 @@ func StartSSECmd(ctx context.Context, client *sse.Client, notifCh chan<- storage
 // ListenNotificationsCmd reads from the notification channel, processes the
 // notification via the NotificationProcessor, and returns a NotificationMsg.
 // This command should be re-invoked after each message to continue listening.
-func ListenNotificationsCmd(ctx context.Context, notifCh <-chan storage.Notification, processor *xsync.NotificationProcessor) tea.Cmd {
+// On successful processing, acknowledges the notification to prevent reprocessing.
+func ListenNotificationsCmd(ctx context.Context, notifCh <-chan storage.Notification, processor *xsync.NotificationProcessor, sseClient *sse.Client) tea.Cmd {
 	return func() tea.Msg {
 		select {
 		case n, ok := <-notifCh:
@@ -48,6 +49,10 @@ func ListenNotificationsCmd(ctx context.Context, notifCh <-chan storage.Notifica
 				return SSEDisconnectedMsg{Err: nil}
 			}
 			result := processor.Process(ctx, n)
+			if result.Success {
+				// fire-and-forget ack - errors logged but don't block
+				_ = sseClient.Ack(ctx, []string{n.TraceID})
+			}
 			return NotificationMsg{
 				Notification: n,
 				Result:       result,
