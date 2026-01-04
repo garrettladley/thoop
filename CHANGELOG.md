@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.2](https://github.com/garrettladley/thoop/compare/v0.0.1...v0.0.2) (2026-01-04)
+
+
+### Features
+
+* flip build tags to tag dev instead of tag release ([#69](https://github.com/garrettladley/thoop/issues/69)) ([b798ef1](https://github.com/garrettladley/thoop/commit/b798ef1a34f28fbbb4168b08ab1a79421bbc5b40))
+* **fly:** only deploy on tag, not on main ([#71](https://github.com/garrettladley/thoop/issues/71)) ([bddfa82](https://github.com/garrettladley/thoop/commit/bddfa82b4a99748cd3993e8a322c8f22e3b4e972))
+
 ## [0.0.1](https://github.com/garrettladley/thoop/compare/v0.0.0...v0.0.1) (2026-01-04)
 
 
