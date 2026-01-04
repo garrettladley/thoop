@@ -21,11 +21,6 @@ func testCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			cfg, err := config.Read()
-			if err != nil {
-				return fmt.Errorf("failed to read config: %w", err)
-			}
-
 			dbPath, err := paths.DB()
 			if err != nil {
 				return fmt.Errorf("failed to get database path: %w", err)
@@ -37,7 +32,7 @@ func testCmd() *cobra.Command {
 			}
 			defer func() { _ = sqlDB.Close() }()
 
-			tokenSource := oauth.NewProxyTokenSource(cfg.ServerURL, querier)
+			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier)
 
 			var apiKey string
 			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
@@ -45,7 +40,7 @@ func testCmd() *cobra.Command {
 			}
 
 			client := whoop.New(tokenSource,
-				whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
+				whoop.WithProxyURL(config.ServerURL+"/api/whoop"),
 				whoop.WithAPIKey(apiKey),
 			)
 

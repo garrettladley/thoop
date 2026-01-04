@@ -22,17 +22,20 @@ type PollResponse struct {
 type PollClient struct {
 	baseURL    string
 	httpClient *http.Client
+	transport  *pollTransport
 }
 
-func NewPollClient(baseURL string, tokenSource oauth2.TokenSource, sessionID string) *PollClient {
+func NewPollClient(baseURL string, tokenSource oauth2.TokenSource, sessionID string, apiKey string) *PollClient {
 	transport := &pollTransport{
 		base:        xhttp.NewTransport(),
 		tokenSource: tokenSource,
 		sessionID:   sessionID,
+		apiKey:      apiKey,
 	}
 	return &PollClient{
 		baseURL:    baseURL,
 		httpClient: &http.Client{Transport: transport, Timeout: 30 * time.Second},
+		transport:  transport,
 	}
 }
 
@@ -146,6 +149,7 @@ type pollTransport struct {
 	base        http.RoundTripper
 	tokenSource oauth2.TokenSource
 	sessionID   string
+	apiKey      string
 }
 
 var _ http.RoundTripper = (*pollTransport)(nil)
@@ -162,10 +166,17 @@ func (t *pollTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.sessionID != "" {
 		xhttp.SetRequestHeaderSessionID(req, t.sessionID)
 	}
+	if t.apiKey != "" {
+		req.Header.Set(xhttp.XAPIKey, t.apiKey)
+	}
 
 	resp, err := t.base.RoundTrip(req)
 	if err != nil {
 		return nil, fmt.Errorf("round trip: %w", err)
 	}
 	return resp, nil
+}
+
+func (c *PollClient) SetAPIKey(apiKey string) {
+	c.transport.apiKey = apiKey
 }

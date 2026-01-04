@@ -6,15 +6,12 @@ import (
 	"syscall"
 
 	"github.com/charmbracelet/fang"
-	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 
 	"github.com/garrettladley/thoop/internal/version"
 )
 
 func main() {
-	_ = godotenv.Load()
-
 	rootCmd := &cobra.Command{
 		Use:     "thoop",
 		Short:   "WHOOP data in your terminal",

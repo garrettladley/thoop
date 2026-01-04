@@ -4,16 +4,12 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
 	"github.com/garrettladley/thoop/internal/db"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
-	"github.com/garrettladley/thoop/internal/repository"
-	"github.com/garrettladley/thoop/internal/xslog"
-	"github.com/garrettladley/thoop/internal/xsync"
 	"github.com/spf13/cobra"
 )
 
@@ -24,11 +20,6 @@ func authCmd() *cobra.Command {
 		Long:  "Opens browser to authenticate with WHOOP and stores the token locally.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-
-			cfg, err := config.Read()
-			if err != nil {
-				return fmt.Errorf("failed to read config: %w", err)
-			}
 
 			if _, err := paths.EnsureDir(); err != nil {
 				return fmt.Errorf("failed to ensure directory: %w", err)
@@ -47,7 +38,7 @@ func authCmd() *cobra.Command {
 				_ = sqlDB.Close()
 			}()
 
-			flow := oauth.NewServerFlow(cfg.ServerURL, querier)
+			flow := oauth.NewServerFlow(config.ServerURL, querier)
 
 			result, err := flow.Run(ctx)
 			if err != nil {
@@ -56,22 +47,6 @@ func authCmd() *cobra.Command {
 
 			fmt.Printf("Authentication successful!\n")
 			fmt.Printf("Token expires: %s\n", result.Token.Expiry.Format("2006-01-02 15:04:05"))
-
-			// start backfill in background after successful auth
-			logger := xslog.NewLoggerFromEnv(os.Stderr)
-			tokenSource := oauth.NewProxyTokenSource(cfg.ServerURL, querier)
-
-			client := whoop.New(tokenSource,
-				whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
-				whoop.WithAPIKey(result.APIKey),
-			)
-			repo := repository.New(querier)
-			syncSvc := xsync.NewService(client, repo, logger)
-
-			fmt.Println("Starting background data sync...")
-			if err := syncSvc.StartBackfill(ctx); err != nil {
-				logger.WarnContext(ctx, "failed to start backfill", xslog.Error(err))
-			}
 
 			return nil
 		},
@@ -90,11 +65,6 @@ func purgeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			cfg, err := config.Read()
-			if err != nil {
-				return fmt.Errorf("failed to read config: %w", err)
-			}
-
 			if _, err := paths.EnsureDir(); err != nil {
 				return fmt.Errorf("failed to ensure directory: %w", err)
 			}
@@ -112,7 +82,7 @@ func purgeCmd() *cobra.Command {
 				_ = sqlDB.Close()
 			}()
 
-			tokenSource := oauth.NewProxyTokenSource(cfg.ServerURL, querier)
+			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier)
 
 			var apiKey string
 			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
@@ -120,7 +90,7 @@ func purgeCmd() *cobra.Command {
 			}
 
 			client := whoop.New(tokenSource,
-				whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
+				whoop.WithProxyURL(config.ServerURL+"/api/whoop"),
 				whoop.WithAPIKey(apiKey),
 			)
 			_ = client.User.RevokeAccess(ctx) // best effort - token may already be invalid

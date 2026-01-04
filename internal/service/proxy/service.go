@@ -45,5 +45,6 @@ type Service interface {
 	// Returns the upstream response.
 	// Returns ErrInvalidPath if the path is malformed.
 	// Returns ErrUpstreamError if the upstream request fails.
+	// Caller is responsible for closing ProxyResponse.Body.
 	ProxyRequest(ctx context.Context, req *ProxyRequest) (*ProxyResponse, error)
 }
