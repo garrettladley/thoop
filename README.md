@@ -1,5 +1,10 @@
 # thoop
 
+<p>
+    <a href="https://github.com/garrettladley/thoop/releases"><img src="https://img.shields.io/github/release/garrettladley/thoop" alt="Latest Release"></a>
+    <a href="https://github.com/garrettladley/thoop/actions"><img src="https://github.com/garrettladley/thoop/actions/workflows/ci.yml/badge.svg" alt="Build Status"></a>
+</p>
+
 tui for your whoop data
 
 ## Install
