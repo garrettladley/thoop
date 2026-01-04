@@ -48,8 +48,8 @@ lint/fix:
 build:
 	@echo "Building with version: $(VERSION)"
 	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
-	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
-	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
+	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
+	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
 
 ## build/release: build all binaries for release (no dev commands)
 .PHONY: build/release
