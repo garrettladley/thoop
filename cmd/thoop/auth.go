@@ -25,11 +25,6 @@ func authCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			cfg, err := config.Read()
-			if err != nil {
-				return fmt.Errorf("failed to read config: %w", err)
-			}
-
 			if _, err := paths.EnsureDir(); err != nil {
 				return fmt.Errorf("failed to ensure directory: %w", err)
 			}
@@ -47,7 +42,7 @@ func authCmd() *cobra.Command {
 				_ = sqlDB.Close()
 			}()
 
-			flow := oauth.NewServerFlow(cfg.ServerURL, querier)
+			flow := oauth.NewServerFlow(config.ServerURL, querier)
 
 			result, err := flow.Run(ctx)
 			if err != nil {
@@ -59,10 +54,10 @@ func authCmd() *cobra.Command {
 
 			// start backfill in background after successful auth
 			logger := xslog.NewLoggerFromEnv(os.Stderr)
-			tokenSource := oauth.NewProxyTokenSource(cfg.ServerURL, querier)
+			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier)
 
 			client := whoop.New(tokenSource,
-				whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
+				whoop.WithProxyURL(config.ServerURL+"/api/whoop"),
 				whoop.WithAPIKey(result.APIKey),
 			)
 			repo := repository.New(querier)
@@ -90,11 +85,6 @@ func purgeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			cfg, err := config.Read()
-			if err != nil {
-				return fmt.Errorf("failed to read config: %w", err)
-			}
-
 			if _, err := paths.EnsureDir(); err != nil {
 				return fmt.Errorf("failed to ensure directory: %w", err)
 			}
@@ -112,7 +102,7 @@ func purgeCmd() *cobra.Command {
 				_ = sqlDB.Close()
 			}()
 
-			tokenSource := oauth.NewProxyTokenSource(cfg.ServerURL, querier)
+			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier)
 
 			var apiKey string
 			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
@@ -120,7 +110,7 @@ func purgeCmd() *cobra.Command {
 			}
 
 			client := whoop.New(tokenSource,
-				whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
+				whoop.WithProxyURL(config.ServerURL+"/api/whoop"),
 				whoop.WithAPIKey(apiKey),
 			)
 			_ = client.User.RevokeAccess(ctx) // best effort - token may already be invalid

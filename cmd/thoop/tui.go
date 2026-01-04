@@ -27,11 +27,6 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := context.WithCancel(cmd.Context())
 	defer cancel()
 
-	cfg, err := config.Read()
-	if err != nil {
-		return fmt.Errorf("failed to read config: %w", err)
-	}
-
 	if _, err := paths.EnsureDir(); err != nil {
 		return fmt.Errorf("failed to ensure directory: %w", err)
 	}
@@ -66,8 +61,8 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 	logger := baseLogger.With(xslog.SessionID(sessionID))
 	slog.SetDefault(logger)
 
-	tokenSource := oauth.NewProxyTokenSource(cfg.ServerURL, querier)
-	authFlow := oauth.NewServerFlow(cfg.ServerURL, querier)
+	tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier)
+	authFlow := oauth.NewServerFlow(config.ServerURL, querier)
 
 	var apiKey string
 	if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
@@ -75,7 +70,7 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 	}
 
 	client := whoop.New(tokenSource,
-		whoop.WithProxyURL(cfg.ServerURL+"/api/whoop"),
+		whoop.WithProxyURL(config.ServerURL+"/api/whoop"),
 		whoop.WithSessionID(sessionID),
 		whoop.WithAPIKey(apiKey),
 		whoop.WithLogger(logger),
@@ -86,7 +81,7 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 	syncSvc := xsync.NewService(client, repo, logger)
 	dataFetcher := xsync.NewFetcher(client, repo, logger)
 
-	sseClient := sse.NewClient(cfg.ServerURL, tokenSource, sessionID, apiKey, logger)
+	sseClient := sse.NewClient(config.ServerURL, tokenSource, sessionID, apiKey, logger)
 	notifProcessor := xsync.NewNotificationProcessor(client, repo, logger)
 	notifChan := make(chan storage.Notification, 10)
 
