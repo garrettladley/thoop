@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-
 	rootCmd := &cobra.Command{
 		Use:     "thoop",
 		Short:   "WHOOP data in your terminal",

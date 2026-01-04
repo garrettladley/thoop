@@ -122,11 +122,11 @@ func (p *Proxy) ProxyRequest(ctx context.Context, req *ProxyRequest) (*ProxyResp
 		}
 	}
 
+	//nolint:bodyclose // caller is responsible for closing Body via CopyResponse
 	resp, err := p.httpClient.Do(proxyReq)
 	if err != nil {
 		return nil, fmt.Errorf("%w: request failed: %v", ErrUpstreamError, err)
 	}
-	//  don't close resp.Body here - CopyResponse handles closing it
 
 	if updateErr := p.whoopLimiter.UpdateFromHeaders(ctx, resp.Header); updateErr != nil {
 		logger.WarnContext(ctx, "failed to update rate limit from headers", xslog.Error(updateErr))
