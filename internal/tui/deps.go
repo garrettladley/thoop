@@ -21,8 +21,6 @@ type Deps struct {
 	AuthFlow         oauth.Flow
 	WhoopClient      *whoop.Client
 	Repository       *repository.Repository
-	SyncService      xsync.SyncService
-	DataFetcher      xsync.DataFetcher
 	SSEClient        *sse.Client
 	NotifProcessor   *xsync.NotificationProcessor
 	NotificationChan chan storage.Notification
