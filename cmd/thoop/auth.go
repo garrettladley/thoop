@@ -4,16 +4,12 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
 	"github.com/garrettladley/thoop/internal/db"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
-	"github.com/garrettladley/thoop/internal/repository"
-	"github.com/garrettladley/thoop/internal/xslog"
-	"github.com/garrettladley/thoop/internal/xsync"
 	"github.com/spf13/cobra"
 )
 
@@ -51,22 +47,6 @@ func authCmd() *cobra.Command {
 
 			fmt.Printf("Authentication successful!\n")
 			fmt.Printf("Token expires: %s\n", result.Token.Expiry.Format("2006-01-02 15:04:05"))
-
-			// start backfill in background after successful auth
-			logger := xslog.NewLoggerFromEnv(os.Stderr)
-			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier)
-
-			client := whoop.New(tokenSource,
-				whoop.WithProxyURL(config.ServerURL+"/api/whoop"),
-				whoop.WithAPIKey(result.APIKey),
-			)
-			repo := repository.New(querier)
-			syncSvc := xsync.NewService(client, repo, logger)
-
-			fmt.Println("Starting background data sync...")
-			if err := syncSvc.StartBackfill(ctx); err != nil {
-				logger.WarnContext(ctx, "failed to start backfill", xslog.Error(err))
-			}
 
 			return nil
 		},
