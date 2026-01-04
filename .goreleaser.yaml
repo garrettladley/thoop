@@ -1,0 +1,64 @@
+version: 2
+project_name: thoop
+
+builds:
+  - main: ./cmd/thoop
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -tags=release
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/garrettladley/thoop/internal/version.version={{.Version}}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+homebrew_casks:
+  - repository:
+      owner: garrettladley
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/garrettladley/thoop"
+    description: "WHOOP data in your terminal"
+
+checksum:
+  name_template: "checksums.txt"
+
+signs:
+  - artifacts: checksum
+    cmd: gpg
+    args:
+      - "--batch"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+
+changelog:
+  use: github
+  filters:
+    exclude:
+      - "^chore:"
+      - "^docs:"
+      - "^test:"
+      - "^nit:"
+      - "^refactor:"
+      - "^ci:"
+      - "^build:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  prerelease: auto
