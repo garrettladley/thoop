@@ -5,5 +5,7 @@
       "release-type": "go"
     }
   },
-  "bump-patch-for-minor-pre-major": true
+  "bump-patch-for-minor-pre-major": true,
+  "pull-request-header": "",
+  "pull-request-footer": ""
 }

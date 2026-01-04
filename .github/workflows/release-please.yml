@@ -21,3 +21,9 @@ jobs:
         id: release
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      - name: Add reviewer to release PR
+        if: ${{ steps.release.outputs.pr }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: gh pr edit ${{ steps.release.outputs.pr }} --add-reviewer garrettladley --repo ${{ github.repository }}
