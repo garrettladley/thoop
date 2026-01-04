@@ -1,4 +1,8 @@
 {
-  "release-type": "go",
+  "packages": {
+    ".": {
+      "release-type": "go"
+    }
+  },
   "bump-patch-for-minor-pre-major": true
 }
