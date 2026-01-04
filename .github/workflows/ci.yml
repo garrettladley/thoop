@@ -102,5 +102,5 @@ jobs:
 
       - uses: codecov/codecov-action@v5
         with:
-          file: ./coverage.txt
+          files: ./coverage.txt
           token: ${{ secrets.CODECOV_TOKEN }}
