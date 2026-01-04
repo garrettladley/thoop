@@ -6,7 +6,6 @@ builds:
     env:
       - CGO_ENABLED=0
     flags:
-      - -tags=release
       - -trimpath
     ldflags:
       - -s -w -X github.com/garrettladley/thoop/internal/version.version={{.Version}}

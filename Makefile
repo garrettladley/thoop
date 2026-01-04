@@ -43,26 +43,26 @@ lint:
 lint/fix:
 	@golangci-lint run --path-mode=abs --config=".golangci.yml" --timeout=5m --fix
 
-## build: build all binaries with version (dev mode, shows version in footer)
+## build: build all binaries with version (dev mode, includes dev commands)
 .PHONY: build
 build:
 	@echo "Building with version: $(VERSION)"
+	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
+	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
+	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
+
+## build/release: build all binaries for release (no dev commands)
+.PHONY: build/release
+build/release:
+	@echo "Building release with version: $(VERSION)"
 	@go build -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
 	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
 	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
 
-## build/release: build all binaries for release (no dev footer)
-.PHONY: build/release
-build/release:
-	@echo "Building release with version: $(VERSION)"
-	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
-	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
-	@go build -tags release -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
-
-## build/thoop: build TUI client with version
+## build/thoop: build TUI client with version (dev mode)
 .PHONY: build/thoop
 build/thoop:
-	@go build -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
+	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
 
 ## build/server: build server with version
 .PHONY: build/server
@@ -74,10 +74,10 @@ build/server:
 version:
 	@echo $(VERSION)
 
-## thoop: run main CLI
+## thoop: run main CLI (dev mode)
 .PHONY: thoop
 thoop:
-	@go run -ldflags="$(LDFLAGS)" ./cmd/thoop
+	@go run -tags dev -ldflags="$(LDFLAGS)" ./cmd/thoop
 
 ## db: run database CLI
 .PHONY: db
