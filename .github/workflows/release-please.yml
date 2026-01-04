@@ -26,4 +26,4 @@ jobs:
         if: ${{ steps.release.outputs.pr }}
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-        run: gh pr edit ${{ steps.release.outputs.pr }} --add-reviewer garrettladley --repo ${{ github.repository }}
+        run: gh pr edit ${{ fromJSON(steps.release.outputs.pr).number }} --add-reviewer garrettladley --repo ${{ github.repository }}
