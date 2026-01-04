@@ -46,7 +46,7 @@ func NewClient(baseURL string, tokenSource oauth2.TokenSource, sessionID string,
 		baseURL:    baseURL,
 		httpClient: &http.Client{Transport: transport},
 		transport:  transport,
-		poller:     NewPollClient(baseURL, tokenSource, sessionID),
+		poller:     NewPollClient(baseURL, tokenSource, sessionID, apiKey),
 		logger:     logger,
 	}
 }
@@ -242,6 +242,7 @@ func (t *sseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func (c *Client) SetAPIKey(apiKey string) {
 	c.transport.apiKey = apiKey
+	c.poller.SetAPIKey(apiKey)
 }
 
 func (c *Client) Ack(ctx context.Context, traceIDs []string) error {
