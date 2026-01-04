@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4](https://github.com/garrettladley/thoop/compare/v0.0.3...v0.0.4) (2026-01-04)
+
+
+### Bug Fixes
+
+* **cli:** cask in upgrade cmd ([#82](https://github.com/garrettladley/thoop/issues/82)) ([bdffd23](https://github.com/garrettladley/thoop/commit/bdffd23e2f10274e09216385f2195160bea5ce41))
+
 ## [0.0.3](https://github.com/garrettladley/thoop/compare/v0.0.2...v0.0.3) (2026-01-04)
 
 
