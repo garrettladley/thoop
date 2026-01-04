@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/garrettladley/thoop/compare/v0.0.2...v0.0.3) (2026-01-04)
+
+
+### Bug Fixes
+
+* pass version to fly deploy build ([#76](https://github.com/garrettladley/thoop/issues/76)) ([5b5ca40](https://github.com/garrettladley/thoop/commit/5b5ca4051901a7a9fb89c62b9410b8144535a24e))
+
 ## [0.0.2](https://github.com/garrettladley/thoop/compare/v0.0.1...v0.0.2) (2026-01-04)
 
 
