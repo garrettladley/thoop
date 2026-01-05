@@ -54,6 +54,15 @@ func goInstallUpgrade(ctx context.Context) error {
 }
 
 func brewUpgrade(ctx context.Context) error {
+	fmt.Println("Updating brew...")
+	update := exec.CommandContext(ctx, "brew", "update")
+	update.Stdout = os.Stdout
+	update.Stderr = os.Stderr
+	if err := update.Run(); err != nil {
+		return fmt.Errorf("brew update failed: %w", err)
+	}
+
+	fmt.Println("Updating thoop...")
 	cmd := exec.CommandContext(ctx, "brew", "upgrade", "--cask", "thoop")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
