@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"syscall"
 
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
 
+	"github.com/garrettladley/thoop/internal/client/github"
 	"github.com/garrettladley/thoop/internal/version"
 )
 
@@ -15,7 +18,12 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "thoop",
 		Short: "WHOOP data in your terminal",
-		RunE:  runTUI,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := updateVersionIfNecessary(cmd.Context()); err != nil {
+				return err
+			}
+			return runTUI(cmd, args)
+		},
 	}
 
 	rootCmd.AddCommand(upgradeCmd())
@@ -28,4 +36,32 @@ func main() {
 	); err != nil {
 		os.Exit(1)
 	}
+}
+
+func updateVersionIfNecessary(ctx context.Context) error {
+	latest, err := github.NewClient().GetLatestThoopRelease(ctx)
+	if err != nil {
+		return err
+	}
+
+	var (
+		currentVersion = version.Get()
+		latestVersion  = latest.TagName
+	)
+
+	verr := version.CheckCompatibilityBetween(currentVersion, latestVersion)
+	if verr == nil {
+		return nil
+	}
+
+	fmt.Printf("Updated required: %s\n", verr.Error())
+	fmt.Print("Would you like to install it? [y/N]: ")
+
+	if !confirm(bufio.NewReader(os.Stdin)) {
+		fmt.Print("Exiting...\n")
+		os.Exit(0)
+		return nil
+	}
+
+	return upgrade(ctx, currentVersion, latest.TagName)
 }

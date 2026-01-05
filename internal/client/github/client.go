@@ -8,6 +8,7 @@ import (
 
 	go_json "github.com/goccy/go-json"
 
+	"github.com/garrettladley/thoop/internal/constants"
 	"github.com/garrettladley/thoop/internal/xhttp"
 )
 
@@ -71,4 +72,8 @@ func (c *Client) GetLatestRelease(ctx context.Context, owner, repo string) (*Rel
 	}
 
 	return &release, nil
+}
+
+func (c *Client) GetLatestThoopRelease(ctx context.Context) (*Release, error) {
+	return c.GetLatestRelease(ctx, constants.RepoOwner, constants.RepoName)
 }
