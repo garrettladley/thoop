@@ -152,7 +152,7 @@ sqlc/verify: sqlc/generate
 up:
 	@docker compose up -d
 	@echo 'Services running:'
-	@echo '  Redis:    localhost:6379'
+	@echo '  Redis:    localhost:6969'
 	@echo '  Postgres: localhost:6767 (user: thoop, pass: thoop, db: thoop)'
 
 ## down: stop all services
