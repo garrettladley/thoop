@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -79,9 +80,22 @@ func TestConfirm(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			r := strings.NewReader(tt.input)
-			if got := confirm(r); got != tt.want {
+			if got := confirm(t.Context(), r); got != tt.want {
 				t.Errorf("confirm(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestConfirm_ContextCancellation(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	// use a reader that blocks forever (empty string, no newline)
+	r := strings.NewReader("")
+	if got := confirm(ctx, r); got != false {
+		t.Errorf("confirm with cancelled context = %v, want false", got)
 	}
 }
