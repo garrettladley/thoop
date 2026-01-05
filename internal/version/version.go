@@ -45,10 +45,14 @@ func IsDevelopment(v string) bool {
 		strings.Contains(v, "-0.")
 }
 
+func trimVPrefix(v string) string {
+	return strings.TrimPrefix(v, "v")
+}
+
 // ParseMajor extracts the major version number from a semver string.
 // Returns "0" for unparseable versions.
 func ParseMajor(v string) string {
-	v = strings.TrimPrefix(v, "v")
+	v = trimVPrefix(v)
 	if idx := strings.Index(v, "."); idx > 0 {
 		return v[:idx]
 	}
@@ -85,8 +89,8 @@ func CheckCompatibilityBetween(clientVersion, serverVersion string) *VersionErro
 		serverMajor = ParseMajor(serverVersion)
 	)
 
-	// major version 0 indicates unstable/pre-release - always incompatible
-	if clientMajor == "0" || serverMajor == "0" {
+	// major version 0 indicates unstable/pre-release - must be exact match
+	if (clientMajor == "0" || serverMajor == "0") && trimVPrefix(clientVersion) != trimVPrefix(serverVersion) {
 		return &VersionError{
 			ClientVersion: clientVersion,
 			ServerVersion: serverVersion,
@@ -109,8 +113,8 @@ func CheckCompatibilityBetween(clientVersion, serverVersion string) *VersionErro
 // IsNewer returns true if latest is newer than current.
 // Development versions are never considered outdated.
 func IsNewer(current, latest string) bool {
-	current = strings.TrimPrefix(current, "v")
-	latest = strings.TrimPrefix(latest, "v")
+	current = trimVPrefix(current)
+	latest = trimVPrefix(latest)
 
 	if IsDevelopment(current) {
 		return false

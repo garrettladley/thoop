@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -49,16 +48,20 @@ func updateVersionIfNecessary(ctx context.Context) error {
 		latestVersion  = latest.TagName
 	)
 
+	if !version.IsNewer(currentVersion, latestVersion) {
+		return nil
+	}
+
 	verr := version.CheckCompatibilityBetween(currentVersion, latestVersion)
 	if verr == nil {
 		return nil
 	}
 
-	fmt.Printf("Updated required: %s\n", verr.Error())
+	fmt.Printf("Update available: %s → %s\n", currentVersion, latestVersion)
 	fmt.Print("Would you like to install it? [y/N]: ")
 
-	if !confirm(bufio.NewReader(os.Stdin)) {
-		fmt.Print("Exiting...\n")
+	if !confirm(ctx, os.Stdin) {
+		fmt.Println("Exiting...")
 		os.Exit(0)
 		return nil
 	}
