@@ -17,29 +17,29 @@ func upgradeCmd() *cobra.Command {
 		Use:   "upgrade",
 		Short: "Check for updates and install if available",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := cmd.Context()
-			currentVersion := version.Get()
-
-			client := github.NewClient()
-			latest, err := client.GetLatestRelease(ctx, "garrettladley", "thoop")
+			latest, err := github.NewClient().GetLatestRelease(cmd.Context(), "garrettladley", "thoop")
 			if err != nil {
 				return fmt.Errorf("failed to check for updates: %w", err)
 			}
 
+			currentVersion := version.Get()
 			if !version.IsNewer(currentVersion, latest.TagName) {
 				fmt.Printf("thoop is up to date (%s)\n", currentVersion)
 				return nil
 			}
 
-			fmt.Printf("Updating thoop %s → %s\n", currentVersion, latest.TagName)
-
-			if version.IsHomebrew() {
-				return brewUpgrade(ctx)
-			}
-
-			return goInstallUpgrade(ctx)
+			return upgrade(cmd.Context(), currentVersion, latest.TagName)
 		},
 	}
+}
+
+func upgrade(ctx context.Context, currentVersion, latestVersion string) error {
+	fmt.Printf("Updating thoop %s → %s\n", currentVersion, latestVersion)
+
+	if version.IsHomebrew() {
+		return brewUpgrade(ctx)
+	}
+	return goInstallUpgrade(ctx)
 }
 
 func goInstallUpgrade(ctx context.Context) error {

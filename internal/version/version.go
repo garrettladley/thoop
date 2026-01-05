@@ -59,16 +59,23 @@ type VersionError struct {
 	ClientVersion string
 	ServerVersion string
 	MinVersion    string
+	IsUnstable    bool
 }
 
 func (e VersionError) Error() string {
-	return fmt.Sprintf("client version %s incompatible with server version %s (requires v%s.x)",
+	msg := fmt.Sprintf("client version %s incompatible with server version %s (requires v%s.x)",
 		e.ClientVersion, e.ServerVersion, e.MinVersion)
+	if e.IsUnstable {
+		msg += " - version 0.x is unstable and does not guarantee compatibility"
+	}
+	return msg
 }
 
 func CheckCompatibility(clientVersion string) *VersionError {
-	serverVersion := Get()
+	return CheckCompatibilityBetween(clientVersion, Get())
+}
 
+func CheckCompatibilityBetween(clientVersion, serverVersion string) *VersionError {
 	if IsDevelopment(clientVersion) || IsDevelopment(serverVersion) {
 		return nil
 	}
@@ -77,6 +84,16 @@ func CheckCompatibility(clientVersion string) *VersionError {
 		clientMajor = ParseMajor(clientVersion)
 		serverMajor = ParseMajor(serverVersion)
 	)
+
+	// major version 0 indicates unstable/pre-release - always incompatible
+	if clientMajor == "0" || serverMajor == "0" {
+		return &VersionError{
+			ClientVersion: clientVersion,
+			ServerVersion: serverVersion,
+			MinVersion:    serverMajor,
+			IsUnstable:    true,
+		}
+	}
 
 	if clientMajor == serverMajor {
 		return nil
