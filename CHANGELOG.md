@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.6](https://github.com/garrettladley/thoop/compare/v0.0.5...v0.0.6) (2026-01-05)
+
+
+### Bug Fixes
+
+* **cli:** call brew update on upgrade if is homebrew install ([#86](https://github.com/garrettladley/thoop/issues/86)) ([01dca71](https://github.com/garrettladley/thoop/commit/01dca71bda1a44eb62a3553f6936abb8128c70d1))
+
 ## [0.0.5](https://github.com/garrettladley/thoop/compare/v0.0.4...v0.0.5) (2026-01-05)
 
 
