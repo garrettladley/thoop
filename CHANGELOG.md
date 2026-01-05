@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.7](https://github.com/garrettladley/thoop/compare/v0.0.6...v0.0.7) (2026-01-05)
+
+
+### Bug Fixes
+
+* **cli:** upgrade & unstable version cmp ([#88](https://github.com/garrettladley/thoop/issues/88)) ([0147d66](https://github.com/garrettladley/thoop/commit/0147d66143c4bd3eae408c71cfc868cf9b18b586))
+
 ## [0.0.6](https://github.com/garrettladley/thoop/compare/v0.0.5...v0.0.6) (2026-01-05)
 
 
