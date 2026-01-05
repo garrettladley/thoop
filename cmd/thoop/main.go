@@ -41,7 +41,7 @@ func main() {
 func updateVersionIfNecessary(ctx context.Context) error {
 	latest, err := github.NewClient().GetLatestThoopRelease(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get latest release: %w", err)
 	}
 
 	var (
