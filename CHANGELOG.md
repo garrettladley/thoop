@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.8](https://github.com/garrettladley/thoop/compare/v0.0.7...v0.0.8) (2026-01-05)
+
+
+### Features
+
+* **tui:** press any key to continue & local dx ([#90](https://github.com/garrettladley/thoop/issues/90)) ([7b63497](https://github.com/garrettladley/thoop/commit/7b6349729afbe1f0aefb184010a5d1cbb2632bee))
+
 ## [0.0.7](https://github.com/garrettladley/thoop/compare/v0.0.6...v0.0.7) (2026-01-05)
 
 
