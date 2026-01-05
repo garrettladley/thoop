@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.5](https://github.com/garrettladley/thoop/compare/v0.0.4...v0.0.5) (2026-01-05)
+
+
+### Features
+
+* **cli:** major==0 always incompatible & tui prompt update ([#84](https://github.com/garrettladley/thoop/issues/84)) ([e5c0ad6](https://github.com/garrettladley/thoop/commit/e5c0ad60059178192a264573d47432e116746c6e))
+
 ## [0.0.4](https://github.com/garrettladley/thoop/compare/v0.0.3...v0.0.4) (2026-01-04)
 
 
