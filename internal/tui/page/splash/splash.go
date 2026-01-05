@@ -29,11 +29,20 @@ func LogoView(t theme.Theme) string {
 
 func View(t theme.Theme, width, height int) string {
 	logo := LogoView(t)
+	hintStyle := lipgloss.NewStyle().Foreground(theme.ColorDim)
+	hint := hintStyle.Render("press any key to continue...")
+	content := lipgloss.JoinVertical(
+		lipgloss.Center,
+		logo,
+		"",
+		"",
+		hint,
+	)
 	return lipgloss.Place(
 		width,
 		height,
 		lipgloss.Center,
 		lipgloss.Center,
-		logo,
+		content,
 	)
 }
