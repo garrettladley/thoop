@@ -17,7 +17,6 @@ func upgradeCmd() *cobra.Command {
 		Use:   "upgrade",
 		Short: "Check for updates and install if available",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-
 			latest, err := github.NewClient().GetLatestRelease(cmd.Context(), "garrettladley", "thoop")
 			if err != nil {
 				return fmt.Errorf("failed to check for updates: %w", err)
