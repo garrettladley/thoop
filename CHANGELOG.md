@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.9](https://github.com/garrettladley/thoop/compare/v0.0.8...v0.0.9) (2026-01-07)
+
+
+### Features
+
+* **auth/refresh:** slog real error on failed refresh ([#92](https://github.com/garrettladley/thoop/issues/92)) ([54da1be](https://github.com/garrettladley/thoop/commit/54da1be15e2cfc1931356f765aba8a784f3cdd55))
+
 ## [0.0.8](https://github.com/garrettladley/thoop/compare/v0.0.7...v0.0.8) (2026-01-05)
 
 
