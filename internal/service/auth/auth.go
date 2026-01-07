@@ -12,6 +12,7 @@ import (
 	"github.com/garrettladley/thoop/internal/service/user"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/version"
+	"github.com/garrettladley/thoop/internal/xslog"
 	"golang.org/x/oauth2"
 )
 
@@ -156,6 +157,8 @@ func (s *OAuth) HandleCallback(ctx context.Context, req CallbackRequest) (*Callb
 }
 
 func (s *OAuth) RefreshToken(ctx context.Context, req RefreshRequest) (*RefreshResult, error) {
+	logger := xslog.FromContext(ctx)
+
 	if req.RefreshToken == "" {
 		return nil, ErrInvalidRefreshToken
 	}
@@ -165,6 +168,7 @@ func (s *OAuth) RefreshToken(ctx context.Context, req RefreshRequest) (*RefreshR
 
 	newToken, err := tokenSource.Token()
 	if err != nil {
+		logger.ErrorContext(ctx, "whoop token refresh failed", xslog.Error(err))
 		return nil, ErrRefreshFailed
 	}
 
