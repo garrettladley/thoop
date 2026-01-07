@@ -30,8 +30,9 @@ func NewConfig(provider ConfigProvider) *oauth2.Config {
 		RedirectURL:  provider.GetRedirectURL(),
 		Scopes:       scopes,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  authURL,
-			TokenURL: tokenURL,
+			AuthURL:   authURL,
+			TokenURL:  tokenURL,
+			AuthStyle: oauth2.AuthStyleInParams,
 		},
 	}
 }
