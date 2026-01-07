@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.10](https://github.com/garrettladley/thoop/compare/v0.0.9...v0.0.10) (2026-01-07)
+
+
+### Features
+
+* **auth:** set oaut2.Endpoint AuthStyle ([#94](https://github.com/garrettladley/thoop/issues/94)) ([f2f5c95](https://github.com/garrettladley/thoop/commit/f2f5c95f2ce4a79e630a6690b3516a66ce888b3d))
+
 ## [0.0.9](https://github.com/garrettladley/thoop/compare/v0.0.8...v0.0.9) (2026-01-07)
 
 
