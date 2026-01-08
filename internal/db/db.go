@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/garrettladley/thoop/internal/migrations"
+	"github.com/garrettladley/thoop/internal/migrations/sqlite"
 	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
 	_ "modernc.org/sqlite"
 )
@@ -21,7 +21,7 @@ func Open(ctx context.Context, dbPath string) (*sql.DB, sqlitec.Querier, error) 
 		return nil, nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	if err := migrations.Apply(ctx, db); err != nil {
+	if err := sqlite.Apply(ctx, db); err != nil {
 		_ = db.Close()
 		return nil, nil, fmt.Errorf("applying migrations: %w", err)
 	}
