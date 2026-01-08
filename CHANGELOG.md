@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.12](https://github.com/garrettladley/thoop/compare/v0.0.11...v0.0.12) (2026-01-08)
+
+
+### Features
+
+* **semver:** revamp ([#101](https://github.com/garrettladley/thoop/issues/101)) ([6976d49](https://github.com/garrettladley/thoop/commit/6976d495671dfe692bbeed423220b4e5f5e7953e))
+
 ## [0.0.11](https://github.com/garrettladley/thoop/compare/v0.0.10...v0.0.11) (2026-01-08)
 
 
