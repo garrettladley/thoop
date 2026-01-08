@@ -65,21 +65,15 @@ func TestCheckCompatibilityBetween(t *testing.T) {
 			wantUnstable:  false,
 		},
 		{
-			name:          "devel client skips check",
-			clientVersion: "devel",
-			serverVersion: "1.0.0",
-			wantError:     false,
-		},
-		{
-			name:          "devel server skips check",
-			clientVersion: "1.0.0",
-			serverVersion: "devel",
-			wantError:     false,
-		},
-		{
-			name:          "dirty version skips check",
-			clientVersion: "1.0.0-dirty",
+			name:          "snapshot client skips check",
+			clientVersion: "1.0.0-snapshot",
 			serverVersion: "2.0.0",
+			wantError:     false,
+		},
+		{
+			name:          "snapshot server skips check",
+			clientVersion: "1.0.0",
+			serverVersion: "2.0.0-snapshot",
 			wantError:     false,
 		},
 	}
@@ -157,33 +151,9 @@ func TestIsNewer(t *testing.T) {
 			want:    true,
 		},
 		{
-			name:    "devel version never outdated",
-			current: "devel",
-			latest:  "1.0.0",
-			want:    false,
-		},
-		{
-			name:    "unknown version never outdated",
-			current: "unknown",
-			latest:  "1.0.0",
-			want:    false,
-		},
-		{
-			name:    "dirty version never outdated",
-			current: "1.0.0-dirty",
-			latest:  "1.1.0",
-			want:    false,
-		},
-		{
-			name:    "empty version never outdated",
-			current: "",
-			latest:  "1.0.0",
-			want:    false,
-		},
-		{
-			name:    "prerelease version never outdated",
-			current: "1.0.0-0.abc123",
-			latest:  "1.1.0",
+			name:    "snapshot version never outdated",
+			current: "1.0.0-snapshot",
+			latest:  "2.0.0",
 			want:    false,
 		},
 	}
@@ -193,6 +163,34 @@ func TestIsNewer(t *testing.T) {
 			t.Parallel()
 			if got := IsNewer(tt.current, tt.latest); got != tt.want {
 				t.Errorf("IsNewer(%q, %q) = %v, want %v", tt.current, tt.latest, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsDevelopment(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		version string
+		want    bool
+	}{
+		{"1.0.0", false},
+		{"0.0.11", false},
+		{"v1.0.0", false},
+		{"1.0.0-snapshot", true},
+		{"0.0.12-snapshot", true},
+		{"v1.0.0-snapshot", true},
+		{"1.0.0-SNAPSHOT", false}, // case sensitive
+		{"snapshot", false},       // must be suffix
+		{"1.0.0-snapshot-extra", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.version, func(t *testing.T) {
+			t.Parallel()
+			if got := IsDevelopment(tt.version); got != tt.want {
+				t.Errorf("IsDevelopment(%q) = %v, want %v", tt.version, got, tt.want)
 			}
 		})
 	}

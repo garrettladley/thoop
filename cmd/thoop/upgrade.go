@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/garrettladley/thoop"
 	"github.com/garrettladley/thoop/internal/client/github"
 	"github.com/garrettladley/thoop/internal/version"
 )
@@ -22,7 +23,7 @@ func upgradeCmd() *cobra.Command {
 				return fmt.Errorf("failed to check for updates: %w", err)
 			}
 
-			currentVersion := version.Get()
+			currentVersion := thoop.Version
 			if !version.IsNewer(currentVersion, latest.TagName) {
 				fmt.Printf("thoop is up to date (%s)\n", currentVersion)
 				return nil

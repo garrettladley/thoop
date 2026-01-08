@@ -10,12 +10,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 COPY . .
 
-ARG VERSION=devel
-
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w -X github.com/garrettladley/thoop/internal/version.version=${VERSION}" \
+    -ldflags="-s -w" \
     -o /server ./cmd/server
 
 FROM scratch

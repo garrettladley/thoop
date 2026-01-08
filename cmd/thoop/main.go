@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
 
+	"github.com/garrettladley/thoop"
 	"github.com/garrettladley/thoop/internal/client/github"
 	"github.com/garrettladley/thoop/internal/version"
 )
@@ -29,7 +30,7 @@ func main() {
 	addDevCommands(rootCmd)
 
 	if err := fang.Execute(context.Background(), rootCmd,
-		fang.WithVersion(version.Get()),
+		fang.WithVersion(thoop.Version),
 		fang.WithColorSchemeFunc(fang.AnsiColorScheme),
 		fang.WithNotifySignal(os.Interrupt, syscall.SIGTERM),
 	); err != nil {
@@ -44,7 +45,7 @@ func updateVersionIfNecessary(ctx context.Context) error {
 	}
 
 	var (
-		currentVersion = version.Get()
+		currentVersion = thoop.Version
 		latestVersion  = latest.TagName
 	)
 
