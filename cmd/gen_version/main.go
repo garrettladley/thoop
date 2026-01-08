@@ -103,13 +103,13 @@ func generate(version string, snapshot bool) (content string, versionStr string,
 		return "", "", err
 	}
 
-	// If already a snapshot version, don't snapshot again
-	isAlreadySnapshot := strings.Contains(version, "-snapshot")
+	// if already a snapshot version, don't snapshot again
+	isAlreadySnapshot := strings.HasSuffix(version, "-snapshot")
 	if snapshot && !isAlreadySnapshot {
 		*sv = sv.Snapshot()
 		version = sv.String() + "-snapshot"
 	} else if isAlreadySnapshot {
-		// Keep existing snapshot version as-is
+		// keep existing snapshot version as-is
 		version = sv.String() + "-snapshot"
 	}
 
