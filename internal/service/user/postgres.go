@@ -58,17 +58,27 @@ func (s *PostgresService) ValidateAPIKey(ctx context.Context, apiKey string) (*V
 
 func (s *PostgresService) GetOrCreateUser(ctx context.Context, whoopUserID int64) (string, bool, error) {
 	user, err := s.db.GetUser(ctx, whoopUserID)
-	if err == nil {
-		return "", user.Banned, nil
-	}
-
-	if !errors.Is(err, pgx.ErrNoRows) {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return "", false, fmt.Errorf("getting user: %w", err)
 	}
 
-	user, err = s.db.CreateUser(ctx, whoopUserID)
-	if err != nil {
-		return "", false, fmt.Errorf("creating user: %w", err)
+	isNewUser := errors.Is(err, pgx.ErrNoRows)
+	if isNewUser {
+		user, err = s.db.CreateUser(ctx, whoopUserID)
+		if err != nil {
+			return "", false, fmt.Errorf("creating user: %w", err)
+		}
+	}
+
+	if user.Banned {
+		return "", true, nil
+	}
+
+	// Revoke any existing API keys before issuing a new one
+	if !isNewUser {
+		if err := s.db.RevokeAllAPIKeysForUser(ctx, whoopUserID); err != nil {
+			return "", false, fmt.Errorf("revoking existing API keys: %w", err)
+		}
 	}
 
 	apiKey, err := generateAPIKey()
@@ -87,7 +97,7 @@ func (s *PostgresService) GetOrCreateUser(ctx context.Context, whoopUserID int64
 		return "", false, fmt.Errorf("creating API key: %w", err)
 	}
 
-	return apiKey, user.Banned, nil
+	return apiKey, false, nil
 }
 
 func (s *PostgresService) UpdateAPIKeyLastUsed(ctx context.Context, apiKeyID int64) error {

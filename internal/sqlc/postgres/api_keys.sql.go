@@ -105,6 +105,15 @@ func (q *Queries) RevokeAPIKey(ctx context.Context, id int64) error {
 	return err
 }
 
+const revokeAllAPIKeysForUser = `-- name: RevokeAllAPIKeysForUser :exec
+UPDATE api_keys SET revoked = true WHERE whoop_user_id = $1
+`
+
+func (q *Queries) RevokeAllAPIKeysForUser(ctx context.Context, whoopUserID int64) error {
+	_, err := q.db.Exec(ctx, revokeAllAPIKeysForUser, whoopUserID)
+	return err
+}
+
 const updateAPIKeyLastUsed = `-- name: UpdateAPIKeyLastUsed :exec
 UPDATE api_keys SET last_used_at = now() WHERE id = $1
 `

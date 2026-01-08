@@ -24,9 +24,9 @@ type Service interface {
 	// or ErrUserBanned if the user account is banned.
 	ValidateAPIKey(ctx context.Context, apiKey string) (*ValidatedUser, error)
 
-	// GetOrCreateUser retrieves an existing user or creates a new one with an API key.
-	// For new users, returns the plaintext API key (only time it's available).
-	// For existing users, apiKey will be empty.
+	// GetOrCreateUser retrieves an existing user or creates a new one.
+	// Always generates and returns a new API key for non-banned users.
+	// For existing users, all previous API keys are revoked.
 	GetOrCreateUser(ctx context.Context, whoopUserID int64) (apiKey string, banned bool, err error)
 
 	// UpdateAPIKeyLastUsed updates the last_used_at timestamp for an API key.

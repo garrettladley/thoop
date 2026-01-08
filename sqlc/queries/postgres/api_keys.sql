@@ -15,5 +15,8 @@ UPDATE api_keys SET last_used_at = now() WHERE id = $1;
 -- name: RevokeAPIKey :exec
 UPDATE api_keys SET revoked = true WHERE id = $1;
 
+-- name: RevokeAllAPIKeysForUser :exec
+UPDATE api_keys SET revoked = true WHERE whoop_user_id = $1;
+
 -- name: DeleteAPIKey :exec
 DELETE FROM api_keys WHERE id = $1;

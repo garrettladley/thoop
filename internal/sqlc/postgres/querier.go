@@ -21,6 +21,7 @@ type Querier interface {
 	GetUser(ctx context.Context, whoopUserID int64) (User, error)
 	InsertWebhookEvent(ctx context.Context, arg InsertWebhookEventParams) (*int64, error)
 	RevokeAPIKey(ctx context.Context, id int64) error
+	RevokeAllAPIKeysForUser(ctx context.Context, whoopUserID int64) error
 	UnbanUser(ctx context.Context, whoopUserID int64) error
 	UpdateAPIKeyLastUsed(ctx context.Context, id int64) error
 }
