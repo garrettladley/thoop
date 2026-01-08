@@ -314,10 +314,10 @@ func TestGenerate(t *testing.T) {
 func TestDoubleSnapshotIsIdempotent(t *testing.T) {
 	t.Parallel()
 
-	// Start with a release version
+	// start with a release version
 	version := "1.2.3"
 
-	// First snapshot
+	// first snapshot
 	_, firstVersion, err := generate(version, true)
 	if err != nil {
 		t.Fatalf("first generate failed: %v", err)
@@ -327,7 +327,7 @@ func TestDoubleSnapshotIsIdempotent(t *testing.T) {
 		t.Errorf("first snapshot version = %q, want %q", firstVersion, "1.2.4-snapshot")
 	}
 
-	// Second snapshot (should not increment again)
+	// second snapshot (should not increment again)
 	_, secondVersion, err := generate(firstVersion, true)
 	if err != nil {
 		t.Fatalf("second generate failed: %v", err)
@@ -337,7 +337,7 @@ func TestDoubleSnapshotIsIdempotent(t *testing.T) {
 		t.Errorf("double snapshot changed version: got %q, want %q", secondVersion, firstVersion)
 	}
 
-	// Third snapshot (still should not increment)
+	// third snapshot (still should not increment)
 	_, thirdVersion, err := generate(secondVersion, true)
 	if err != nil {
 		t.Fatalf("third generate failed: %v", err)
