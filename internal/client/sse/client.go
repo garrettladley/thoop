@@ -122,8 +122,10 @@ func (c *Client) connectOnce(ctx context.Context, handler NotificationHandler) e
 
 	c.logger.DebugContext(ctx, "SSE connection established")
 
-	scanner := bufio.NewScanner(resp.Body)
-	var currentEvent Event
+	var (
+		scanner      = bufio.NewScanner(resp.Body)
+		currentEvent Event
+	)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -156,9 +158,10 @@ func (c *Client) connectOnce(ctx context.Context, handler NotificationHandler) e
 func (c *Client) catchUp(ctx context.Context, handler NotificationHandler) error {
 	ch := make(chan storage.Notification, defaultPollLimit)
 
-	var pollErr error
-	var total int
-
+	var (
+		pollErr error
+		total   int
+	)
 	go func() {
 		total, pollErr = c.poller.PollAll(ctx, ch)
 	}()
