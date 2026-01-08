@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.11](https://github.com/garrettladley/thoop/compare/v0.0.10...v0.0.11) (2026-01-08)
+
+
+### Features
+
+* **server:** revoke all api keys on reauth ([#97](https://github.com/garrettladley/thoop/issues/97)) ([0d28573](https://github.com/garrettladley/thoop/commit/0d285734ad0f4e9d9a0bc71641ebd4b7c8864df6))
+
 ## [0.0.10](https://github.com/garrettladley/thoop/compare/v0.0.9...v0.0.10) (2026-01-07)
 
 
