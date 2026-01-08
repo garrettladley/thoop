@@ -50,6 +50,10 @@ func SetRequestHeaderSessionID(req *http.Request, sessionID string) {
 	req.Header.Set(XSessionID, sessionID)
 }
 
+func SetRequestHeaderAPIKey(req *http.Request, apiKey string) {
+	req.Header.Set(XAPIKey, apiKey)
+}
+
 func GetRequestHeaderSessionID(req *http.Request) string {
 	return req.Header.Get(XSessionID)
 }

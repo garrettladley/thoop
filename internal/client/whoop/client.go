@@ -157,7 +157,7 @@ func (t *whoopTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			xhttp.SetRequestHeaderSessionID(req, t.sessionID)
 		}
 		if t.apiKey != "" {
-			req.Header.Set(xhttp.XAPIKey, t.apiKey)
+			xhttp.SetRequestHeaderAPIKey(req, t.apiKey)
 		}
 	}
 
