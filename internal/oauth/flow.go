@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/garrettladley/thoop"
 	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
-	"github.com/garrettladley/thoop/internal/version"
 	"github.com/garrettladley/thoop/internal/xhttp"
 	"golang.org/x/oauth2"
 )
@@ -70,7 +70,7 @@ func (f *ServerFlow) authURL(port string) string {
 	return fmt.Sprintf("%s/auth/start?%s=%s&%s=%s",
 		f.serverURL,
 		ParamLocalPort, port,
-		ParamClientVersion, url.QueryEscape(version.Get()))
+		ParamClientVersion, url.QueryEscape(thoop.Version))
 }
 
 type DirectFlow struct {

@@ -1,6 +1,3 @@
-VERSION ?= devel
-LDFLAGS := -s -w -X github.com/garrettladley/thoop/internal/version.version=$(VERSION)
-
 ## help: print this help message
 .PHONY: help
 help:
@@ -43,41 +40,49 @@ lint:
 lint/fix:
 	@golangci-lint run --path-mode=abs --config=".golangci.yml" --timeout=5m --fix
 
-## build: build all binaries with version (dev mode, includes dev commands)
+## build: build all binaries (dev mode, includes dev commands)
 .PHONY: build
 build:
-	@echo "Building with version: $(VERSION)"
-	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
-	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
-	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
+	@go build -tags dev -ldflags="-s -w" -o bin/thoop ./cmd/thoop
+	@go build -tags dev -ldflags="-s -w" -o bin/thoop-server ./cmd/server
+	@go build -tags dev -ldflags="-s -w" -o bin/thoop-db ./cmd/db
 
 ## build/release: build all binaries for release (no dev commands)
 .PHONY: build/release
 build/release:
-	@echo "Building release with version: $(VERSION)"
-	@go build -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
-	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
-	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-db ./cmd/db
+	@go build -ldflags="-s -w" -o bin/thoop ./cmd/thoop
+	@go build -ldflags="-s -w" -o bin/thoop-server ./cmd/server
+	@go build -ldflags="-s -w" -o bin/thoop-db ./cmd/db
 
 ## build/thoop: build TUI client with version (dev mode)
 .PHONY: build/thoop
 build/thoop:
-	@go build -tags dev -ldflags="$(LDFLAGS)" -o bin/thoop ./cmd/thoop
+	@go build -tags dev -ldflags="-s -w" -o bin/thoop ./cmd/thoop
 
 ## build/server: build server with version
 .PHONY: build/server
 build/server:
-	@go build -ldflags="$(LDFLAGS)" -o bin/thoop-server ./cmd/server
+	@go build -ldflags="-s -w" -o bin/thoop-server ./cmd/server
+
+## version/gen: generate version_gen.go from manifest
+.PHONY: version/gen
+version/gen:
+	@go run -tags dev ./cmd/gen_version
+
+## version/snapshot: generate snapshot version for local dev
+.PHONY: version/snapshot
+version/snapshot:
+	@go run -tags dev ./cmd/gen_version -snapshot
 
 ## version: print current version
 .PHONY: version
 version:
-	@echo $(VERSION)
+	@grep 'Version.*string' version_gen.go | sed 's/.*"\(.*\)".*/\1/'
 
 ## thoop: run main CLI (dev mode)
 .PHONY: thoop
 thoop:
-	@go run -tags dev -ldflags="$(LDFLAGS)" ./cmd/thoop
+	@go run -tags dev -ldflags="-s -w" ./cmd/thoop
 
 ## db: run database CLI
 .PHONY: db
@@ -169,4 +174,4 @@ psql:
 ## server: run server (requires .env or env vars)
 .PHONY: server
 server:
-	@go run -ldflags="$(LDFLAGS)" ./cmd/server
+	@go run -ldflags="-s -w" ./cmd/server
