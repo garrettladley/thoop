@@ -74,7 +74,7 @@ func (s *PostgresService) GetOrCreateUser(ctx context.Context, whoopUserID int64
 		return "", true, nil
 	}
 
-	// Revoke any existing API keys before issuing a new one
+	// revoke any existing API keys before issuing a new one
 	if !isNewUser {
 		if err := s.db.RevokeAllAPIKeysForUser(ctx, whoopUserID); err != nil {
 			return "", false, fmt.Errorf("revoking existing API keys: %w", err)
