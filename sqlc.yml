@@ -4,7 +4,7 @@ sql:
   - engine: "sqlite"
     queries: "sqlc/queries/sqlite"
     schema:
-      - "internal/migrations/sql/*.sql"
+      - "internal/migrations/sqlite/sql/*.sql"
     gen:
       go:
         package: "sqlitec"
