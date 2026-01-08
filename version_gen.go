@@ -5,6 +5,6 @@ package thoop
 const (
 	VersionMajor uint   = 0        // x-release-please-major
 	VersionMinor uint   = 0        // x-release-please-minor
-	VersionPatch uint   = 11       // x-release-please-patch
-	Version      string = "0.0.11" // x-release-please-version
+	VersionPatch uint   = 12       // x-release-please-patch
+	Version      string = "0.0.12" // x-release-please-version
 )
