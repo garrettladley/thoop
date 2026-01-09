@@ -42,7 +42,8 @@ type generator struct {
 }
 
 func main() {
-	snapshot := flag.Bool("snapshot", false, "generate snapshot version for local dev")
+	var snapshot bool
+	flag.BoolVar(&snapshot, "snapshot", false, "generate snapshot version for local dev")
 	flag.Parse()
 
 	f, err := os.Open(".release-please-manifest.json")
@@ -64,7 +65,7 @@ func main() {
 		outputWriter:   out,
 	}
 
-	version, err := g.run(*snapshot)
+	version, err := g.run(snapshot)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
