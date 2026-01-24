@@ -3,11 +3,11 @@ package theme
 import "charm.land/lipgloss/v2"
 
 var (
-	ColorBlack      = lipgloss.Color("#000000")
-	ColorWhite      = lipgloss.Color("#FFFFFF")
-	ColorDim        = lipgloss.Color("#666666")
-	ColorNeutral    = lipgloss.Color("#8D8E92") // No change indicator
-	ColorNavHint    = lipgloss.Color("#3a3a3a")
+	ColorBlack   = lipgloss.Color("#000000")
+	ColorWhite   = lipgloss.Color("#FFFFFF")
+	ColorDim     = lipgloss.Color("#666666")
+	ColorNeutral = lipgloss.Color("#8D8E92") // No change indicator
+	ColorNavHint = lipgloss.Color("#3a3a3a")
 )
 
 var (

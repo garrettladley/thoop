@@ -146,18 +146,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				"source", msg.ErrSource,
 				xslog.Error(msg.Err))
 		} else {
-			m.deps.Logger.DebugContext(m.deps.Ctx, "historical data received",
-				"recoveries", len(msg.Recoveries),
-				"cycles", len(msg.Cycles),
-				"sleeps", len(msg.Sleeps))
 			m.state.dashboard.Averages = dashboard.ComputeAverages(msg.Recoveries, msg.Cycles, msg.Sleeps)
-			if m.state.dashboard.Averages != nil {
-				m.deps.Logger.DebugContext(m.deps.Ctx, "computed averages",
-					"hrv", m.state.dashboard.Averages.HRV,
-					"rhr", m.state.dashboard.Averages.RestingHeartRate,
-					"resp", m.state.dashboard.Averages.RespiratoryRate,
-					"sleep", m.state.dashboard.Averages.SleepPerformance)
-			}
 		}
 		return m, nil
 
