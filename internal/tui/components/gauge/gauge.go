@@ -131,6 +131,7 @@ func (g Gauge) Render() string {
 	return lipgloss.JoinVertical(
 		lipgloss.Center,
 		combined,
+		"",
 		labelStyle.Render(g.Label),
 	)
 }

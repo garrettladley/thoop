@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -73,4 +74,225 @@ func FetchRecoveryCmd(ctx context.Context, client *whoop.Client, cycleID int64) 
 		recovery, err := client.Cycle.GetRecovery(ctx, cycleID)
 		return RecoveryMsg{Recovery: recovery, Err: err}
 	}
+}
+
+type HistoricalDataMsg struct {
+	Recoveries []whoop.Recovery
+	Cycles     []whoop.Cycle
+	Sleeps     []whoop.Sleep
+	Err        error
+	ErrSource  string
+}
+
+func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
+	if client == nil {
+		return func() tea.Msg {
+			return HistoricalDataMsg{}
+		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+
+		now := time.Now()
+		thirtyDaysAgo := now.AddDate(0, 0, -30)
+
+		var (
+			allRecoveries []whoop.Recovery
+			allCycles     []whoop.Cycle
+			allSleeps     []whoop.Sleep
+			recoveryErr   error
+			cycleErr      error
+			sleepErr      error
+			wg            sync.WaitGroup
+		)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var nextToken *string
+			for {
+				params := &whoop.ListParams{
+					Limit:     25,
+					Start:     &thirtyDaysAgo,
+					End:       &now,
+					NextToken: nextToken,
+				}
+				resp, err := client.Cycle.List(ctx, params)
+				if err != nil {
+					cycleErr = err
+					return
+				}
+				allCycles = append(allCycles, resp.Records...)
+				if !resp.HasMore() {
+					return
+				}
+				nextToken = resp.NextToken
+			}
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var nextToken *string
+			for {
+				params := &whoop.ListParams{
+					Limit:     25,
+					Start:     &thirtyDaysAgo,
+					End:       &now,
+					NextToken: nextToken,
+				}
+				resp, err := client.Sleep.List(ctx, params)
+				if err != nil {
+					sleepErr = err
+					return
+				}
+				allSleeps = append(allSleeps, resp.Records...)
+				if !resp.HasMore() {
+					return
+				}
+				nextToken = resp.NextToken
+			}
+		}()
+
+		var nextToken *string
+		for {
+			params := &whoop.ListParams{
+				Limit:     25,
+				Start:     &thirtyDaysAgo,
+				End:       &now,
+				NextToken: nextToken,
+			}
+			resp, err := client.Recovery.List(ctx, params)
+			if err != nil {
+				recoveryErr = err
+				break
+			}
+			allRecoveries = append(allRecoveries, resp.Records...)
+			if !resp.HasMore() {
+				break
+			}
+			nextToken = resp.NextToken
+		}
+
+		wg.Wait()
+
+		if recoveryErr != nil {
+			return HistoricalDataMsg{Err: recoveryErr, ErrSource: "recovery"}
+		}
+		if cycleErr != nil {
+			return HistoricalDataMsg{Err: cycleErr, ErrSource: "cycle"}
+		}
+		if sleepErr != nil {
+			return HistoricalDataMsg{Err: sleepErr, ErrSource: "sleep"}
+		}
+
+		return HistoricalDataMsg{
+			Recoveries: allRecoveries,
+			Cycles:     allCycles,
+			Sleeps:     allSleeps,
+		}
+	}
+}
+
+func ComputeAverages(recoveries []whoop.Recovery, cycles []whoop.Cycle, sleeps []whoop.Sleep) *ThirtyDayAverages {
+	if len(recoveries) == 0 && len(cycles) == 0 && len(sleeps) == 0 {
+		return nil
+	}
+
+	var (
+		hrvSum       float64
+		rhrSum       float64
+		respSum      float64
+		sleepSum     float64
+		strainSum    float64
+		caloriesSum  float64
+		avgHRSum     float64
+		maxHRSum     float64
+		hrvCount     int
+		rhrCount     int
+		respCount    int
+		sleepCount   int
+		strainCount  int
+		calorieCount int
+		avgHRCount   int
+		maxHRCount   int
+	)
+
+	for _, r := range recoveries {
+		if r.Score != nil {
+			if r.Score.HRVRmssdMilli > 0 {
+				hrvSum += r.Score.HRVRmssdMilli
+				hrvCount++
+			}
+			if r.Score.RestingHeartRate > 0 {
+				rhrSum += r.Score.RestingHeartRate
+				rhrCount++
+			}
+		}
+	}
+
+	for _, c := range cycles {
+		if c.Score != nil {
+			if c.Score.Strain > 0 {
+				strainSum += c.Score.Strain
+				strainCount++
+			}
+			if c.Score.Kilojoule > 0 {
+				caloriesSum += c.Score.Kilojoule / 4.184
+				calorieCount++
+			}
+			if c.Score.AverageHeartRate > 0 {
+				avgHRSum += float64(c.Score.AverageHeartRate)
+				avgHRCount++
+			}
+			if c.Score.MaxHeartRate > 0 {
+				maxHRSum += float64(c.Score.MaxHeartRate)
+				maxHRCount++
+			}
+		}
+	}
+
+	for _, s := range sleeps {
+		if s.Score != nil && !s.Nap {
+			if s.Score.RespiratoryRate > 0 {
+				respSum += s.Score.RespiratoryRate
+				respCount++
+			}
+			if s.Score.SleepPerformancePercentage > 0 {
+				sleepSum += s.Score.SleepPerformancePercentage
+				sleepCount++
+			}
+		}
+	}
+
+	avg := &ThirtyDayAverages{}
+
+	if hrvCount > 0 {
+		avg.HRV = hrvSum / float64(hrvCount)
+	}
+	if rhrCount > 0 {
+		avg.RestingHeartRate = rhrSum / float64(rhrCount)
+	}
+	if respCount > 0 {
+		avg.RespiratoryRate = respSum / float64(respCount)
+	}
+	if sleepCount > 0 {
+		avg.SleepPerformance = sleepSum / float64(sleepCount)
+	}
+	if strainCount > 0 {
+		avg.Strain = strainSum / float64(strainCount)
+	}
+	if calorieCount > 0 {
+		avg.Calories = caloriesSum / float64(calorieCount)
+	}
+	if avgHRCount > 0 {
+		avg.AvgHeartRate = avgHRSum / float64(avgHRCount)
+	}
+	if maxHRCount > 0 {
+		avg.MaxHeartRate = maxHRSum / float64(maxHRCount)
+	}
+
+	return avg
 }
