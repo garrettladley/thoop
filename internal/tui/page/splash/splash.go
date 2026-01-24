@@ -8,7 +8,7 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
-const Duration = 1500 * time.Millisecond
+const Duration = 5 * time.Second
 
 const logo = `
  ▄▄▄▄▄▄▄▄  ▄▄    ▄▄    ▄▄▄▄      ▄▄▄▄    ▄▄▄▄▄▄

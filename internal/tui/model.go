@@ -24,13 +24,17 @@ var _ tea.Model = (*Model)(nil)
 const (
 	tokenCheckInterval    = 5 * time.Minute
 	tokenRefreshThreshold = 15 * time.Minute
+	splashMinDuration     = 1 * time.Second
 )
 
+type splashMinElapsedMsg struct{}
+
 type state struct {
-	splash      splash.State
-	onboarding  onboarding.State
-	dashboard   dashboard.State
-	authChecked bool
+	splash          splash.State
+	onboarding      onboarding.State
+	dashboard       dashboard.State
+	authChecked     bool
+	splashMinPassed bool
 }
 
 type Model struct {
@@ -62,6 +66,9 @@ func (m *Model) Init() tea.Cmd {
 		tea.Tick(splash.Duration, func(t time.Time) tea.Msg {
 			return splash.TickMsg{}
 		}),
+		tea.Tick(splashMinDuration, func(t time.Time) tea.Msg {
+			return splashMinElapsedMsg{}
+		}),
 		onboarding.CheckAuthCmd(m.deps.Ctx, m.deps.TokenChecker),
 	)
 }
@@ -78,6 +85,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case splash.TickMsg:
 		return m.handleSplashTick()
+
+	case splashMinElapsedMsg:
+		m.state.splashMinPassed = true
+		return m, m.maybeTransitionToDashboard()
 
 	case onboarding.AuthStatusMsg:
 		return m.handleAuthStatus(msg)
@@ -97,9 +108,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.Cycle != nil {
 			m.state.dashboard.CycleID = msg.Cycle.ID
+			m.state.dashboard.CurrentCycle = msg.Cycle
 			if msg.Cycle.Score != nil {
 				m.state.dashboard.StrainScore = &msg.Cycle.Score.Strain
 			}
+			m.state.dashboard.SetPending()
 			return m, tea.Batch(
 				dashboard.FetchSleepCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
 				dashboard.FetchRecoveryCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
@@ -108,14 +121,43 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case dashboard.SleepMsg:
-		if msg.Err == nil && msg.Sleep != nil && msg.Sleep.Score != nil {
-			m.state.dashboard.SleepScore = &msg.Sleep.Score.SleepPerformancePercentage
+		if msg.Err == nil && msg.Sleep != nil {
+			m.state.dashboard.CurrentSleep = msg.Sleep
+			if msg.Sleep.Score != nil {
+				m.state.dashboard.SleepScore = &msg.Sleep.Score.SleepPerformancePercentage
+			}
 		}
-		return m, nil
+		m.state.dashboard.ClearPendingSleep()
+		return m, m.maybeTransitionToDashboard()
 
 	case dashboard.RecoveryMsg:
-		if msg.Err == nil && msg.Recovery != nil && msg.Recovery.Score != nil {
-			m.state.dashboard.RecoveryScore = &msg.Recovery.Score.RecoveryScore
+		if msg.Err == nil && msg.Recovery != nil {
+			m.state.dashboard.CurrentRecovery = msg.Recovery
+			if msg.Recovery.Score != nil {
+				m.state.dashboard.RecoveryScore = &msg.Recovery.Score.RecoveryScore
+			}
+		}
+		m.state.dashboard.ClearPendingRecovery()
+		return m, m.maybeTransitionToDashboard()
+
+	case dashboard.HistoricalDataMsg:
+		if msg.Err != nil {
+			m.deps.Logger.ErrorContext(m.deps.Ctx, "historical data fetch failed",
+				"source", msg.ErrSource,
+				xslog.Error(msg.Err))
+		} else {
+			m.deps.Logger.DebugContext(m.deps.Ctx, "historical data received",
+				"recoveries", len(msg.Recoveries),
+				"cycles", len(msg.Cycles),
+				"sleeps", len(msg.Sleeps))
+			m.state.dashboard.Averages = dashboard.ComputeAverages(msg.Recoveries, msg.Cycles, msg.Sleeps)
+			if m.state.dashboard.Averages != nil {
+				m.deps.Logger.DebugContext(m.deps.Ctx, "computed averages",
+					"hrv", m.state.dashboard.Averages.HRV,
+					"rhr", m.state.dashboard.Averages.RestingHeartRate,
+					"resp", m.state.dashboard.Averages.RespiratoryRate,
+					"sleep", m.state.dashboard.Averages.SleepPerformance)
+			}
 		}
 		return m, nil
 
@@ -153,14 +195,39 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, onboarding.StartAuthFlowCmd(m.deps.Ctx, m.deps.AuthFlow)
 			default:
 			}
+		case page.Dashboard:
+			if m.state.dashboard.ActiveTab == dashboard.TabOverview {
+				m.state.dashboard.ActiveTab = dashboard.TabRecovery
+				return m, nil
+			}
 		default:
+		}
+	case "right", "l":
+		if m.page == page.Dashboard {
+			m.state.dashboard.ActiveTab = dashboard.NextTab(m.state.dashboard.ActiveTab)
+			return m, nil
+		}
+	case "left", "h":
+		if m.page == page.Dashboard {
+			m.state.dashboard.ActiveTab = dashboard.PrevTab(m.state.dashboard.ActiveTab)
+			return m, nil
+		}
+	case "j", "k", "up", "down":
+		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
+			m.state.dashboard.ActiveTab = dashboard.TabRecovery
+			return m, nil
+		}
+	case "esc":
+		if m.page == page.Dashboard && m.state.dashboard.ActiveTab != dashboard.TabOverview {
+			m.state.dashboard.ActiveTab = dashboard.TabOverview
+			return m, nil
 		}
 	default:
 		// skip splash on any keypress (only if auth is checked)
 		if m.page == page.Splash && m.state.authChecked {
 			if m.state.dashboard.AuthIndicator.Authenticated {
 				m.page = page.Dashboard
-				return m, m.startDashboard()
+				return m, m.startDashboardServices()
 			} else {
 				m.page = page.Onboarding
 			}
@@ -180,11 +247,20 @@ func (m *Model) handleSplashTick() (tea.Model, tea.Cmd) {
 
 	if m.state.dashboard.AuthIndicator.Authenticated {
 		m.page = page.Dashboard
-		return m, m.startDashboard()
+		return m, m.startDashboardServices()
 	}
 
 	m.page = page.Onboarding
 	return m, nil
+}
+
+func (m *Model) maybeTransitionToDashboard() tea.Cmd {
+	// auto-transition from splash when data is ready and min time elapsed
+	if m.page == page.Splash && m.state.splashMinPassed && m.state.dashboard.DataReady() {
+		m.page = page.Dashboard
+		return m.startDashboardServices()
+	}
+	return nil
 }
 
 func (m *Model) handleAuthStatus(msg onboarding.AuthStatusMsg) (tea.Model, tea.Cmd) {
@@ -193,6 +269,14 @@ func (m *Model) handleAuthStatus(msg onboarding.AuthStatusMsg) (tea.Model, tea.C
 
 	if msg.Err == nil {
 		m.state.dashboard.AuthIndicator.Authenticated = msg.HasToken
+	}
+
+	// start fetching data during splash if authenticated
+	if m.state.dashboard.AuthIndicator.Authenticated {
+		return m, tea.Batch(
+			dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
+			dashboard.FetchHistoricalDataCmd(m.deps.Ctx, m.deps.WhoopClient),
+		)
 	}
 
 	return m, nil
@@ -212,7 +296,11 @@ func (m *Model) handleAuthFlowResult(msg onboarding.AuthFlowResultMsg) (tea.Mode
 
 	m.state.dashboard.AuthIndicator.Authenticated = true
 	m.page = page.Dashboard
-	return m, m.startDashboard()
+	return m, tea.Batch(
+		dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
+		dashboard.FetchHistoricalDataCmd(m.deps.Ctx, m.deps.WhoopClient),
+		m.startDashboardServices(),
+	)
 }
 
 func (m *Model) handleTokenCheckTick() (tea.Model, tea.Cmd) {
@@ -236,9 +324,8 @@ func (m *Model) handleTokenRefreshResult(msg onboarding.TokenRefreshResultMsg) (
 	return m, onboarding.TokenCheckTickCmd(tokenCheckInterval)
 }
 
-func (m *Model) startDashboard() tea.Cmd {
+func (m *Model) startDashboardServices() tea.Cmd {
 	cmds := []tea.Cmd{
-		dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
 		onboarding.TokenCheckTickCmd(tokenCheckInterval),
 	}
 
@@ -278,6 +365,13 @@ func (m *Model) View() tea.View {
 		gauges := dashboard.View(m.state.dashboard, m.viewportWidth, m.viewportHeight)
 
 		f := footer.New(dashboard.AuthIndicatorView(m.state.dashboard), m.viewportWidth)
+
+		switch m.state.dashboard.ActiveTab {
+		case dashboard.TabOverview:
+			f = f.WithNavHints("← sleep    ↑↓ recovery    → strain")
+		default:
+			f = f.WithNavHints("esc back    ←/→ navigate")
+		}
 
 		footerOverlay := lipgloss.Place(
 			m.viewportWidth,
