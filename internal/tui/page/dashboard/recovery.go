@@ -6,7 +6,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
-	"github.com/garrettladley/thoop/internal/tui/components/metricrow"
+	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
@@ -49,24 +49,24 @@ func renderRecoveryMetrics(state State, width int) string {
 		// HRV: Higher is better
 		hrvAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.HRV })
 		hrvDirection := getDirectionHigherBetter(score.HRVRmssdMilli, hrvAvg)
-		hrvRow := metricrow.New(
+		hrvRow := metric_row.New(
 			"HRV",
 			fmt.Sprintf("%.0f", score.HRVRmssdMilli),
 			width,
-			metricrow.WithDirection(hrvDirection),
-			metricrow.WithSubValue(formatAvg(hrvAvg, "%.0f")),
+			metric_row.WithDirection(hrvDirection),
+			metric_row.WithSubValue(formatAvg(hrvAvg, "%.0f")),
 		)
 		rows = append(rows, hrvRow.Render())
 		rows = append(rows, "")
 
 		rhrAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.RestingHeartRate })
 		rhrDirection := getDirectionLowerBetter(score.RestingHeartRate, rhrAvg)
-		rhrRow := metricrow.New(
+		rhrRow := metric_row.New(
 			"Resting Heart Rate",
 			fmt.Sprintf("%.0f", score.RestingHeartRate),
 			width,
-			metricrow.WithDirection(rhrDirection),
-			metricrow.WithSubValue(formatAvg(rhrAvg, "%.0f")),
+			metric_row.WithDirection(rhrDirection),
+			metric_row.WithSubValue(formatAvg(rhrAvg, "%.0f")),
 		)
 		rows = append(rows, rhrRow.Render())
 		rows = append(rows, "")
@@ -75,12 +75,12 @@ func renderRecoveryMetrics(state State, width int) string {
 			respRate := state.CurrentSleep.Score.RespiratoryRate
 			respAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.RespiratoryRate })
 			respDirection := getDirectionLowerBetter(respRate, respAvg)
-			respRow := metricrow.New(
+			respRow := metric_row.New(
 				"Respiratory Rate",
 				fmt.Sprintf("%.1f", respRate),
 				width,
-				metricrow.WithDirection(respDirection),
-				metricrow.WithSubValue(formatAvg(respAvg, "%.1f")),
+				metric_row.WithDirection(respDirection),
+				metric_row.WithSubValue(formatAvg(respAvg, "%.1f")),
 			)
 			rows = append(rows, respRow.Render())
 			rows = append(rows, "")
@@ -88,12 +88,12 @@ func renderRecoveryMetrics(state State, width int) string {
 			sleepPerf := state.CurrentSleep.Score.SleepPerformancePercentage
 			sleepAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.SleepPerformance })
 			sleepDirection := getDirectionHigherBetter(sleepPerf, sleepAvg)
-			sleepRow := metricrow.New(
+			sleepRow := metric_row.New(
 				"Sleep Performance",
 				fmt.Sprintf("%.0f", sleepPerf),
 				width,
-				metricrow.WithDirection(sleepDirection),
-				metricrow.WithSubValue(formatAvg(sleepAvg, "%.0f")),
+				metric_row.WithDirection(sleepDirection),
+				metric_row.WithSubValue(formatAvg(sleepAvg, "%.0f")),
 			)
 			rows = append(rows, sleepRow.Render())
 			rows = append(rows, "")
@@ -133,29 +133,29 @@ func formatAvg(avg float64, format string) string {
 }
 
 // getDirectionHigherBetter returns direction for metrics where higher is better (HRV, Sleep Performance)
-func getDirectionHigherBetter(current, avg float64) metricrow.Direction {
+func getDirectionHigherBetter(current, avg float64) metric_row.Direction {
 	if avg == 0 {
-		return metricrow.DirectionNone
+		return metric_row.DirectionNone
 	}
 
 	if current > avg {
-		return metricrow.DirectionUp // teal up - higher is good
+		return metric_row.DirectionUp // teal up - higher is good
 	} else if current < avg {
-		return metricrow.DirectionDown // orange down - lower is bad
+		return metric_row.DirectionDown // orange down - lower is bad
 	}
-	return metricrow.DirectionNeutral
+	return metric_row.DirectionNeutral
 }
 
 // getDirectionLowerBetter returns direction for metrics where lower is better (RHR, Respiratory Rate)
-func getDirectionLowerBetter(current, avg float64) metricrow.Direction {
+func getDirectionLowerBetter(current, avg float64) metric_row.Direction {
 	if avg == 0 {
-		return metricrow.DirectionNone
+		return metric_row.DirectionNone
 	}
 
 	if current > avg {
-		return metricrow.DirectionUpBad // orange up - higher is bad
+		return metric_row.DirectionUpBad // orange up - higher is bad
 	} else if current < avg {
-		return metricrow.DirectionDownGood // teal down - lower is good
+		return metric_row.DirectionDownGood // teal down - lower is good
 	}
-	return metricrow.DirectionNeutral
+	return metric_row.DirectionNeutral
 }

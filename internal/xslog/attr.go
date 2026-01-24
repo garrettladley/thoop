@@ -164,3 +164,8 @@ func Message(msg string) slog.Attr {
 	const messageKey = "message"
 	return slog.String(messageKey, msg)
 }
+
+func Source(source string) slog.Attr {
+	const sourceKey = "source"
+	return slog.String(sourceKey, source)
+}

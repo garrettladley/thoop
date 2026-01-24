@@ -6,7 +6,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
-	"github.com/garrettladley/thoop/internal/tui/components/metricrow"
+	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
@@ -48,12 +48,12 @@ func renderStrainMetrics(state State, width int) string {
 
 		strainAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.Strain })
 		strainDirection := getDirectionHigherBetter(score.Strain, strainAvg)
-		strainRow := metricrow.New(
+		strainRow := metric_row.New(
 			"Strain",
 			fmt.Sprintf("%.1f", score.Strain),
 			width,
-			metricrow.WithDirection(strainDirection),
-			metricrow.WithSubValue(formatAvg(strainAvg, "%.1f")),
+			metric_row.WithDirection(strainDirection),
+			metric_row.WithSubValue(formatAvg(strainAvg, "%.1f")),
 		)
 		rows = append(rows, strainRow.Render())
 		rows = append(rows, "")
@@ -62,12 +62,12 @@ func renderStrainMetrics(state State, width int) string {
 		calories := score.Kilojoule / kjPerKcal
 		caloriesAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.Calories })
 		caloriesDirection := getDirectionHigherBetter(calories, caloriesAvg)
-		caloriesRow := metricrow.New(
+		caloriesRow := metric_row.New(
 			"Calories",
 			fmt.Sprintf("%.0f", calories),
 			width,
-			metricrow.WithDirection(caloriesDirection),
-			metricrow.WithSubValue(formatAvg(caloriesAvg, "%.0f")),
+			metric_row.WithDirection(caloriesDirection),
+			metric_row.WithSubValue(formatAvg(caloriesAvg, "%.0f")),
 		)
 		rows = append(rows, caloriesRow.Render())
 		rows = append(rows, "")
@@ -75,12 +75,12 @@ func renderStrainMetrics(state State, width int) string {
 		avgHR := float64(score.AverageHeartRate)
 		avgHRAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.AvgHeartRate })
 		avgHRDirection := getDirectionHigherBetter(avgHR, avgHRAvg)
-		avgHRRow := metricrow.New(
+		avgHRRow := metric_row.New(
 			"Avg Heart Rate",
 			fmt.Sprintf("%.0f", avgHR),
 			width,
-			metricrow.WithDirection(avgHRDirection),
-			metricrow.WithSubValue(formatAvg(avgHRAvg, "%.0f")),
+			metric_row.WithDirection(avgHRDirection),
+			metric_row.WithSubValue(formatAvg(avgHRAvg, "%.0f")),
 		)
 		rows = append(rows, avgHRRow.Render())
 		rows = append(rows, "")
@@ -88,12 +88,12 @@ func renderStrainMetrics(state State, width int) string {
 		maxHR := float64(score.MaxHeartRate)
 		maxHRAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.MaxHeartRate })
 		maxHRDirection := getDirectionHigherBetter(maxHR, maxHRAvg)
-		maxHRRow := metricrow.New(
+		maxHRRow := metric_row.New(
 			"Max Heart Rate",
 			fmt.Sprintf("%.0f", maxHR),
 			width,
-			metricrow.WithDirection(maxHRDirection),
-			metricrow.WithSubValue(formatAvg(maxHRAvg, "%.0f")),
+			metric_row.WithDirection(maxHRDirection),
+			metric_row.WithSubValue(formatAvg(maxHRAvg, "%.0f")),
 		)
 		rows = append(rows, maxHRRow.Render())
 		rows = append(rows, "")

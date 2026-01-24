@@ -6,7 +6,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
-	"github.com/garrettladley/thoop/internal/tui/components/metricrow"
+	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
@@ -59,29 +59,29 @@ func renderSleepMetrics(state State, width int) string {
 		}
 		sleepPct := sleepRatio * 100
 
-		sleptRow := metricrow.New(
+		sleptRow := metric_row.New(
 			"Hours vs. Needed",
 			fmt.Sprintf("%.0f%%", sleepPct),
 			width,
-			metricrow.WithProgressBar(sleepRatio, metricrow.PercentageColor(sleepPct)),
+			metric_row.WithProgressBar(sleepRatio, metric_row.PercentageColor(sleepPct)),
 		)
 		rows = append(rows, sleptRow.Render())
 		rows = append(rows, "")
 
-		consistencyRow := metricrow.New(
+		consistencyRow := metric_row.New(
 			"Sleep Consistency",
 			fmt.Sprintf("%.0f%%", score.SleepConsistencyPercentage),
 			width,
-			metricrow.WithProgressBar(score.SleepConsistencyPercentage/100, metricrow.PercentageColor(score.SleepConsistencyPercentage)),
+			metric_row.WithProgressBar(score.SleepConsistencyPercentage/100, metric_row.PercentageColor(score.SleepConsistencyPercentage)),
 		)
 		rows = append(rows, consistencyRow.Render())
 		rows = append(rows, "")
 
-		efficiencyRow := metricrow.New(
+		efficiencyRow := metric_row.New(
 			"Sleep Efficiency",
 			fmt.Sprintf("%.0f%%", score.SleepEfficiencyPercentage),
 			width,
-			metricrow.WithProgressBar(score.SleepEfficiencyPercentage/100, metricrow.PercentageColor(score.SleepEfficiencyPercentage)),
+			metric_row.WithProgressBar(score.SleepEfficiencyPercentage/100, metric_row.PercentageColor(score.SleepEfficiencyPercentage)),
 		)
 		rows = append(rows, efficiencyRow.Render())
 		rows = append(rows, "")

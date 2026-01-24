@@ -1,4 +1,4 @@
-package metricrow
+package metric_row
 
 import (
 	"fmt"
@@ -8,6 +8,12 @@ import (
 
 	"github.com/garrettladley/thoop/internal/tui/components/progressbar"
 	"github.com/garrettladley/thoop/internal/tui/theme"
+)
+
+const (
+	symbolUp      = "▲"
+	symbolDown    = "▼"
+	symbolNeutral = "●"
 )
 
 type Direction int
@@ -85,26 +91,28 @@ func (m MetricRow) Render() string {
 
 	directionStr := ""
 	switch m.Direction {
+	case DirectionNone:
+		// no indicator shown
 	case DirectionUp:
-		directionStr = lipgloss.NewStyle().
+		directionStr = " " + lipgloss.NewStyle().
 			Foreground(theme.ColorTeal).
-			Render(" ▲")
+			Render(symbolUp)
 	case DirectionDown:
-		directionStr = lipgloss.NewStyle().
+		directionStr = " " + lipgloss.NewStyle().
 			Foreground(theme.ColorOrange).
-			Render(" ▼")
+			Render(symbolDown)
 	case DirectionUpBad:
-		directionStr = lipgloss.NewStyle().
+		directionStr = " " + lipgloss.NewStyle().
 			Foreground(theme.ColorOrange).
-			Render(" ▲")
+			Render(symbolUp)
 	case DirectionDownGood:
-		directionStr = lipgloss.NewStyle().
+		directionStr = " " + lipgloss.NewStyle().
 			Foreground(theme.ColorTeal).
-			Render(" ▼")
+			Render(symbolDown)
 	case DirectionNeutral:
-		directionStr = lipgloss.NewStyle().
+		directionStr = " " + lipgloss.NewStyle().
 			Foreground(theme.ColorNeutral).
-			Render(" ●")
+			Render(symbolNeutral)
 	}
 
 	labelText := labelStyle.Render(m.Label)

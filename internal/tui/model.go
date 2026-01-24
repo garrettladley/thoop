@@ -143,7 +143,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case dashboard.HistoricalDataMsg:
 		if msg.Err != nil {
 			m.deps.Logger.ErrorContext(m.deps.Ctx, "historical data fetch failed",
-				"source", msg.ErrSource,
+				xslog.Source(msg.ErrSource),
 				xslog.Error(msg.Err))
 		} else {
 			m.state.dashboard.Averages = dashboard.ComputeAverages(msg.Recoveries, msg.Cycles, msg.Sleeps)
