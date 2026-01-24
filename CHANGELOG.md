@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/garrettladley/thoop/compare/v0.1.1...v0.1.2) (2026-01-24)
+
+
+### Bug Fixes
+
+* **recovery page:** sleep performance w/ % sign ([#106](https://github.com/garrettladley/thoop/issues/106)) ([818bfe4](https://github.com/garrettladley/thoop/commit/818bfe439202a1bd464c6c0e577f0fe9b34b04ea))
+
 ## [0.1.1](https://github.com/garrettladley/thoop/compare/v0.1.0...v0.1.1) (2026-01-24)
 
 
