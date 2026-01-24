@@ -31,6 +31,7 @@ type MetricRow struct {
 	Label       string
 	Value       string
 	SubValue    string // e.g., 30-day average shown below main value
+	Unit        string
 	Width       int
 	ProgressBar *progressbar.ProgressBar
 	Direction   Direction
@@ -61,6 +62,12 @@ func WithValueColor(c color.Color) Option {
 func WithSubValue(subValue string) Option {
 	return func(m *MetricRow) {
 		m.SubValue = subValue
+	}
+}
+
+func WithUnit(unit string) Option {
+	return func(m *MetricRow) {
+		m.Unit = unit
 	}
 }
 
@@ -116,7 +123,7 @@ func (m MetricRow) Render() string {
 	}
 
 	labelText := labelStyle.Render(m.Label)
-	valueText := valueStyle.Render(m.Value) + directionStr
+	valueText := valueStyle.Render(m.Value+m.Unit) + directionStr
 
 	labelWidth := lipgloss.Width(labelText)
 	valueWidth := lipgloss.Width(valueText)
@@ -128,7 +135,7 @@ func (m MetricRow) Render() string {
 
 	// add sub-value row if present (30-day average below current value)
 	if m.SubValue != "" {
-		subValueText := subValueStyle.Render(m.SubValue)
+		subValueText := subValueStyle.Render(m.SubValue + m.Unit)
 		subPadding := m.Width - lipgloss.Width(subValueText)
 		subRow := fmt.Sprintf("%*s", subPadding, "") + subValueText
 		row = lipgloss.JoinVertical(lipgloss.Left, row, subRow)
