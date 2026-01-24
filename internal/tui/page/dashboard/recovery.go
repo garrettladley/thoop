@@ -94,6 +94,7 @@ func renderRecoveryMetrics(state State, width int) string {
 				width,
 				metric_row.WithDirection(sleepDirection),
 				metric_row.WithSubValue(formatAvg(sleepAvg, "%.0f")),
+				metric_row.WithUnit("%"),
 			)
 			rows = append(rows, sleepRow.Render())
 			rows = append(rows, "")
