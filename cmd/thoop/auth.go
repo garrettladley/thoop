@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 
-	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
 	"github.com/garrettladley/thoop/internal/db"
 	"github.com/garrettladley/thoop/internal/keyring"
@@ -69,51 +68,7 @@ func purgeCmd() *cobra.Command {
 		Short: "Remove stored authentication token",
 		Long:  "Deletes the locally stored WHOOP authentication token from keyring and database.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			if _, err := paths.EnsureDir(); err != nil {
-				return fmt.Errorf("failed to ensure directory: %w", err)
-			}
-
-			dbPath, err := paths.DB()
-			if err != nil {
-				return fmt.Errorf("failed to get database path: %w", err)
-			}
-
-			sqlDB, querier, err := db.Open(ctx, dbPath)
-			if err != nil {
-				return fmt.Errorf("failed to open database: %w", err)
-			}
-			defer func() {
-				_ = sqlDB.Close()
-			}()
-
-			kr := keyring.NewOSKeyring()
-
-			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier, kr)
-
-			// get API key from keyring for revocation call
-			apiKey, _ := kr.Get(keyring.KeyAPIKey)
-
-			client := whoop.New(tokenSource,
-				whoop.WithProxyURL(config.ServerURL+"/api/whoop"),
-				whoop.WithAPIKey(apiKey),
-			)
-			_ = client.User.RevokeAccess(ctx) // best effort - token may already be invalid
-
-			// delete from keyring
-			if err := kr.DeleteAll(); err != nil {
-				fmt.Printf("Warning: failed to clear keyring: %v\n", err)
-			}
-
-			// Delete metadata from SQLite
-			if err := querier.DeleteTokenMetadata(ctx); err != nil {
-				return fmt.Errorf("failed to delete token metadata: %w", err)
-			}
-
-			fmt.Println("Authentication token removed successfully.")
-
-			return nil
+			return purge(ctx)
 		},
 	}
 }

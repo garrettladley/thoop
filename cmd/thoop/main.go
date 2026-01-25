@@ -27,6 +27,7 @@ func main() {
 	}
 
 	rootCmd.AddCommand(upgradeCmd())
+	rootCmd.AddCommand(logoutCmd())
 	addDevCommands(rootCmd)
 
 	if err := fang.Execute(context.Background(), rootCmd,
