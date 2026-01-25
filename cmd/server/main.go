@@ -122,12 +122,14 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	unauthedMux.HandleFunc("POST /auth/refresh", authHandler.HandleRefresh)
 	unauthedMux.HandleFunc("POST /webhooks/whoop", webhookHandler.HandleWebhook)
 	unauthedMux.HandleFunc("GET /health", handler.HandleHealth)
+	unauthedMux.HandleFunc("GET /privacy", handler.HandlePrivacy)
 	unauthedWrapped := middleware.Chain(unauthedMux,
 		servermw.RateLimitWithBackend(backend),
 	)
 	mux.Handle("/auth/", unauthedWrapped)
 	mux.Handle("/webhooks/", unauthedWrapped)
 	mux.Handle("/health", unauthedWrapped)
+	mux.Handle("/privacy", unauthedWrapped)
 
 	// Authenticated routes - protected by API key + WHOOP token + rate limiter
 	whoopMux := http.NewServeMux()

@@ -19,12 +19,12 @@ func logoutCmd() *cobra.Command {
 		Use:   "logout",
 		Short: "Log out and clear all stored credentials",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return purge(cmd.Context())
+			return runLogout(cmd.Context())
 		},
 	}
 }
 
-func purge(ctx context.Context) error {
+func runLogout(ctx context.Context) error {
 	if _, err := paths.EnsureDir(); err != nil {
 		return fmt.Errorf("failed to ensure directory: %w", err)
 	}
@@ -46,13 +46,8 @@ func purge(ctx context.Context) error {
 
 	tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier, kr)
 
-	// get API key from keyring for revocation call
-	apiKey, _ := kr.Get(keyring.KeyAPIKey)
-
-	client := whoop.New(tokenSource,
-		whoop.WithProxyURL(config.ServerURL+"/api/whoop"),
-		whoop.WithAPIKey(apiKey),
-	)
+	// go directly to WHOOP, not through proxy
+	client := whoop.New(tokenSource)
 	_ = client.User.RevokeAccess(ctx) // best effort - token may already be invalid
 
 	// delete from keyring
@@ -60,7 +55,7 @@ func purge(ctx context.Context) error {
 		fmt.Printf("Warning: failed to clear keyring: %v\n", err)
 	}
 
-	// delete metadata from SQLite
+	// delete token metadata from SQLite
 	if err := querier.DeleteTokenMetadata(ctx); err != nil {
 		return fmt.Errorf("failed to delete token metadata: %w", err)
 	}
