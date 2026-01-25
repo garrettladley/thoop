@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.8](https://github.com/garrettladley/thoop/compare/v0.1.7...v0.1.8) (2026-01-25)
+
+
+### Features
+
+* privacy page, thoop purge, & templ refactor ([#126](https://github.com/garrettladley/thoop/issues/126)) ([b0b7e2b](https://github.com/garrettladley/thoop/commit/b0b7e2ba8865055918374ce3947a1a5408c054db))
+* templ ([#124](https://github.com/garrettladley/thoop/issues/124)) ([ce84f89](https://github.com/garrettladley/thoop/commit/ce84f89ef364b3335218a7d63b3c01ff01ec3aa7))
+
 ## [0.1.7](https://github.com/garrettladley/thoop/compare/v0.1.6...v0.1.7) (2026-01-25)
 
 
