@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"math"
 
 	"charm.land/lipgloss/v2"
 
@@ -72,7 +73,7 @@ func renderRecoveryMetrics(state State, width int) string {
 		score := state.CurrentRecovery.Score
 
 		hrvAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.HRV })
-		hrvDirection := getDirectionHigherBetter(score.HRVRmssdMilli, hrvAvg)
+		hrvDirection := getDirectionHigherBetter(score.HRVRmssdMilli, hrvAvg, WithPrecision(0))
 		hrvRow := metric_row.New(
 			"HRV",
 			fmt.Sprintf("%.0f", score.HRVRmssdMilli),
@@ -85,7 +86,7 @@ func renderRecoveryMetrics(state State, width int) string {
 		rows = append(rows, "")
 
 		rhrAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.RestingHeartRate })
-		rhrDirection := getDirectionLowerBetter(score.RestingHeartRate, rhrAvg)
+		rhrDirection := getDirectionLowerBetter(score.RestingHeartRate, rhrAvg, WithPrecision(0))
 		rhrRow := metric_row.New(
 			"Resting Heart Rate",
 			fmt.Sprintf("%.0f", score.RestingHeartRate),
@@ -100,7 +101,7 @@ func renderRecoveryMetrics(state State, width int) string {
 		if state.CurrentSleep != nil && state.CurrentSleep.Score != nil {
 			respRate := state.CurrentSleep.Score.RespiratoryRate
 			respAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.RespiratoryRate })
-			respDirection := getDirectionLowerBetter(respRate, respAvg)
+			respDirection := getDirectionLowerBetter(respRate, respAvg, WithPrecision(1))
 			respRow := metric_row.New(
 				"Respiratory Rate",
 				fmt.Sprintf("%.1f", respRate),
@@ -114,7 +115,7 @@ func renderRecoveryMetrics(state State, width int) string {
 
 			sleepPerf := state.CurrentSleep.Score.SleepPerformancePercentage
 			sleepAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.SleepPerformance })
-			sleepDirection := getDirectionHigherBetter(sleepPerf, sleepAvg)
+			sleepDirection := getDirectionHigherBetter(sleepPerf, sleepAvg, WithPrecision(0))
 			sleepRow := metric_row.New(
 				"Sleep Performance",
 				fmt.Sprintf("%.0f", sleepPerf),
@@ -334,29 +335,65 @@ func formatAvg(avg float64, format string) string {
 	return fmt.Sprintf(format, avg)
 }
 
+// DirectionOption configures direction comparison behavior.
+type DirectionOption func(*directionConfig)
+
+type directionConfig struct {
+	rounder func(float64) float64
+}
+
+// WithPrecision rounds values to the specified number of decimal places before comparing.
+// This ensures the direction indicator matches what the user sees displayed.
+func WithPrecision(decimals int) DirectionOption {
+	return func(c *directionConfig) {
+		mult := math.Pow(10, float64(decimals))
+		c.rounder = func(v float64) float64 {
+			return math.Round(v*mult) / mult
+		}
+	}
+}
+
+func applyDirectionOptions(opts []DirectionOption) directionConfig {
+	cfg := directionConfig{
+		rounder: func(v float64) float64 { return v },
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return cfg
+}
+
 // getDirectionHigherBetter returns direction for metrics where higher is better (HRV, Sleep Performance)
-func getDirectionHigherBetter(current, avg float64) metric_row.Direction {
+func getDirectionHigherBetter(current, avg float64, opts ...DirectionOption) metric_row.Direction {
 	if avg == 0 {
 		return metric_row.DirectionNone
 	}
 
-	if current > avg {
+	cfg := applyDirectionOptions(opts)
+	roundedCurrent := cfg.rounder(current)
+	roundedAvg := cfg.rounder(avg)
+
+	if roundedCurrent > roundedAvg {
 		return metric_row.DirectionUp // teal up - higher is good
-	} else if current < avg {
+	} else if roundedCurrent < roundedAvg {
 		return metric_row.DirectionDown // orange down - lower is bad
 	}
 	return metric_row.DirectionNeutral
 }
 
 // getDirectionLowerBetter returns direction for metrics where lower is better (RHR, Respiratory Rate)
-func getDirectionLowerBetter(current, avg float64) metric_row.Direction {
+func getDirectionLowerBetter(current, avg float64, opts ...DirectionOption) metric_row.Direction {
 	if avg == 0 {
 		return metric_row.DirectionNone
 	}
 
-	if current > avg {
+	cfg := applyDirectionOptions(opts)
+	roundedCurrent := cfg.rounder(current)
+	roundedAvg := cfg.rounder(avg)
+
+	if roundedCurrent > roundedAvg {
 		return metric_row.DirectionUpBad // orange up - higher is bad
-	} else if current < avg {
+	} else if roundedCurrent < roundedAvg {
 		return metric_row.DirectionDownGood // teal down - lower is good
 	}
 	return metric_row.DirectionNeutral
