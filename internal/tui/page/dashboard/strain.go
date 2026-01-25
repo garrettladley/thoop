@@ -17,7 +17,7 @@ import (
 	"github.com/garrettladley/thoop/internal/xtime"
 )
 
-func RenderStrainDetail(state State, width, height int) string {
+func RenderStrainDetail(state *State, width, height int) string {
 	strainGauge := gauge.New(
 		state.StrainScore,
 		21,
@@ -28,7 +28,7 @@ func RenderStrainDetail(state State, width, height int) string {
 	gaugeStr := strainGauge.Render()
 
 	metricsWidth := 56
-	metrics := renderStrainMetrics(state, metricsWidth)
+	metrics := renderStrainMetrics(*state, metricsWidth)
 
 	var contentParts []string
 	contentParts = append(contentParts, gaugeStr)
@@ -41,7 +41,7 @@ func RenderStrainDetail(state State, width, height int) string {
 		contentParts = append(contentParts, activitiesSection)
 	}
 
-	chartsSection := renderStrainCharts(state, metricsWidth)
+	chartsSection := renderStrainCharts(*state, metricsWidth)
 	if chartsSection != "" {
 		contentParts = append(contentParts, "", "", "")
 		contentParts = append(contentParts, chartsSection)
@@ -53,6 +53,7 @@ func RenderStrainDetail(state State, width, height int) string {
 	viewportHeight := height - 2
 
 	if contentHeight <= viewportHeight {
+		state.ScrollOffset = 0
 		return lipgloss.Place(
 			width,
 			height,
@@ -62,8 +63,10 @@ func RenderStrainDetail(state State, width, height int) string {
 		)
 	}
 
+	// apply viewport scrolling and sync state
 	vp := viewport.New(viewport.WithSize(width, viewportHeight))
 	offset := vp.ClampOffset(content, state.ScrollOffset)
+	state.ScrollOffset = offset
 	scrolledContent := vp.Render(content, offset)
 
 	return lipgloss.Place(

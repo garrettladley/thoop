@@ -13,7 +13,7 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
-func RenderRecoveryDetail(state State, width, height int) string {
+func RenderRecoveryDetail(state *State, width, height int) string {
 	recoveryGauge := gauge.New(
 		state.RecoveryScore,
 		100,
@@ -24,14 +24,14 @@ func RenderRecoveryDetail(state State, width, height int) string {
 	gaugeStr := recoveryGauge.Render()
 
 	metricsWidth := 56
-	metrics := renderRecoveryMetrics(state, metricsWidth)
+	metrics := renderRecoveryMetrics(*state, metricsWidth)
 
 	var contentParts []string
 	contentParts = append(contentParts, gaugeStr)
 	contentParts = append(contentParts, "", "")
 	contentParts = append(contentParts, metrics)
 
-	chartsSection := renderRecoveryCharts(state, metricsWidth)
+	chartsSection := renderRecoveryCharts(*state, metricsWidth)
 	if chartsSection != "" {
 		contentParts = append(contentParts, "", "", "")
 		contentParts = append(contentParts, chartsSection)
@@ -43,6 +43,7 @@ func RenderRecoveryDetail(state State, width, height int) string {
 	viewportHeight := height - 2 // reserve space for footer
 
 	if contentHeight <= viewportHeight {
+		state.ScrollOffset = 0
 		return lipgloss.Place(
 			width,
 			height,
@@ -52,9 +53,10 @@ func RenderRecoveryDetail(state State, width, height int) string {
 		)
 	}
 
-	// apply viewport scrolling
+	// apply viewport scrolling and sync state
 	vp := viewport.New(viewport.WithSize(width, viewportHeight))
 	offset := vp.ClampOffset(content, state.ScrollOffset)
+	state.ScrollOffset = offset
 	scrolledContent := vp.Render(content, offset)
 
 	return lipgloss.Place(

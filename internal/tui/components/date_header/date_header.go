@@ -22,7 +22,7 @@ func Render(selectedDate *time.Time, width int) string {
 	}
 
 	style := lipgloss.NewStyle().
-		Foreground(theme.ColorDim)
+		Foreground(theme.ColorWhite)
 
 	styledLabel := style.Render(label)
 	labelWidth := lipgloss.Width(styledLabel)

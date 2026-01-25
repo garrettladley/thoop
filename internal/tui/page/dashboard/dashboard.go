@@ -110,7 +110,7 @@ func (s *State) ClearPendingRecovery() {
 	s.pendingRecovery = false
 }
 
-func View(state State, width, height int) string {
+func View(state *State, width, height int) string {
 	dateHeader := date_header.Render(state.SelectedDate, width)
 	dateHeaderHeight := lipgloss.Height(dateHeader)
 	contentHeight := height - dateHeaderHeight
@@ -124,7 +124,7 @@ func View(state State, width, height int) string {
 	case TabStrain:
 		content = RenderStrainDetail(state, width, contentHeight)
 	default:
-		content = renderOverview(state, width, contentHeight)
+		content = renderOverview(*state, width, contentHeight)
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, dateHeader, content)
