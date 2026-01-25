@@ -84,12 +84,12 @@ func runPurge(ctx context.Context, force bool) error {
 func revokeAccess(ctx context.Context) error {
 	dbPath, err := paths.DB()
 	if err != nil {
-		return err
+		return fmt.Errorf("getting db path: %w", err)
 	}
 
 	sqlDB, querier, err := db.Open(ctx, dbPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("opening db: %w", err)
 	}
 	defer func() {
 		_ = sqlDB.Close()
@@ -101,5 +101,9 @@ func revokeAccess(ctx context.Context) error {
 	// go directly to WHOOP, not through proxy
 	client := whoop.New(tokenSource)
 
-	return client.User.RevokeAccess(ctx)
+	if err := client.User.RevokeAccess(ctx); err != nil {
+		return fmt.Errorf("revoking access: %w", err)
+	}
+
+	return nil
 }
