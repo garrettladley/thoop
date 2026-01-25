@@ -16,6 +16,7 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/page/onboarding"
 	"github.com/garrettladley/thoop/internal/tui/page/splash"
 	"github.com/garrettladley/thoop/internal/tui/theme"
+	"github.com/garrettladley/thoop/internal/xslices"
 	"github.com/garrettladley/thoop/internal/xslog"
 )
 
@@ -80,6 +81,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewportHeight = msg.Height
 		m.ready = true
 
+	case tea.MouseWheelMsg:
+		if m.page == page.Dashboard && m.state.dashboard.ActiveTab != dashboard.TabOverview {
+			switch msg.Button {
+			case tea.MouseWheelUp:
+				m.state.dashboard.ScrollOffset -= 3
+				if m.state.dashboard.ScrollOffset < 0 {
+					m.state.dashboard.ScrollOffset = 0
+				}
+			case tea.MouseWheelDown:
+				m.state.dashboard.ScrollOffset += 3
+				// cap at reasonable max to prevent scrolling into void
+				maxScroll := m.viewportHeight * 2
+				if m.state.dashboard.ScrollOffset > maxScroll {
+					m.state.dashboard.ScrollOffset = maxScroll
+				}
+			}
+			return m, nil
+		}
+
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 
@@ -116,7 +136,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(
 				dashboard.FetchSleepCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
 				dashboard.FetchRecoveryCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
+				dashboard.FetchTodaysWorkoutsCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.Start),
 			)
+		}
+		return m, nil
+
+	case dashboard.WorkoutsMsg:
+		if msg.Err == nil {
+			m.state.dashboard.TodaysWorkouts = msg.Workouts
 		}
 		return m, nil
 
@@ -147,6 +174,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				xslog.Error(msg.Err))
 		} else {
 			m.state.dashboard.Averages = dashboard.ComputeAverages(msg.Recoveries, msg.Cycles, msg.Sleeps)
+			// store last 7 days of data for charts
+			m.state.dashboard.HistoricalRecoveries = xslices.Truncate(msg.Recoveries, 7)
+			m.state.dashboard.HistoricalCycles = xslices.Truncate(msg.Cycles, 7)
+			m.state.dashboard.HistoricalSleeps = xslices.Truncate(msg.Sleeps, 7)
 		}
 		return m, nil
 
@@ -194,16 +225,40 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "right", "l":
 		if m.page == page.Dashboard {
 			m.state.dashboard.ActiveTab = dashboard.NextTab(m.state.dashboard.ActiveTab)
+			m.state.dashboard.ScrollOffset = 0 // reset scroll on tab change
 			return m, nil
 		}
 	case "left", "h":
 		if m.page == page.Dashboard {
 			m.state.dashboard.ActiveTab = dashboard.PrevTab(m.state.dashboard.ActiveTab)
+			m.state.dashboard.ScrollOffset = 0 // reset scroll on tab change
 			return m, nil
 		}
-	case "j", "k", "up", "down":
-		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
-			m.state.dashboard.ActiveTab = dashboard.TabRecovery
+	case "j", "down":
+		if m.page == page.Dashboard {
+			if m.state.dashboard.ActiveTab == dashboard.TabOverview {
+				m.state.dashboard.ActiveTab = dashboard.TabRecovery
+			} else {
+				// Scroll down in drill pages
+				m.state.dashboard.ScrollOffset++
+				// cap at reasonable max to prevent scrolling into void
+				maxScroll := m.viewportHeight * 2
+				if m.state.dashboard.ScrollOffset > maxScroll {
+					m.state.dashboard.ScrollOffset = maxScroll
+				}
+			}
+			return m, nil
+		}
+	case "k", "up":
+		if m.page == page.Dashboard {
+			if m.state.dashboard.ActiveTab == dashboard.TabOverview {
+				m.state.dashboard.ActiveTab = dashboard.TabRecovery
+			} else {
+				// scroll up in drill pages
+				if m.state.dashboard.ScrollOffset > 0 {
+					m.state.dashboard.ScrollOffset--
+				}
+			}
 			return m, nil
 		}
 	case "esc":
@@ -359,7 +414,7 @@ func (m *Model) View() tea.View {
 		case dashboard.TabOverview:
 			f = f.WithNavHints("← sleep    ↑↓ recovery    → strain")
 		default:
-			f = f.WithNavHints("esc back    ←/→ navigate")
+			f = f.WithNavHints("esc back    ←/→ navigate    j/k scroll")
 		}
 
 		footerOverlay := lipgloss.Place(

@@ -76,6 +76,34 @@ func FetchRecoveryCmd(ctx context.Context, client *whoop.Client, cycleID int64) 
 	}
 }
 
+type WorkoutsMsg struct {
+	Workouts []whoop.Workout
+	Err      error
+}
+
+func FetchTodaysWorkoutsCmd(ctx context.Context, client *whoop.Client, cycleStart time.Time) tea.Cmd {
+	if client == nil {
+		return func() tea.Msg {
+			return WorkoutsMsg{}
+		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		now := time.Now()
+		resp, err := client.Workout.List(ctx, &whoop.ListParams{
+			Start: &cycleStart,
+			End:   &now,
+		})
+		if err != nil {
+			return WorkoutsMsg{Err: err}
+		}
+		return WorkoutsMsg{Workouts: resp.Records}
+	}
+}
+
 type HistoricalDataMsg struct {
 	Recoveries []whoop.Recovery
 	Cycles     []whoop.Cycle
@@ -108,9 +136,7 @@ func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 			wg            sync.WaitGroup
 		)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			var nextToken *string
 			for {
 				params := &whoop.ListParams{
@@ -130,11 +156,9 @@ func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 				}
 				nextToken = resp.NextToken
 			}
-		}()
+		})
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			var nextToken *string
 			for {
 				params := &whoop.ListParams{
@@ -154,7 +178,7 @@ func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 				}
 				nextToken = resp.NextToken
 			}
-		}()
+		})
 
 		var nextToken *string
 		for {

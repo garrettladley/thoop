@@ -5,8 +5,10 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/garrettladley/thoop/internal/tui/components/chart"
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
 	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
+	"github.com/garrettladley/thoop/internal/tui/components/viewport"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
@@ -20,23 +22,46 @@ func RenderRecoveryDetail(state State, width, height int) string {
 
 	gaugeStr := recoveryGauge.Render()
 
-	metricsWidth := 40
+	metricsWidth := 56
 	metrics := renderRecoveryMetrics(state, metricsWidth)
 
-	content := lipgloss.JoinVertical(
-		lipgloss.Center,
-		gaugeStr,
-		"",
-		"",
-		metrics,
-	)
+	var contentParts []string
+	contentParts = append(contentParts, gaugeStr)
+	contentParts = append(contentParts, "", "")
+	contentParts = append(contentParts, metrics)
+
+	chartsSection := renderRecoveryCharts(state, metricsWidth)
+	if chartsSection != "" {
+		contentParts = append(contentParts, "", "", "")
+		contentParts = append(contentParts, chartsSection)
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Center, contentParts...)
+
+	contentHeight := lipgloss.Height(content)
+	viewportHeight := height - 2 // reserve space for footer
+
+	if contentHeight <= viewportHeight {
+		return lipgloss.Place(
+			width,
+			height,
+			lipgloss.Center,
+			lipgloss.Center,
+			content,
+		)
+	}
+
+	// apply viewport scrolling
+	vp := viewport.New(viewport.WithSize(width, viewportHeight))
+	offset := vp.ClampOffset(content, state.ScrollOffset)
+	scrolledContent := vp.Render(content, offset)
 
 	return lipgloss.Place(
 		width,
 		height,
 		lipgloss.Center,
-		lipgloss.Center,
-		content,
+		lipgloss.Top,
+		scrolledContent,
 	)
 }
 
@@ -46,7 +71,6 @@ func renderRecoveryMetrics(state State, width int) string {
 	if state.CurrentRecovery != nil && state.CurrentRecovery.Score != nil {
 		score := state.CurrentRecovery.Score
 
-		// HRV: Higher is better
 		hrvAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.HRV })
 		hrvDirection := getDirectionHigherBetter(score.HRVRmssdMilli, hrvAvg)
 		hrvRow := metric_row.New(
@@ -55,6 +79,7 @@ func renderRecoveryMetrics(state State, width int) string {
 			width,
 			metric_row.WithDirection(hrvDirection),
 			metric_row.WithSubValue(formatAvg(hrvAvg, "%.0f")),
+			metric_row.WithLabelColor(theme.ColorWhite),
 		)
 		rows = append(rows, hrvRow.Render())
 		rows = append(rows, "")
@@ -67,6 +92,7 @@ func renderRecoveryMetrics(state State, width int) string {
 			width,
 			metric_row.WithDirection(rhrDirection),
 			metric_row.WithSubValue(formatAvg(rhrAvg, "%.0f")),
+			metric_row.WithLabelColor(theme.ColorWhite),
 		)
 		rows = append(rows, rhrRow.Render())
 		rows = append(rows, "")
@@ -81,6 +107,7 @@ func renderRecoveryMetrics(state State, width int) string {
 				width,
 				metric_row.WithDirection(respDirection),
 				metric_row.WithSubValue(formatAvg(respAvg, "%.1f")),
+				metric_row.WithLabelColor(theme.ColorWhite),
 			)
 			rows = append(rows, respRow.Render())
 			rows = append(rows, "")
@@ -95,6 +122,7 @@ func renderRecoveryMetrics(state State, width int) string {
 				metric_row.WithDirection(sleepDirection),
 				metric_row.WithSubValue(formatAvg(sleepAvg, "%.0f")),
 				metric_row.WithUnit("%"),
+				metric_row.WithLabelColor(theme.ColorWhite),
 			)
 			rows = append(rows, sleepRow.Render())
 			rows = append(rows, "")
@@ -112,11 +140,184 @@ func renderRecoveryMetrics(state State, width int) string {
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
+func renderRecoveryCharts(state State, width int) string {
+	if len(state.HistoricalRecoveries) == 0 {
+		return ""
+	}
+
+	titleStyle := lipgloss.NewStyle().
+		Foreground(theme.ColorWhite).
+		Bold(true)
+	weeklyTrendsTitle := titleStyle.Width(width).Render("WEEKLY TRENDS")
+
+	var sections []string
+	sections = append(sections, weeklyTrendsTitle)
+
+	if c := recoveryTrendChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := hrvTrendChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := restingHeartRateChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := respiratoryRateChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := recoverySleepPerfChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+}
+
+func recoveryTrendChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(data) < 7; i-- {
+		r := state.HistoricalRecoveries[i]
+		if r.Score == nil {
+			continue
+		}
+		data = append(data, chart.DataPoint{
+			Label: r.CreatedAt.Format("Mon\n2"),
+			Value: r.Score.RecoveryScore,
+		})
+	}
+	if len(data) == 0 {
+		return ""
+	}
+
+	title := recoveryChartTitle("RECOVERY")
+	c := chart.NewBarChart(data,
+		chart.WithBarChartColorFunc(chart.RecoveryColor),
+		chart.WithBarChartFormatter(chart.FormatPercentage),
+		chart.WithBarChartMax(100),
+		chart.WithBarChartHeight(6),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
+
+func hrvTrendChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(data) < 7; i-- {
+		r := state.HistoricalRecoveries[i]
+		if r.Score == nil {
+			continue
+		}
+		data = append(data, chart.DataPoint{
+			Label: r.CreatedAt.Format("Mon\n2"),
+			Value: r.Score.HRVRmssdMilli,
+		})
+	}
+	if len(data) == 0 {
+		return ""
+	}
+
+	title := recoveryChartTitle("HRV TREND")
+	c := chart.NewLineChart(data,
+		chart.WithLineChartColor(theme.ColorRecoveryBlue),
+		chart.WithLineChartFormatter(chart.FormatInt),
+		chart.WithLineChartHeight(5),
+		chart.WithLineChartShowValues(true),
+		chart.WithLineChartShowDots(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
+
+func restingHeartRateChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(data) < 7; i-- {
+		r := state.HistoricalRecoveries[i]
+		if r.Score == nil {
+			continue
+		}
+		data = append(data, chart.DataPoint{
+			Label: r.CreatedAt.Format("Mon\n2"),
+			Value: r.Score.RestingHeartRate,
+		})
+	}
+	if len(data) == 0 {
+		return ""
+	}
+
+	title := recoveryChartTitle("RESTING HEART RATE")
+	c := chart.NewLineChart(data,
+		chart.WithLineChartColor(theme.ColorRecoveryBlue),
+		chart.WithLineChartFormatter(chart.FormatInt),
+		chart.WithLineChartHeight(5),
+		chart.WithLineChartShowValues(true),
+		chart.WithLineChartShowDots(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
+
+func respiratoryRateChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(data) < 7; i-- {
+		s := state.HistoricalSleeps[i]
+		if s.Nap || s.Score == nil {
+			continue
+		}
+		data = append(data, chart.DataPoint{
+			Label: s.CreatedAt.Format("Mon\n2"),
+			Value: s.Score.RespiratoryRate,
+		})
+	}
+	if len(data) == 0 {
+		return ""
+	}
+
+	title := recoveryChartTitle("RESPIRATORY RATE")
+	c := chart.NewLineChart(data,
+		chart.WithLineChartColor(theme.ColorRecoveryBlue),
+		chart.WithLineChartFormatter(chart.FormatFloat1),
+		chart.WithLineChartHeight(5),
+		chart.WithLineChartShowValues(true),
+		chart.WithLineChartShowDots(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
+
+func recoverySleepPerfChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(data) < 7; i-- {
+		s := state.HistoricalSleeps[i]
+		if s.Nap || s.Score == nil {
+			continue
+		}
+		data = append(data, chart.DataPoint{
+			Label: s.CreatedAt.Format("Mon\n2"),
+			Value: s.Score.SleepPerformancePercentage,
+		})
+	}
+	if len(data) == 0 {
+		return ""
+	}
+
+	title := recoveryChartTitle("SLEEP PERFORMANCE")
+	c := chart.NewBarChart(data,
+		chart.WithBarChartColorFunc(chart.SleepColor),
+		chart.WithBarChartFormatter(chart.FormatPercentage),
+		chart.WithBarChartMax(100),
+		chart.WithBarChartHeight(6),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
+
+func recoveryChartTitle(text string) string {
+	return lipgloss.NewStyle().
+		Foreground(theme.ColorWhite).
+		Bold(true).
+		Render(text)
+}
+
 func renderComparisonLegend() string {
-	upArrow := lipgloss.NewStyle().Foreground(theme.ColorTeal).Render("▲")
-	downArrow := lipgloss.NewStyle().Foreground(theme.ColorOrange).Render("▼")
-	text := lipgloss.NewStyle().Foreground(theme.ColorDim).Render(" Today vs. last 30 days")
-	return upArrow + downArrow + text
+	upArrow := lipgloss.NewStyle().Foreground(theme.ColorTeal).Render(theme.SymbolArrowUp)
+	downArrow := lipgloss.NewStyle().Foreground(theme.ColorOrange).Render(theme.SymbolArrowDown)
+	today := lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(" Today")
+	rest := lipgloss.NewStyle().Foreground(theme.ColorDim).Render(" vs. last 30 days")
+	return upArrow + downArrow + today + rest
 }
 
 func getAvgValue(averages *ThirtyDayAverages, getAvg func(*ThirtyDayAverages) float64) float64 {
