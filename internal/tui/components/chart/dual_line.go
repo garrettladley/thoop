@@ -59,20 +59,6 @@ func WithDualLineLabels(l1, l2 string) DualLineChartOption {
 	}
 }
 
-// WithDualLineMin sets the minimum value for scaling.
-func WithDualLineMin(min float64) DualLineChartOption {
-	return func(dlc *DualLineChart) {
-		dlc.minValue = min
-	}
-}
-
-// WithDualLineMax sets the maximum value for scaling.
-func WithDualLineMax(max float64) DualLineChartOption {
-	return func(dlc *DualLineChart) {
-		dlc.maxValue = max
-	}
-}
-
 // WithDualLineFormatter sets the value formatter.
 func WithDualLineFormatter(f ValueFormatter) DualLineChartOption {
 	return func(dlc *DualLineChart) {
@@ -80,31 +66,10 @@ func WithDualLineFormatter(f ValueFormatter) DualLineChartOption {
 	}
 }
 
-// WithDualLineShowAxis shows the x-axis labels.
-func WithDualLineShowAxis(show bool) DualLineChartOption {
-	return func(dlc *DualLineChart) {
-		dlc.showAxis = show
-	}
-}
-
 // WithDualLineShowLegend shows the legend.
 func WithDualLineShowLegend(show bool) DualLineChartOption {
 	return func(dlc *DualLineChart) {
 		dlc.showLegend = show
-	}
-}
-
-// WithDualLineShowDots shows dots at data points.
-func WithDualLineShowDots(show bool) DualLineChartOption {
-	return func(dlc *DualLineChart) {
-		dlc.showDots = show
-	}
-}
-
-// WithDualLineSmoothness sets the number of interpolation points between data points.
-func WithDualLineSmoothness(s int) DualLineChartOption {
-	return func(dlc *DualLineChart) {
-		dlc.smoothness = s
 	}
 }
 

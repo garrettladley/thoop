@@ -34,13 +34,6 @@ func WithBarChartHeight(h int) BarChartOption {
 	}
 }
 
-// WithBarChartMin sets the minimum value for scaling.
-func WithBarChartMin(min float64) BarChartOption {
-	return func(bc *BarChart) {
-		bc.minValue = min
-	}
-}
-
 // WithBarChartMax sets the maximum value for scaling.
 func WithBarChartMax(max float64) BarChartOption {
 	return func(bc *BarChart) {
@@ -66,34 +59,6 @@ func WithBarChartFormatter(f ValueFormatter) BarChartOption {
 func WithBarChartShowValues(show bool) BarChartOption {
 	return func(bc *BarChart) {
 		bc.showValues = show
-	}
-}
-
-// WithBarChartShowAxis shows the x-axis labels.
-func WithBarChartShowAxis(show bool) BarChartOption {
-	return func(bc *BarChart) {
-		bc.showAxis = show
-	}
-}
-
-// WithBarChartBarWidth sets the width of each bar.
-func WithBarChartBarWidth(w int) BarChartOption {
-	return func(bc *BarChart) {
-		bc.barWidth = w
-	}
-}
-
-// WithBarChartBarGap sets the gap between bars.
-func WithBarChartBarGap(g int) BarChartOption {
-	return func(bc *BarChart) {
-		bc.barGap = g
-	}
-}
-
-// WithBarChartBgColor sets the background color for unfilled portions.
-func WithBarChartBgColor(c color.Color) BarChartOption {
-	return func(bc *BarChart) {
-		bc.bgColor = c
 	}
 }
 

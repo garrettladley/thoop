@@ -24,13 +24,6 @@ type Line struct {
 // LineOption configures a Line.
 type LineOption func(*Line)
 
-// WithLineColor sets the line color.
-func WithLineColor(c color.Color) LineOption {
-	return func(l *Line) {
-		l.color = c
-	}
-}
-
 // WithLineHeight sets the line height in characters.
 func WithLineHeight(h int) LineOption {
 	return func(l *Line) {
@@ -42,21 +35,6 @@ func WithLineHeight(h int) LineOption {
 func WithLineShowDots(show bool) LineOption {
 	return func(l *Line) {
 		l.showDots = show
-	}
-}
-
-// WithLineWidth sets the line thickness.
-func WithLineWidth(w int) LineOption {
-	return func(l *Line) {
-		l.lineWidth = w
-	}
-}
-
-// WithLineSmoothness sets the number of interpolation points between data points.
-// Higher values create smoother curves. 0 = straight lines (default: 8).
-func WithLineSmoothness(s int) LineOption {
-	return func(l *Line) {
-		l.smoothness = s
 	}
 }
 

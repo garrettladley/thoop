@@ -65,20 +65,6 @@ func WithStackedBarFormatter(f ValueFormatter) StackedBarChartOption {
 	}
 }
 
-// WithStackedBarShowValues shows values above bars.
-func WithStackedBarShowValues(show bool) StackedBarChartOption {
-	return func(sbc *StackedBarChart) {
-		sbc.showValues = show
-	}
-}
-
-// WithStackedBarShowAxis shows the x-axis labels.
-func WithStackedBarShowAxis(show bool) StackedBarChartOption {
-	return func(sbc *StackedBarChart) {
-		sbc.showAxis = show
-	}
-}
-
 // WithStackedBarShowLegend shows the legend.
 func WithStackedBarShowLegend(show bool) StackedBarChartOption {
 	return func(sbc *StackedBarChart) {
@@ -90,34 +76,6 @@ func WithStackedBarShowLegend(show bool) StackedBarChartOption {
 func WithStackedBarLegendPosition(pos LegendPosition) StackedBarChartOption {
 	return func(sbc *StackedBarChart) {
 		sbc.legendPosition = pos
-	}
-}
-
-// WithStackedBarBarWidth sets the bar width.
-func WithStackedBarBarWidth(w int) StackedBarChartOption {
-	return func(sbc *StackedBarChart) {
-		sbc.barWidth = w
-	}
-}
-
-// WithStackedBarBarGap sets the gap between bars.
-func WithStackedBarBarGap(g int) StackedBarChartOption {
-	return func(sbc *StackedBarChart) {
-		sbc.barGap = g
-	}
-}
-
-// WithStackedBarBgColor sets the background color.
-func WithStackedBarBgColor(c color.Color) StackedBarChartOption {
-	return func(sbc *StackedBarChart) {
-		sbc.bgColor = c
-	}
-}
-
-// WithStackedBarShowTotal shows total value above bars.
-func WithStackedBarShowTotal(show bool) StackedBarChartOption {
-	return func(sbc *StackedBarChart) {
-		sbc.showSegTotal = show
 	}
 }
 

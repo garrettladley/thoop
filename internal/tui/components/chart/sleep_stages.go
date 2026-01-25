@@ -37,13 +37,6 @@ type SleepStagesChart struct {
 // SleepStagesChartOption configures a SleepStagesChart.
 type SleepStagesChartOption func(*SleepStagesChart)
 
-// WithSleepStagesShowHeader shows or hides the header.
-func WithSleepStagesShowHeader(show bool) SleepStagesChartOption {
-	return func(ssc *SleepStagesChart) {
-		ssc.showHeader = show
-	}
-}
-
 // WithSleepStagesBaseline sets the baseline duration for trend comparison.
 func WithSleepStagesBaseline(baselineMs int) SleepStagesChartOption {
 	return func(ssc *SleepStagesChart) {

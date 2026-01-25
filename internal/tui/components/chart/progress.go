@@ -26,43 +26,6 @@ type HorizontalProgress struct {
 // HorizontalProgressOption configures a HorizontalProgress.
 type HorizontalProgressOption func(*HorizontalProgress)
 
-// WithProgressLabels sets the labels for actual and target.
-func WithProgressLabels(actual, target string) HorizontalProgressOption {
-	return func(hp *HorizontalProgress) {
-		hp.actualLabel = actual
-		hp.targetLabel = target
-	}
-}
-
-// WithProgressColors sets the colors for actual and target bars.
-func WithProgressColors(actual, target color.Color) HorizontalProgressOption {
-	return func(hp *HorizontalProgress) {
-		hp.actualColor = actual
-		hp.targetColor = target
-	}
-}
-
-// WithProgressBgColor sets the background color.
-func WithProgressBgColor(c color.Color) HorizontalProgressOption {
-	return func(hp *HorizontalProgress) {
-		hp.bgColor = c
-	}
-}
-
-// WithProgressFormatter sets the value formatter.
-func WithProgressFormatter(f ValueFormatter) HorizontalProgressOption {
-	return func(hp *HorizontalProgress) {
-		hp.formatter = f
-	}
-}
-
-// WithProgressShowLabels shows or hides labels.
-func WithProgressShowLabels(show bool) HorizontalProgressOption {
-	return func(hp *HorizontalProgress) {
-		hp.showLabels = show
-	}
-}
-
 // NewHorizontalProgress creates a new horizontal progress component.
 // actual and target are the values to display, maxValue is the scale maximum.
 func NewHorizontalProgress(actual, target, maxValue float64, opts ...HorizontalProgressOption) *HorizontalProgress {
@@ -157,20 +120,6 @@ type ProgressValue struct {
 
 // ComparisonProgressOption configures a ComparisonProgress.
 type ComparisonProgressOption func(*ComparisonProgress)
-
-// WithComparisonBgColor sets the background color.
-func WithComparisonBgColor(c color.Color) ComparisonProgressOption {
-	return func(cp *ComparisonProgress) {
-		cp.bgColor = c
-	}
-}
-
-// WithComparisonFormatter sets the value formatter.
-func WithComparisonFormatter(f ValueFormatter) ComparisonProgressOption {
-	return func(cp *ComparisonProgress) {
-		cp.formatter = f
-	}
-}
 
 // NewComparisonProgress creates a new comparison progress component.
 func NewComparisonProgress(values []ProgressValue, maxValue float64, opts ...ComparisonProgressOption) *ComparisonProgress {

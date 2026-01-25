@@ -32,20 +32,6 @@ func WithLineChartHeight(h int) LineChartOption {
 	}
 }
 
-// WithLineChartMin sets the minimum value for scaling.
-func WithLineChartMin(min float64) LineChartOption {
-	return func(lc *LineChart) {
-		lc.minValue = min
-	}
-}
-
-// WithLineChartMax sets the maximum value for scaling.
-func WithLineChartMax(max float64) LineChartOption {
-	return func(lc *LineChart) {
-		lc.maxValue = max
-	}
-}
-
 // WithLineChartColor sets the line color.
 func WithLineChartColor(c color.Color) LineChartOption {
 	return func(lc *LineChart) {
@@ -64,13 +50,6 @@ func WithLineChartFormatter(f ValueFormatter) LineChartOption {
 func WithLineChartShowValues(show bool) LineChartOption {
 	return func(lc *LineChart) {
 		lc.showValues = show
-	}
-}
-
-// WithLineChartShowAxis shows the x-axis labels.
-func WithLineChartShowAxis(show bool) LineChartOption {
-	return func(lc *LineChart) {
-		lc.showAxis = show
 	}
 }
 

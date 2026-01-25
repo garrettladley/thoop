@@ -155,66 +155,79 @@ func renderStrainCharts(state State, width int) string {
 	titleStyle := lipgloss.NewStyle().
 		Foreground(theme.ColorWhite).
 		Bold(true)
-
 	weeklyTrendsTitle := titleStyle.Width(width).Render("WEEKLY TRENDS")
 
 	var sections []string
 	sections = append(sections, weeklyTrendsTitle)
-	sections = append(sections, "", "")
-	sections = append(sections, titleStyle.Render("STRAIN"))
-	sections = append(sections, "")
 
-	var strainData []chart.DataPoint
-	for i := len(state.HistoricalCycles) - 1; i >= 0 && len(strainData) < 7; i-- {
+	if c := strainTrendChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := caloriesTrendChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+}
+
+func strainTrendChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalCycles) - 1; i >= 0 && len(data) < 7; i-- {
 		c := state.HistoricalCycles[i]
 		if c.Score == nil {
 			continue
 		}
-		strainData = append(strainData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: c.Start.Format("Mon\n2"),
 			Value: c.Score.Strain,
 		})
 	}
-
-	if len(strainData) > 0 {
-		strainChart := chart.NewBarChart(strainData,
-			chart.WithBarChartColorFunc(chart.StrainColor),
-			chart.WithBarChartFormatter(chart.FormatFloat1),
-			chart.WithBarChartMax(21),
-			chart.WithBarChartHeight(6),
-			chart.WithBarChartShowValues(true),
-		)
-		sections = append(sections, strainChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	sections = append(sections, "")
-	sections = append(sections, "")
-	sections = append(sections, titleStyle.Render("CALORIES"))
-	sections = append(sections, "")
+	title := strainChartTitle("STRAIN")
+	c := chart.NewBarChart(data,
+		chart.WithBarChartColorFunc(chart.StrainColor),
+		chart.WithBarChartFormatter(chart.FormatFloat1),
+		chart.WithBarChartMax(21),
+		chart.WithBarChartHeight(6),
+		chart.WithBarChartShowValues(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
-	var caloriesData []chart.DataPoint
-	for i := len(state.HistoricalCycles) - 1; i >= 0 && len(caloriesData) < 7; i-- {
+func caloriesTrendChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalCycles) - 1; i >= 0 && len(data) < 7; i-- {
 		c := state.HistoricalCycles[i]
 		if c.Score == nil {
 			continue
 		}
-		caloriesData = append(caloriesData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: c.Start.Format("Mon\n2"),
 			Value: units.KilojoulesToCalories(c.Score.Kilojoule),
 		})
 	}
-
-	if len(caloriesData) > 0 {
-		caloriesChart := chart.NewBarChart(caloriesData,
-			chart.WithBarChartColorFunc(chart.StaticColor(theme.ColorStrain)),
-			chart.WithBarChartFormatter(chart.FormatIntWithCommas),
-			chart.WithBarChartHeight(6),
-			chart.WithBarChartShowValues(true),
-		)
-		sections = append(sections, caloriesChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+	title := strainChartTitle("CALORIES")
+	c := chart.NewBarChart(data,
+		chart.WithBarChartColorFunc(chart.StaticColor(theme.ColorStrain)),
+		chart.WithBarChartFormatter(chart.FormatIntWithCommas),
+		chart.WithBarChartHeight(6),
+		chart.WithBarChartShowValues(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
+
+func strainChartTitle(text string) string {
+	return lipgloss.NewStyle().
+		Foreground(theme.ColorWhite).
+		Bold(true).
+		Render(text)
 }
 
 func renderTodaysActivities(workouts []whoop.Workout, width int) string {

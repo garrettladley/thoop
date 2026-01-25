@@ -159,13 +159,11 @@ func renderSleepStagesChart(state State, width int) string {
 		return ""
 	}
 
-	// calculate percentages
 	awakePct := float64(stages.TotalAwakeTimeMilli) / float64(totalSleepMs+stages.TotalAwakeTimeMilli) * 100
 	lightPct := float64(stages.TotalLightSleepTimeMilli) / float64(totalSleepMs) * 100
 	deepPct := float64(stages.TotalSlowWaveSleepTimeMilli) / float64(totalSleepMs) * 100
 	remPct := float64(stages.TotalREMSleepTimeMilli) / float64(totalSleepMs) * 100
 
-	// Total duration for display (in bed time minus awake)
 	totalDuration := totalSleepMs
 
 	stageData := []chart.SleepStage{
@@ -209,43 +207,61 @@ func renderSleepCharts(state State, width int) string {
 		return ""
 	}
 
-	titleStyle := lipgloss.NewStyle().
-		Foreground(theme.ColorWhite).
-		Bold(true)
-
 	var sections []string
-	sections = append(sections, titleStyle.Render("WEEKLY SLEEP PERFORMANCE"))
-	sections = append(sections, "")
 
-	var perfData []chart.DataPoint
-	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(perfData) < 7; i-- {
+	if c := sleepPerformanceChart(state, width); c != "" {
+		sections = append(sections, c)
+	}
+	if c := hoursVsNeededDualChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := hoursVsNeededPercentChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := restorativeSleepChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := sleepConsistencyChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := sleepEfficiencyChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := sleepDebtChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+}
+
+func sleepPerformanceChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(data) < 7; i-- {
 		s := state.HistoricalSleeps[i]
 		if s.Nap || s.Score == nil {
 			continue
 		}
-		perfData = append(perfData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: s.CreatedAt.Format("Mon\n2"),
 			Value: s.Score.SleepPerformancePercentage,
 		})
 	}
-
-	if len(perfData) > 0 {
-		perfChart := chart.NewBarChart(perfData,
-			chart.WithBarChartColorFunc(chart.SleepPerformanceColor),
-			chart.WithBarChartFormatter(chart.FormatPercentage),
-			chart.WithBarChartMax(100),
-			chart.WithBarChartHeight(6),
-			chart.WithBarChartShowValues(true),
-		)
-		sections = append(sections, perfChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	// add hours slept vs needed dual line chart
-	sections = append(sections, "")
-	sections = append(sections, "")
-	sections = append(sections, titleStyle.Render("HOURS OF SLEEP VS NEEDED"))
-	sections = append(sections, "")
+	title := sleepChartTitle("WEEKLY SLEEP PERFORMANCE")
+	c := chart.NewBarChart(data,
+		chart.WithBarChartColorFunc(chart.SleepPerformanceColor),
+		chart.WithBarChartFormatter(chart.FormatPercentage),
+		chart.WithBarChartMax(100),
+		chart.WithBarChartHeight(6),
+		chart.WithBarChartShowValues(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
+func hoursVsNeededDualChart(state State, width int) string {
 	var actualData, neededData []chart.DataPoint
 	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(actualData) < 7; i-- {
 		s := state.HistoricalSleeps[i]
@@ -263,54 +279,54 @@ func renderSleepCharts(state State, width int) string {
 		actualData = append(actualData, chart.DataPoint{Label: label, Value: hoursSlept})
 		neededData = append(neededData, chart.DataPoint{Label: label, Value: hoursNeeded})
 	}
-
-	if len(actualData) > 0 {
-		dualChart := chart.NewDualLineChart(actualData, neededData,
-			chart.WithDualLineColors(theme.ColorSleep, theme.ColorTeal),
-			chart.WithDualLineLabels("HOURS OF SLEEP", "SLEEP NEEDED"),
-			chart.WithDualLineHeight(5),
-			chart.WithDualLineAutoScale(true),
-			chart.WithDualLineShowValues(true),
-			chart.WithDualLineShowLegend(true),
-			chart.WithDualLineLegendPosition(chart.LegendTopRight),
-			chart.WithDualLineFormatter(chart.FormatDurationFromHours),
-		)
-		sections = append(sections, dualChart.Render(width))
+	if len(actualData) == 0 {
+		return ""
 	}
 
-	sections = append(sections, "", "")
-	sections = append(sections, titleStyle.Render("HOURS VS NEEDED (%)"))
-	sections = append(sections, "")
+	title := sleepChartTitle("HOURS OF SLEEP VS NEEDED")
+	c := chart.NewDualLineChart(actualData, neededData,
+		chart.WithDualLineColors(theme.ColorSleep, theme.ColorTeal),
+		chart.WithDualLineLabels("HOURS OF SLEEP", "SLEEP NEEDED"),
+		chart.WithDualLineHeight(5),
+		chart.WithDualLineAutoScale(true),
+		chart.WithDualLineShowValues(true),
+		chart.WithDualLineShowLegend(true),
+		chart.WithDualLineLegendPosition(chart.LegendTopRight),
+		chart.WithDualLineFormatter(chart.FormatDurationFromHours),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
-	var hoursVsNeededData []chart.DataPoint
-	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(hoursVsNeededData) < 7; i-- {
+func hoursVsNeededPercentChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(data) < 7; i-- {
 		s := state.HistoricalSleeps[i]
 		if s.Nap || s.Score == nil {
 			continue
 		}
-		hoursVsNeededData = append(hoursVsNeededData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: s.CreatedAt.Format("Mon\n2"),
 			Value: s.Score.SleepPerformancePercentage,
 		})
 	}
-
-	if len(hoursVsNeededData) > 0 {
-		hoursVsNeededChart := chart.NewBarChart(hoursVsNeededData,
-			chart.WithBarChartColorFunc(chart.SleepColor),
-			chart.WithBarChartFormatter(chart.FormatPercentage),
-			chart.WithBarChartMax(100),
-			chart.WithBarChartHeight(6),
-			chart.WithBarChartShowValues(true),
-		)
-		sections = append(sections, hoursVsNeededChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	sections = append(sections, "", "")
-	sections = append(sections, titleStyle.Render("RESTORATIVE SLEEP"))
-	sections = append(sections, "")
+	title := sleepChartTitle("HOURS VS NEEDED (%)")
+	c := chart.NewBarChart(data,
+		chart.WithBarChartColorFunc(chart.SleepColor),
+		chart.WithBarChartFormatter(chart.FormatPercentage),
+		chart.WithBarChartMax(100),
+		chart.WithBarChartHeight(6),
+		chart.WithBarChartShowValues(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
-	var restorativeData []chart.StackedDataPoint
-	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(restorativeData) < 7; i-- {
+func restorativeSleepChart(state State, width int) string {
+	var data []chart.StackedDataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(data) < 7; i-- {
 		s := state.HistoricalSleeps[i]
 		if s.Nap || s.Score == nil {
 			continue
@@ -318,107 +334,114 @@ func renderSleepCharts(state State, width int) string {
 		stages := s.Score.StageSummary
 		remHours := float64(stages.TotalREMSleepTimeMilli) / (1000 * 60 * 60)
 		deepHours := float64(stages.TotalSlowWaveSleepTimeMilli) / (1000 * 60 * 60)
-		restorativeData = append(restorativeData, chart.StackedDataPoint{
+		data = append(data, chart.StackedDataPoint{
 			Label:  s.CreatedAt.Format("Mon\n2"),
 			Values: []float64{remHours, deepHours},
 		})
 	}
-
-	if len(restorativeData) > 0 {
-		restorativeChart := chart.NewStackedBarChart(restorativeData,
-			chart.WithStackedBarColors([]colorpkg.Color{chart.ColorSleepDeep, chart.ColorSleepREM}),
-			chart.WithStackedBarLabels([]string{"DEEP SLEEP", "REM SLEEP"}),
-			chart.WithStackedBarFormatter(chart.FormatDurationFromHours),
-			chart.WithStackedBarHeight(6),
-			chart.WithStackedBarShowLegend(true),
-			chart.WithStackedBarLegendPosition(chart.LegendTopRight),
-		)
-		sections = append(sections, restorativeChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	sections = append(sections, "", "")
-	sections = append(sections, titleStyle.Render("SLEEP CONSISTENCY (%)"))
-	sections = append(sections, "")
+	title := sleepChartTitle("RESTORATIVE SLEEP")
+	c := chart.NewStackedBarChart(data,
+		chart.WithStackedBarColors([]colorpkg.Color{chart.ColorSleepDeep, chart.ColorSleepREM}),
+		chart.WithStackedBarLabels([]string{"DEEP SLEEP", "REM SLEEP"}),
+		chart.WithStackedBarFormatter(chart.FormatDurationFromHours),
+		chart.WithStackedBarHeight(6),
+		chart.WithStackedBarShowLegend(true),
+		chart.WithStackedBarLegendPosition(chart.LegendTopRight),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
-	var consistencyData []chart.DataPoint
-	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(consistencyData) < 7; i-- {
+func sleepConsistencyChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(data) < 7; i-- {
 		s := state.HistoricalSleeps[i]
 		if s.Nap || s.Score == nil {
 			continue
 		}
-		consistencyData = append(consistencyData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: s.CreatedAt.Format("Mon\n2"),
 			Value: s.Score.SleepConsistencyPercentage,
 		})
 	}
-
-	if len(consistencyData) > 0 {
-		consistencyChart := chart.NewBarChart(consistencyData,
-			chart.WithBarChartColorFunc(chart.SleepColor),
-			chart.WithBarChartFormatter(chart.FormatPercentage),
-			chart.WithBarChartMax(100),
-			chart.WithBarChartHeight(6),
-			chart.WithBarChartShowValues(true),
-		)
-		sections = append(sections, consistencyChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	sections = append(sections, "", "")
-	sections = append(sections, titleStyle.Render("SLEEP EFFICIENCY (%)"))
-	sections = append(sections, "")
+	title := sleepChartTitle("SLEEP CONSISTENCY (%)")
+	c := chart.NewBarChart(data,
+		chart.WithBarChartColorFunc(chart.SleepColor),
+		chart.WithBarChartFormatter(chart.FormatPercentage),
+		chart.WithBarChartMax(100),
+		chart.WithBarChartHeight(6),
+		chart.WithBarChartShowValues(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
-	var efficiencyData []chart.DataPoint
-	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(efficiencyData) < 7; i-- {
+func sleepEfficiencyChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(data) < 7; i-- {
 		s := state.HistoricalSleeps[i]
 		if s.Nap || s.Score == nil {
 			continue
 		}
-		efficiencyData = append(efficiencyData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: s.CreatedAt.Format("Mon\n2"),
 			Value: s.Score.SleepEfficiencyPercentage,
 		})
 	}
-
-	if len(efficiencyData) > 0 {
-		efficiencyChart := chart.NewLineChart(efficiencyData,
-			chart.WithLineChartColor(theme.ColorSleep),
-			chart.WithLineChartFormatter(chart.FormatPercentage),
-			chart.WithLineChartHeight(5),
-			chart.WithLineChartShowValues(true),
-			chart.WithLineChartShowDots(true),
-		)
-		sections = append(sections, efficiencyChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	sections = append(sections, "", "")
-	sections = append(sections, titleStyle.Render("SLEEP DEBT"))
-	sections = append(sections, "")
+	title := sleepChartTitle("SLEEP EFFICIENCY (%)")
+	c := chart.NewLineChart(data,
+		chart.WithLineChartColor(theme.ColorSleep),
+		chart.WithLineChartFormatter(chart.FormatPercentage),
+		chart.WithLineChartHeight(5),
+		chart.WithLineChartShowValues(true),
+		chart.WithLineChartShowDots(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
-	var debtData []chart.DataPoint
-	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(debtData) < 7; i-- {
+func sleepDebtChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(data) < 7; i-- {
 		s := state.HistoricalSleeps[i]
 		if s.Nap || s.Score == nil {
 			continue
 		}
 		debtHours := float64(s.Score.SleepNeeded.NeedFromSleepDebtMilli) / (1000 * 60 * 60)
-		debtData = append(debtData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: s.CreatedAt.Format("Mon\n2"),
 			Value: debtHours,
 		})
 	}
-
-	if len(debtData) > 0 {
-		debtChart := chart.NewBarChart(debtData,
-			chart.WithBarChartColorFunc(chart.SleepColor),
-			chart.WithBarChartFormatter(chart.FormatDurationFromHours),
-			chart.WithBarChartMax(3),
-			chart.WithBarChartHeight(6),
-			chart.WithBarChartShowValues(true),
-		)
-		sections = append(sections, debtChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+	title := sleepChartTitle("SLEEP DEBT")
+	c := chart.NewBarChart(data,
+		chart.WithBarChartColorFunc(chart.SleepColor),
+		chart.WithBarChartFormatter(chart.FormatDurationFromHours),
+		chart.WithBarChartMax(3),
+		chart.WithBarChartHeight(6),
+		chart.WithBarChartShowValues(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
+
+func sleepChartTitle(text string) string {
+	return lipgloss.NewStyle().
+		Foreground(theme.ColorWhite).
+		Bold(true).
+		Render(text)
 }
 
 func renderSleepLegend() string {

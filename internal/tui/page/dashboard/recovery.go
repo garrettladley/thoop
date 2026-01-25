@@ -71,7 +71,6 @@ func renderRecoveryMetrics(state State, width int) string {
 	if state.CurrentRecovery != nil && state.CurrentRecovery.Score != nil {
 		score := state.CurrentRecovery.Score
 
-		// HRV: Higher is better
 		hrvAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.HRV })
 		hrvDirection := getDirectionHigherBetter(score.HRVRmssdMilli, hrvAvg)
 		hrvRow := metric_row.New(
@@ -149,153 +148,170 @@ func renderRecoveryCharts(state State, width int) string {
 	titleStyle := lipgloss.NewStyle().
 		Foreground(theme.ColorWhite).
 		Bold(true)
-
-	// make WEEKLY TRENDS full width so it left-aligns properly
 	weeklyTrendsTitle := titleStyle.Width(width).Render("WEEKLY TRENDS")
 
 	var sections []string
 	sections = append(sections, weeklyTrendsTitle)
-	sections = append(sections, "", "")
-	sections = append(sections, titleStyle.Render("RECOVERY"))
-	sections = append(sections, "")
 
-	var recoveryData []chart.DataPoint
-	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(recoveryData) < 7; i-- {
+	if c := recoveryTrendChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := hrvTrendChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := restingHeartRateChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := respiratoryRateChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+	if c := recoverySleepPerfChart(state, width); c != "" {
+		sections = append(sections, "", "", c)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+}
+
+func recoveryTrendChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(data) < 7; i-- {
 		r := state.HistoricalRecoveries[i]
 		if r.Score == nil {
 			continue
 		}
-		recoveryData = append(recoveryData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: r.CreatedAt.Format("Mon\n2"),
 			Value: r.Score.RecoveryScore,
 		})
 	}
-
-	if len(recoveryData) > 0 {
-		recoveryChart := chart.NewBarChart(recoveryData,
-			chart.WithBarChartColorFunc(chart.RecoveryColor),
-			chart.WithBarChartFormatter(chart.FormatPercentage),
-			chart.WithBarChartMax(100),
-			chart.WithBarChartHeight(6),
-			chart.WithBarChartShowValues(true),
-		)
-		sections = append(sections, recoveryChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	// HRV trend line chart
-	sections = append(sections, "")
-	sections = append(sections, "")
-	sections = append(sections, titleStyle.Render("HRV TREND"))
-	sections = append(sections, "")
+	title := recoveryChartTitle("RECOVERY")
+	c := chart.NewBarChart(data,
+		chart.WithBarChartColorFunc(chart.RecoveryColor),
+		chart.WithBarChartFormatter(chart.FormatPercentage),
+		chart.WithBarChartMax(100),
+		chart.WithBarChartHeight(6),
+		chart.WithBarChartShowValues(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
-	var hrvData []chart.DataPoint
-	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(hrvData) < 7; i-- {
+func hrvTrendChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(data) < 7; i-- {
 		r := state.HistoricalRecoveries[i]
 		if r.Score == nil {
 			continue
 		}
-		hrvData = append(hrvData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: r.CreatedAt.Format("Mon\n2"),
 			Value: r.Score.HRVRmssdMilli,
 		})
 	}
-
-	if len(hrvData) > 0 {
-		hrvChart := chart.NewLineChart(hrvData,
-			chart.WithLineChartColor(theme.ColorRecoveryBlue),
-			chart.WithLineChartFormatter(chart.FormatInt),
-			chart.WithLineChartHeight(5),
-			chart.WithLineChartShowValues(true),
-			chart.WithLineChartShowDots(true),
-		)
-		sections = append(sections, hrvChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	sections = append(sections, "")
-	sections = append(sections, "")
-	sections = append(sections, titleStyle.Render("RESTING HEART RATE"))
-	sections = append(sections, "")
+	title := recoveryChartTitle("HRV TREND")
+	c := chart.NewLineChart(data,
+		chart.WithLineChartColor(theme.ColorRecoveryBlue),
+		chart.WithLineChartFormatter(chart.FormatInt),
+		chart.WithLineChartHeight(5),
+		chart.WithLineChartShowValues(true),
+		chart.WithLineChartShowDots(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
-	var rhrData []chart.DataPoint
-	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(rhrData) < 7; i-- {
+func restingHeartRateChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(data) < 7; i-- {
 		r := state.HistoricalRecoveries[i]
 		if r.Score == nil {
 			continue
 		}
-		rhrData = append(rhrData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: r.CreatedAt.Format("Mon\n2"),
 			Value: r.Score.RestingHeartRate,
 		})
 	}
-
-	if len(rhrData) > 0 {
-		rhrChart := chart.NewLineChart(rhrData,
-			chart.WithLineChartColor(theme.ColorRecoveryBlue),
-			chart.WithLineChartFormatter(chart.FormatInt),
-			chart.WithLineChartHeight(5),
-			chart.WithLineChartShowValues(true),
-			chart.WithLineChartShowDots(true),
-		)
-		sections = append(sections, rhrChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	sections = append(sections, "")
-	sections = append(sections, "")
-	sections = append(sections, titleStyle.Render("RESPIRATORY RATE"))
-	sections = append(sections, "")
+	title := recoveryChartTitle("RESTING HEART RATE")
+	c := chart.NewLineChart(data,
+		chart.WithLineChartColor(theme.ColorRecoveryBlue),
+		chart.WithLineChartFormatter(chart.FormatInt),
+		chart.WithLineChartHeight(5),
+		chart.WithLineChartShowValues(true),
+		chart.WithLineChartShowDots(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
-	var respData []chart.DataPoint
-	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(respData) < 7; i-- {
+func respiratoryRateChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(data) < 7; i-- {
 		s := state.HistoricalSleeps[i]
 		if s.Nap || s.Score == nil {
 			continue
 		}
-		respData = append(respData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: s.CreatedAt.Format("Mon\n2"),
 			Value: s.Score.RespiratoryRate,
 		})
 	}
-
-	if len(respData) > 0 {
-		respChart := chart.NewLineChart(respData,
-			chart.WithLineChartColor(theme.ColorRecoveryBlue),
-			chart.WithLineChartFormatter(chart.FormatFloat1),
-			chart.WithLineChartHeight(5),
-			chart.WithLineChartShowValues(true),
-			chart.WithLineChartShowDots(true),
-		)
-		sections = append(sections, respChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	sections = append(sections, "")
-	sections = append(sections, "")
-	sections = append(sections, titleStyle.Render("SLEEP PERFORMANCE"))
-	sections = append(sections, "")
+	title := recoveryChartTitle("RESPIRATORY RATE")
+	c := chart.NewLineChart(data,
+		chart.WithLineChartColor(theme.ColorRecoveryBlue),
+		chart.WithLineChartFormatter(chart.FormatFloat1),
+		chart.WithLineChartHeight(5),
+		chart.WithLineChartShowValues(true),
+		chart.WithLineChartShowDots(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
 
-	var sleepPerfData []chart.DataPoint
-	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(sleepPerfData) < 7; i-- {
+func recoverySleepPerfChart(state State, width int) string {
+	var data []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(data) < 7; i-- {
 		s := state.HistoricalSleeps[i]
 		if s.Nap || s.Score == nil {
 			continue
 		}
-		sleepPerfData = append(sleepPerfData, chart.DataPoint{
+		data = append(data, chart.DataPoint{
 			Label: s.CreatedAt.Format("Mon\n2"),
 			Value: s.Score.SleepPerformancePercentage,
 		})
 	}
-
-	if len(sleepPerfData) > 0 {
-		sleepPerfChart := chart.NewBarChart(sleepPerfData,
-			chart.WithBarChartColorFunc(chart.SleepPerformanceColor),
-			chart.WithBarChartFormatter(chart.FormatPercentage),
-			chart.WithBarChartMax(100),
-			chart.WithBarChartHeight(6),
-			chart.WithBarChartShowValues(true),
-		)
-		sections = append(sections, sleepPerfChart.Render(width))
+	if len(data) == 0 {
+		return ""
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+	title := recoveryChartTitle("SLEEP PERFORMANCE")
+	c := chart.NewBarChart(data,
+		chart.WithBarChartColorFunc(chart.SleepPerformanceColor),
+		chart.WithBarChartFormatter(chart.FormatPercentage),
+		chart.WithBarChartMax(100),
+		chart.WithBarChartHeight(6),
+		chart.WithBarChartShowValues(true),
+	)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
+}
+
+func recoveryChartTitle(text string) string {
+	return lipgloss.NewStyle().
+		Foreground(theme.ColorWhite).
+		Bold(true).
+		Render(text)
 }
 
 func renderComparisonLegend() string {

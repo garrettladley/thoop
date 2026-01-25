@@ -26,27 +26,6 @@ type Legend struct {
 // LegendOption configures a Legend.
 type LegendOption func(*Legend)
 
-// WithLegendHorizontal sets horizontal layout.
-func WithLegendHorizontal(h bool) LegendOption {
-	return func(l *Legend) {
-		l.horizontal = h
-	}
-}
-
-// WithLegendTextColor sets the label text color.
-func WithLegendTextColor(c color.Color) LegendOption {
-	return func(l *Legend) {
-		l.textColor = c
-	}
-}
-
-// WithLegendSpacing sets the spacing between items.
-func WithLegendSpacing(s int) LegendOption {
-	return func(l *Legend) {
-		l.spacing = s
-	}
-}
-
 // NewLegend creates a new legend.
 func NewLegend(items []LegendItem, opts ...LegendOption) *Legend {
 	l := &Legend{
