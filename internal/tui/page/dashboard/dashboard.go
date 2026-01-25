@@ -76,6 +76,11 @@ type State struct {
 	// scrollOffset is the vertical scroll position for drill pages
 	ScrollOffset int
 
+	// calendar mode state
+	CalendarMode   bool      // true when calendar is open
+	CalendarCursor time.Time // currently highlighted date in calendar
+	CalendarMonth  time.Time // current month being viewed
+
 	// loading tracks pending sleep/recovery requests after cycle fetch
 	pendingSleep    bool
 	pendingRecovery bool

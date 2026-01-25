@@ -32,3 +32,9 @@ func StartOfDay(t time.Time) time.Time {
 	year, month, day := t.Date()
 	return time.Date(year, month, day, 0, 0, 0, 0, t.Location())
 }
+
+// LastDayOfMonth returns the last day of the month containing t.
+func LastDayOfMonth(t time.Time) time.Time {
+	firstOfNextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
+	return firstOfNextMonth.AddDate(0, 0, -1)
+}
