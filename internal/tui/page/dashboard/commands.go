@@ -136,9 +136,7 @@ func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 			wg            sync.WaitGroup
 		)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			var nextToken *string
 			for {
 				params := &whoop.ListParams{
@@ -158,11 +156,9 @@ func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 				}
 				nextToken = resp.NextToken
 			}
-		}()
+		})
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			var nextToken *string
 			for {
 				params := &whoop.ListParams{
@@ -182,7 +178,7 @@ func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 				}
 				nextToken = resp.NextToken
 			}
-		}()
+		})
 
 		var nextToken *string
 		for {

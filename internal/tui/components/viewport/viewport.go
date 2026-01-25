@@ -57,10 +57,7 @@ func (v *Viewport) Render(content string, offset int) string {
 	lines := strings.Split(content, "\n")
 
 	// clamp offset
-	maxOffset := len(lines) - v.height
-	if maxOffset < 0 {
-		maxOffset = 0
-	}
+	maxOffset := max(len(lines)-v.height, 0)
 	if offset < 0 {
 		offset = 0
 	}
@@ -69,10 +66,7 @@ func (v *Viewport) Render(content string, offset int) string {
 	}
 
 	// extract visible lines
-	endLine := offset + v.height
-	if endLine > len(lines) {
-		endLine = len(lines)
-	}
+	endLine := min(offset+v.height, len(lines))
 
 	visible := lines[offset:endLine]
 

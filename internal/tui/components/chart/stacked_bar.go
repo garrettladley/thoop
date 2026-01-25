@@ -123,21 +123,16 @@ func (sbc *StackedBarChart) Render(width int) string {
 	// distribute width evenly among bars with gaps
 	// we want gap to be roughly 30% of available space per bar
 	availPerBar := float64(width) / float64(numBars)
-	barWidth := int(availPerBar * 0.7) // 70% for bar
-	if barWidth < 2 {
-		barWidth = 2
-	}
-	barGap := int(availPerBar) - barWidth // remaining for gap
-	if barGap < 1 {
-		barGap = 1
-	}
+	barWidth := max(
+		// 70% for bar
+		int(availPerBar*0.7), 2)
+	barGap := max(
+		// remaining for gap
+		int(availPerBar)-barWidth, 1)
 	totalBarSpace := numBars*barWidth + (numBars-1)*barGap
 
 	// calculate padding to center (should be minimal now)
-	leftPad := (width - totalBarSpace) / 2
-	if leftPad < 0 {
-		leftPad = 0
-	}
+	leftPad := max((width-totalBarSpace)/2, 0)
 
 	// calculate totals and fill heights for each bar
 	totals := make([]float64, numBars)
@@ -227,41 +222,43 @@ func (sbc *StackedBarChart) Render(width int) string {
 
 	// render top label row if needed (for full-height bars)
 	if sbc.showValues && needsTopLabelRow {
-		rowStr := strings.Repeat(" ", leftPad)
+		var rowStr strings.Builder
+		rowStr.WriteString(strings.Repeat(" ", leftPad))
 		for i := range numBars {
 			if labelRows[i] < 0 {
 				valueStr := sbc.formatter(totals[i])
 				padded := centerString(valueStr, barWidth)
-				rowStr += lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(padded)
+				rowStr.WriteString(lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(padded))
 			} else {
-				rowStr += strings.Repeat(" ", barWidth)
+				rowStr.WriteString(strings.Repeat(" ", barWidth))
 			}
 			if i < numBars-1 {
-				rowStr += strings.Repeat(" ", barGap)
+				rowStr.WriteString(strings.Repeat(" ", barGap))
 			}
 		}
-		sections = append(sections, rowStr)
+		sections = append(sections, rowStr.String())
 	}
 
 	// combine bars horizontally, inserting labels at the right positions
 	for row := range sbc.height {
-		rowStr := strings.Repeat(" ", leftPad)
+		var rowStr strings.Builder
+		rowStr.WriteString(strings.Repeat(" ", leftPad))
 		for i := range numBars {
 			// check if this row should show a label for this bar
 			if sbc.showValues && labelRows[i] == row {
 				valueStr := sbc.formatter(totals[i])
 				padded := centerString(valueStr, barWidth)
-				rowStr += lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(padded)
+				rowStr.WriteString(lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(padded))
 			} else if row < len(barStrings[i]) {
-				rowStr += barStrings[i][row]
+				rowStr.WriteString(barStrings[i][row])
 			} else {
-				rowStr += strings.Repeat(" ", barWidth)
+				rowStr.WriteString(strings.Repeat(" ", barWidth))
 			}
 			if i < numBars-1 {
-				rowStr += strings.Repeat(" ", barGap)
+				rowStr.WriteString(strings.Repeat(" ", barGap))
 			}
 		}
-		sections = append(sections, rowStr)
+		sections = append(sections, rowStr.String())
 	}
 
 	// X-axis labels
@@ -274,8 +271,8 @@ func (sbc *StackedBarChart) Render(width int) string {
 		}
 		axis := NewAxis(labels, totalBarSpace, WithAxisTextColor(theme.ColorDim), WithAxisPositions(positions))
 		axisStr := axis.Render()
-		axisLines := strings.Split(axisStr, "\n")
-		for _, line := range axisLines {
+		axisLines := strings.SplitSeq(axisStr, "\n")
+		for line := range axisLines {
 			sections = append(sections, strings.Repeat(" ", leftPad)+line)
 		}
 	}

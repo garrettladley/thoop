@@ -203,18 +203,12 @@ func (lc *LineChart) renderWithValueLabels(brailleStr string, width int) string 
 		// grid row 0 = above the chart, rows 1..chartHeight = chart rows
 		// data point at charY (0-indexed in chart) maps to grid row charY+1
 		// label goes at grid row charY (one above)
-		labelRow := charY
-		if labelRow < 0 {
-			labelRow = 0
-		}
+		labelRow := max(charY, 0)
 		if labelRow >= totalRows {
 			labelRow = totalRows - 1
 		}
 
-		startX := charX - len(valueStr)/2
-		if startX < 0 {
-			startX = 0
-		}
+		startX := max(charX-len(valueStr)/2, 0)
 		if startX+len(valueStr) > width {
 			startX = width - len(valueStr)
 		}
@@ -232,7 +226,7 @@ func (lc *LineChart) renderWithValueLabels(brailleStr string, width int) string 
 	labelStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite)
 
 	result := make([]string, totalRows)
-	for row := 0; row < totalRows; row++ {
+	for row := range totalRows {
 		var rowBuilder strings.Builder
 
 		// get braille for this row (row 0 is above chart, has no braille)

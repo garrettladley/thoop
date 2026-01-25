@@ -279,10 +279,7 @@ func renderActivityRow(w whoop.Workout, width int) string {
 	leftContent := lipgloss.JoinHorizontal(lipgloss.Center, badge, name)
 	leftWidth := lipgloss.Width(leftContent)
 	timeWidth := lipgloss.Width(timeRange)
-	spacing := width - leftWidth - timeWidth
-	if spacing < 2 {
-		spacing = 2
-	}
+	spacing := max(width-leftWidth-timeWidth, 2)
 
 	spacer := strings.Repeat(" ", spacing)
 

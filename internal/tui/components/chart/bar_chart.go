@@ -149,41 +149,43 @@ func (bc *BarChart) Render(width int) string {
 
 	// render top label row if any bar fills entire height
 	if needsTopLabelRow {
-		rowStr := strings.Repeat(" ", leftPad)
+		var rowStr strings.Builder
+		rowStr.WriteString(strings.Repeat(" ", leftPad))
 		for i, d := range bc.data {
 			if labelRows[i] < 0 {
 				valueStr := bc.formatter(d.Value)
 				padded := centerString(valueStr, barWidth)
-				rowStr += lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(padded)
+				rowStr.WriteString(lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(padded))
 			} else {
-				rowStr += strings.Repeat(" ", barWidth)
+				rowStr.WriteString(strings.Repeat(" ", barWidth))
 			}
 			if i < numBars-1 {
-				rowStr += strings.Repeat(" ", barGap)
+				rowStr.WriteString(strings.Repeat(" ", barGap))
 			}
 		}
-		sections = append(sections, rowStr)
+		sections = append(sections, rowStr.String())
 	}
 
 	// combine bars horizontally for each row, with per-bar labels
 	for row := range bc.height {
-		rowStr := strings.Repeat(" ", leftPad)
+		var rowStr strings.Builder
+		rowStr.WriteString(strings.Repeat(" ", leftPad))
 		for i := range numBars {
 			if labelRows[i] == row {
 				// render label on this row for this bar
 				valueStr := bc.formatter(bc.data[i].Value)
 				padded := centerString(valueStr, barWidth)
-				rowStr += lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(padded)
+				rowStr.WriteString(lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(padded))
 			} else if row < len(barStrings[i]) {
-				rowStr += barStrings[i][row]
+				rowStr.WriteString(barStrings[i][row])
 			} else {
-				rowStr += strings.Repeat(" ", barWidth)
+				rowStr.WriteString(strings.Repeat(" ", barWidth))
 			}
 			if i < numBars-1 {
-				rowStr += strings.Repeat(" ", barGap)
+				rowStr.WriteString(strings.Repeat(" ", barGap))
 			}
 		}
-		sections = append(sections, rowStr)
+		sections = append(sections, rowStr.String())
 	}
 
 	// X-axis labels
@@ -199,8 +201,8 @@ func (bc *BarChart) Render(width int) string {
 		axisStr := axis.Render()
 
 		// pad axis to match bar centering
-		axisLines := strings.Split(axisStr, "\n")
-		for _, line := range axisLines {
+		axisLines := strings.SplitSeq(axisStr, "\n")
+		for line := range axisLines {
 			sections = append(sections, strings.Repeat(" ", leftPad)+line)
 		}
 	}

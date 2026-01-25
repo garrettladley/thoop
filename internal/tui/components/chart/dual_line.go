@@ -272,10 +272,7 @@ func (dlc *DualLineChart) renderValueRow(data []DataPoint, width, numPoints int,
 		charX := dotX / 2
 
 		// center the label around charX
-		startX := charX - len(valueStr)/2
-		if startX < 0 {
-			startX = 0
-		}
+		startX := max(charX-len(valueStr)/2, 0)
 		if startX+len(valueStr) > width {
 			startX = width - len(valueStr)
 		}
