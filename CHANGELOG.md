@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.4](https://github.com/garrettladley/thoop/compare/v0.1.3...v0.1.4) (2026-01-25)
+
+
+### Features
+
+* logout cmd ([#112](https://github.com/garrettladley/thoop/issues/112)) ([0a21b7d](https://github.com/garrettladley/thoop/commit/0a21b7de50f93a0363a2570fece8c9331f13d529))
+* time travel ([#114](https://github.com/garrettladley/thoop/issues/114)) ([183a1d7](https://github.com/garrettladley/thoop/commit/183a1d77528b6c4913c6a565656a7c795bcd1122))
+
+
+### Bug Fixes
+
+* rounding on current vs 30d trend ([#111](https://github.com/garrettladley/thoop/issues/111)) ([777af06](https://github.com/garrettladley/thoop/commit/777af06c6907a02dbbc25290642db70b001f5a82))
+
 ## [0.1.3](https://github.com/garrettladley/thoop/compare/v0.1.2...v0.1.3) (2026-01-25)
 
 
