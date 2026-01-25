@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/garrettladley/thoop/compare/v0.1.2...v0.1.3) (2026-01-25)
+
+
+### Features
+
+* charts v0 ([#110](https://github.com/garrettladley/thoop/issues/110)) ([032c687](https://github.com/garrettladley/thoop/commit/032c687d4895d751a5f085dd49e8649fc0691fa0))
+* move to go key ring for token store ([#108](https://github.com/garrettladley/thoop/issues/108)) ([2ed59eb](https://github.com/garrettladley/thoop/commit/2ed59eb0b5dd16debf5f1ee53f131516c0c24db5))
+
 ## [0.1.2](https://github.com/garrettladley/thoop/compare/v0.1.1...v0.1.2) (2026-01-24)
 
 
