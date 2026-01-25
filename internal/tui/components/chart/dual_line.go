@@ -202,19 +202,17 @@ func (dlc *DualLineChart) Render(width int) string {
 	normalized2 := normalizeDataPoints(dlc.series2, dlc.minValue, dlc.maxValue)
 	drawLineOnCanvas(&canvas2, normalized2, dotsWidth, dotsHeight, numPoints, dlc.showDots, dlc.smoothness)
 
-	// render both canvases and combine with colors
+	// render both canvases
 	str1 := getCanvasString(&canvas1, dotsWidth, dotsHeight)
 	str2 := getCanvasString(&canvas2, dotsWidth, dotsHeight)
 
-	// value labels above the chart (two rows - one for each series)
+	// render chart with or without value labels
+	var combined string
 	if dlc.showValues {
-		label1Row := dlc.renderValueRow(dlc.series1, width, numPoints, dlc.color1)
-		label2Row := dlc.renderValueRow(dlc.series2, width, numPoints, dlc.color2)
-		sections = append(sections, label1Row)
-		sections = append(sections, label2Row)
+		combined = dlc.renderWithValueLabels(str1, str2, width, numPoints, normalized1, normalized2)
+	} else {
+		combined = overlayLines(str1, str2, dlc.color1, dlc.color2)
 	}
-
-	combined := overlayLines(str1, str2, dlc.color1, dlc.color2)
 	sections = append(sections, combined)
 
 	// X-axis labels
@@ -245,14 +243,15 @@ func (dlc *DualLineChart) Render(width int) string {
 	return strings.Join(sections, "\n")
 }
 
-// renderValueRow renders a single row of value labels for a series.
-func (dlc *DualLineChart) renderValueRow(data []DataPoint, width, numPoints int, clr color.Color) string {
-	if len(data) == 0 {
-		return strings.Repeat(" ", width)
-	}
+// renderWithValueLabels renders both series' value labels just above the max of the two data points at each index.
+func (dlc *DualLineChart) renderWithValueLabels(str1, str2 string, width, numPoints int, normalized1, normalized2 []float64) string {
+	lines1 := strings.Split(str1, "\n")
+	lines2 := strings.Split(str2, "\n")
+	chartHeight := max(len(lines1), len(lines2))
 
-	// calculate X positions matching the line renderer
+	// calculate positions matching the line renderer
 	dotsWidth := width * 2
+	dotsHeight := dlc.height * 4
 	var xStep float64
 	if numPoints == 1 {
 		xStep = 0
@@ -260,32 +259,157 @@ func (dlc *DualLineChart) renderValueRow(data []DataPoint, width, numPoints int,
 		xStep = float64(dotsWidth-1) / float64(numPoints-1)
 	}
 
-	row := make([]rune, width)
-	for i := range row {
-		row[i] = ' '
+	// create label grids - one for each series
+	// add 2 extra rows at top for labels (series1 above series2)
+	totalRows := chartHeight + 2
+	labelGrid1 := make([][]rune, totalRows)
+	labelGrid2 := make([][]rune, totalRows)
+	for i := range totalRows {
+		labelGrid1[i] = make([]rune, width)
+		labelGrid2[i] = make([]rune, width)
 	}
 
-	for i, d := range data {
-		valueStr := dlc.formatter(d.Value)
+	// place labels just above the max of the two data points at each index
+	for i := range numPoints {
+		// get normalized values (default to 0 if series doesn't have this index)
+		var norm1, norm2 float64
+		if i < len(normalized1) {
+			norm1 = normalized1[i]
+		}
+		if i < len(normalized2) {
+			norm2 = normalized2[i]
+		}
 
+		// find the max normalized value to determine Y position
+		maxNorm := max(norm1, norm2)
+
+		// Y position of the highest point
+		dotY := (1 - maxNorm) * float64(dotsHeight-1)
+		charY := int(dotY) / 4 // which row of the chart (0 = top)
+
+		// X position
 		dotX := int(float64(i) * xStep)
 		charX := dotX / 2
 
-		// center the label around charX
-		startX := max(charX-len(valueStr)/2, 0)
-		if startX+len(valueStr) > width {
-			startX = width - len(valueStr)
+		// series2 label goes in the row just above the max data point
+		// grid row 0,1 = above chart, rows 2..totalRows-1 = chart rows
+		// data point at charY (0-indexed in chart) maps to grid row charY+2
+		// series2 label goes at grid row charY+1 (one above data point)
+		// series1 label goes at grid row charY (two above data point)
+		labelRow2 := charY + 1
+		labelRow1 := charY
+
+		if labelRow2 >= totalRows {
+			labelRow2 = totalRows - 1
+		}
+		if labelRow1 >= totalRows {
+			labelRow1 = totalRows - 1
+		}
+		if labelRow1 < 0 {
+			labelRow1 = 0
+		}
+		if labelRow2 < 0 {
+			labelRow2 = 0
 		}
 
-		for j, r := range valueStr {
-			if startX+j >= 0 && startX+j < width {
-				row[startX+j] = r
+		// write series1 label
+		if i < len(dlc.series1) {
+			valueStr := dlc.formatter(dlc.series1[i].Value)
+			startX := max(charX-len(valueStr)/2, 0)
+			if startX+len(valueStr) > width {
+				startX = width - len(valueStr)
+			}
+			for j, r := range valueStr {
+				if startX+j >= 0 && startX+j < width {
+					labelGrid1[labelRow1][startX+j] = r
+				}
+			}
+		}
+
+		// write series2 label
+		if i < len(dlc.series2) {
+			valueStr := dlc.formatter(dlc.series2[i].Value)
+			startX := max(charX-len(valueStr)/2, 0)
+			if startX+len(valueStr) > width {
+				startX = width - len(valueStr)
+			}
+			for j, r := range valueStr {
+				if startX+j >= 0 && startX+j < width {
+					labelGrid2[labelRow2][startX+j] = r
+				}
 			}
 		}
 	}
 
-	style := lipgloss.NewStyle().Foreground(clr)
-	return style.Render(string(row))
+	// build output - combine labels with chart
+	style1 := lipgloss.NewStyle().Foreground(dlc.color1)
+	style2 := lipgloss.NewStyle().Foreground(dlc.color2)
+
+	result := make([]string, totalRows)
+	for row := range totalRows {
+		var rowBuilder strings.Builder
+
+		// get braille for this row from both series (rows 0,1 are above chart, have no braille)
+		var runes1, runes2 []rune
+		if row >= 2 {
+			chartRow := row - 2
+			if chartRow < len(lines1) {
+				runes1 = []rune(lines1[chartRow])
+			}
+			if chartRow < len(lines2) {
+				runes2 = []rune(lines2[chartRow])
+			}
+		}
+		for len(runes1) < width {
+			runes1 = append(runes1, ' ')
+		}
+		for len(runes2) < width {
+			runes2 = append(runes2, ' ')
+		}
+
+		col := 0
+		for col < width {
+			hasLabel1 := labelGrid1[row][col] != 0
+			hasLabel2 := labelGrid2[row][col] != 0
+
+			if hasLabel1 || hasLabel2 {
+				// render label characters one at a time to handle overlapping grids
+				if hasLabel1 {
+					rowBuilder.WriteString(style1.Render(string(labelGrid1[row][col])))
+				} else {
+					rowBuilder.WriteString(style2.Render(string(labelGrid2[row][col])))
+				}
+				col++
+			} else {
+				// render single braille character with proper overlay coloring
+				if row < 2 {
+					// rows above chart - just spaces
+					rowBuilder.WriteRune(' ')
+				} else {
+					// chart row - overlay both series with colors
+					r1 := runes1[col]
+					r2 := runes2[col]
+					b1 := braille.Is(r1) && r1 != emptyBraille
+					b2 := braille.Is(r2) && r2 != emptyBraille
+
+					if b1 && b2 {
+						// both have content - show series1 on top
+						rowBuilder.WriteString(style1.Render(string(r1)))
+					} else if b1 {
+						rowBuilder.WriteString(style1.Render(string(r1)))
+					} else if b2 {
+						rowBuilder.WriteString(style2.Render(string(r2)))
+					} else {
+						rowBuilder.WriteRune(' ')
+					}
+				}
+				col++
+			}
+		}
+		result[row] = rowBuilder.String()
+	}
+
+	return strings.Join(result, "\n")
 }
 
 // normalizeDataPoints normalizes data points to [0, 1] range.

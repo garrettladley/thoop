@@ -273,13 +273,8 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.state.dashboard.ActiveTab == dashboard.TabOverview {
 				m.state.dashboard.ActiveTab = dashboard.TabRecovery
 			} else {
-				// Scroll down in drill pages
+				// Scroll down in drill pages (clamping happens in View)
 				m.state.dashboard.ScrollOffset++
-				// cap at reasonable max to prevent scrolling into void
-				maxScroll := m.viewportHeight * 2
-				if m.state.dashboard.ScrollOffset > maxScroll {
-					m.state.dashboard.ScrollOffset = maxScroll
-				}
 			}
 			return m, nil
 		}
@@ -463,7 +458,7 @@ func (m *Model) View() tea.View {
 	case page.Onboarding:
 		content = onboarding.View(m.theme, m.state.onboarding, m.viewportWidth, m.viewportHeight)
 	case page.Dashboard:
-		gauges := dashboard.View(m.state.dashboard, m.viewportWidth, m.viewportHeight)
+		gauges := dashboard.View(&m.state.dashboard, m.viewportWidth, m.viewportHeight)
 
 		f := footer.New(dashboard.AuthIndicatorView(m.state.dashboard), m.viewportWidth)
 
