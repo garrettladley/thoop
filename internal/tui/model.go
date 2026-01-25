@@ -18,6 +18,7 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/theme"
 	"github.com/garrettladley/thoop/internal/xslices"
 	"github.com/garrettladley/thoop/internal/xslog"
+	"github.com/garrettladley/thoop/internal/xtime"
 )
 
 var _ tea.Model = (*Model)(nil)
@@ -133,10 +134,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state.dashboard.StrainScore = &msg.Cycle.Score.Strain
 			}
 			m.state.dashboard.SetPending()
+			refDate := m.state.dashboard.EffectiveDate()
 			return m, tea.Batch(
 				dashboard.FetchSleepCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
 				dashboard.FetchRecoveryCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
-				dashboard.FetchTodaysWorkoutsCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.Start),
+				dashboard.FetchWorkoutsForDateCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.Start, refDate),
 			)
 		}
 		return m, nil
@@ -232,6 +234,38 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.page == page.Dashboard {
 			m.state.dashboard.ActiveTab = dashboard.PrevTab(m.state.dashboard.ActiveTab)
 			m.state.dashboard.ScrollOffset = 0 // reset scroll on tab change
+			return m, nil
+		}
+	case "[", "H":
+		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
+			// Go back one day (no limit)
+			current := m.state.dashboard.EffectiveDate()
+			newDate := current.AddDate(0, 0, -1)
+			return m, m.handleDateChange(&newDate)
+		}
+	case "]", "L":
+		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
+			// Go forward one day only if not already at today
+			current := m.state.dashboard.EffectiveDate()
+			now := time.Now()
+
+			if xtime.BeforeDay(current, now) {
+				newDate := current.AddDate(0, 0, 1)
+				if xtime.SameDay(newDate, now) {
+					// reached today, set to nil (today mode)
+					return m, m.handleDateChange(nil)
+				}
+				return m, m.handleDateChange(&newDate)
+			}
+			// Already at today, do nothing
+			return m, nil
+		}
+	case "t":
+		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
+			// Return to today
+			if m.state.dashboard.SelectedDate != nil {
+				return m, m.handleDateChange(nil)
+			}
 			return m, nil
 		}
 	case "j", "down":
@@ -383,6 +417,29 @@ func (m *Model) startDashboardServices() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
+func (m *Model) handleDateChange(date *time.Time) tea.Cmd {
+	m.state.dashboard.SelectedDate = date
+	m.state.dashboard.SetPending()
+
+	m.state.dashboard.CurrentCycle = nil
+	m.state.dashboard.CurrentSleep = nil
+	m.state.dashboard.CurrentRecovery = nil
+	m.state.dashboard.SleepScore = nil
+	m.state.dashboard.RecoveryScore = nil
+	m.state.dashboard.StrainScore = nil
+	m.state.dashboard.TodaysWorkouts = nil
+	m.state.dashboard.Averages = nil
+	m.state.dashboard.HistoricalRecoveries = nil
+	m.state.dashboard.HistoricalCycles = nil
+	m.state.dashboard.HistoricalSleeps = nil
+
+	refDate := m.state.dashboard.EffectiveDate()
+	return tea.Batch(
+		dashboard.FetchCycleForDateCmd(m.deps.Ctx, m.deps.WhoopClient, refDate),
+		dashboard.FetchHistoricalDataForDateCmd(m.deps.Ctx, m.deps.WhoopClient, refDate),
+	)
+}
+
 func (m *Model) View() tea.View {
 	view := tea.NewView("")
 	view.AltScreen = true
@@ -412,7 +469,7 @@ func (m *Model) View() tea.View {
 
 		switch m.state.dashboard.ActiveTab {
 		case dashboard.TabOverview:
-			f = f.WithNavHints("← sleep    ↑↓ recovery    → strain")
+			f = f.WithNavHints("[/] date    ← sleep    ↑↓ recovery    → strain")
 		default:
 			f = f.WithNavHints("esc back    ←/→ navigate    j/k scroll")
 		}

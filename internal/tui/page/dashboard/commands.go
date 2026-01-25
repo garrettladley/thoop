@@ -8,14 +8,26 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
+	"github.com/garrettladley/thoop/internal/xtime"
 )
+
+// DateChangedMsg signals that the selected date has changed.
+type DateChangedMsg struct {
+	Date *time.Time
+}
 
 type CycleMsg struct {
 	Cycle *whoop.Cycle
 	Err   error
 }
 
+// FetchCycleCmd fetches the most recent cycle (today's cycle).
 func FetchCycleCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
+	return FetchCycleForDateCmd(ctx, client, time.Now())
+}
+
+// FetchCycleForDateCmd fetches the cycle containing the given reference date.
+func FetchCycleForDateCmd(ctx context.Context, client *whoop.Client, referenceDate time.Time) tea.Cmd {
 	if client == nil {
 		return func() tea.Msg {
 			return CycleMsg{Cycle: nil}
@@ -25,7 +37,16 @@ func FetchCycleCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
-		cycles, err := client.Cycle.List(ctx, &whoop.ListParams{Limit: 1})
+
+		// query cycles that span the reference date
+		start := xtime.StartOfDay(referenceDate)
+		end := start.Add(24 * time.Hour)
+
+		cycles, err := client.Cycle.List(ctx, &whoop.ListParams{
+			Limit: 1,
+			Start: &start,
+			End:   &end,
+		})
 		if err != nil {
 			return CycleMsg{Err: err}
 		}
@@ -81,7 +102,13 @@ type WorkoutsMsg struct {
 	Err      error
 }
 
+// FetchTodaysWorkoutsCmd fetches workouts for today (wrapper for FetchWorkoutsForDateCmd).
 func FetchTodaysWorkoutsCmd(ctx context.Context, client *whoop.Client, cycleStart time.Time) tea.Cmd {
+	return FetchWorkoutsForDateCmd(ctx, client, cycleStart, time.Now())
+}
+
+// FetchWorkoutsForDateCmd fetches workouts between cycleStart and referenceDate.
+func FetchWorkoutsForDateCmd(ctx context.Context, client *whoop.Client, cycleStart, referenceDate time.Time) tea.Cmd {
 	if client == nil {
 		return func() tea.Msg {
 			return WorkoutsMsg{}
@@ -92,10 +119,10 @@ func FetchTodaysWorkoutsCmd(ctx context.Context, client *whoop.Client, cycleStar
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
-		now := time.Now()
+		endOfDay := xtime.StartOfDay(referenceDate).Add(24 * time.Hour)
 		resp, err := client.Workout.List(ctx, &whoop.ListParams{
 			Start: &cycleStart,
-			End:   &now,
+			End:   &endOfDay,
 		})
 		if err != nil {
 			return WorkoutsMsg{Err: err}
@@ -112,7 +139,13 @@ type HistoricalDataMsg struct {
 	ErrSource  string
 }
 
+// FetchHistoricalDataCmd fetches 30 days of historical data ending at today.
 func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
+	return FetchHistoricalDataForDateCmd(ctx, client, time.Now())
+}
+
+// FetchHistoricalDataForDateCmd fetches 30 days of historical data ending at referenceDate.
+func FetchHistoricalDataForDateCmd(ctx context.Context, client *whoop.Client, referenceDate time.Time) tea.Cmd {
 	if client == nil {
 		return func() tea.Msg {
 			return HistoricalDataMsg{}
@@ -123,8 +156,8 @@ func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 
-		now := time.Now()
-		thirtyDaysAgo := now.AddDate(0, 0, -30)
+		endOfDay := xtime.StartOfDay(referenceDate).Add(24 * time.Hour)
+		thirtyDaysAgo := endOfDay.AddDate(0, 0, -30)
 
 		var (
 			allRecoveries []whoop.Recovery
@@ -142,7 +175,7 @@ func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 				params := &whoop.ListParams{
 					Limit:     25,
 					Start:     &thirtyDaysAgo,
-					End:       &now,
+					End:       &endOfDay,
 					NextToken: nextToken,
 				}
 				resp, err := client.Cycle.List(ctx, params)
@@ -164,7 +197,7 @@ func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 				params := &whoop.ListParams{
 					Limit:     25,
 					Start:     &thirtyDaysAgo,
-					End:       &now,
+					End:       &endOfDay,
 					NextToken: nextToken,
 				}
 				resp, err := client.Sleep.List(ctx, params)
@@ -185,7 +218,7 @@ func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
 			params := &whoop.ListParams{
 				Limit:     25,
 				Start:     &thirtyDaysAgo,
-				End:       &now,
+				End:       &endOfDay,
 				NextToken: nextToken,
 			}
 			resp, err := client.Recovery.List(ctx, params)

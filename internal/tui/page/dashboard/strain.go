@@ -14,6 +14,7 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/components/viewport"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 	"github.com/garrettladley/thoop/internal/units"
+	"github.com/garrettladley/thoop/internal/xtime"
 )
 
 func RenderStrainDetail(state State, width, height int) string {
@@ -34,7 +35,7 @@ func RenderStrainDetail(state State, width, height int) string {
 	contentParts = append(contentParts, "", "")
 	contentParts = append(contentParts, metrics)
 
-	activitiesSection := renderTodaysActivities(state.TodaysWorkouts, metricsWidth)
+	activitiesSection := renderActivities(state.TodaysWorkouts, state.SelectedDate, metricsWidth)
 	if activitiesSection != "" {
 		contentParts = append(contentParts, "", "", "")
 		contentParts = append(contentParts, activitiesSection)
@@ -228,7 +229,14 @@ func strainChartTitle(text string) string {
 		Render(text)
 }
 
-func renderTodaysActivities(workouts []whoop.Workout, width int) string {
+func activitiesTitle(selectedDate *time.Time) string {
+	if selectedDate == nil || xtime.IsToday(*selectedDate) {
+		return "TODAY'S ACTIVITIES"
+	}
+	return selectedDate.Format("Mon Jan 2") + " ACTIVITIES"
+}
+
+func renderActivities(workouts []whoop.Workout, selectedDate *time.Time, width int) string {
 	if len(workouts) == 0 {
 		return ""
 	}
@@ -238,7 +246,7 @@ func renderTodaysActivities(workouts []whoop.Workout, width int) string {
 		Bold(true)
 
 	sections := make([]string, 0, len(workouts)+2)
-	sections = append(sections, titleStyle.Render("TODAY'S ACTIVITIES"))
+	sections = append(sections, titleStyle.Render(activitiesTitle(selectedDate)))
 	sections = append(sections, "")
 
 	for _, w := range workouts {

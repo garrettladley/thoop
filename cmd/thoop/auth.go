@@ -68,7 +68,7 @@ func purgeCmd() *cobra.Command {
 		Short: "Remove stored authentication token",
 		Long:  "Deletes the locally stored WHOOP authentication token from keyring and database.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return purge(ctx)
+			return purge(cmd.Context())
 		},
 	}
 }
