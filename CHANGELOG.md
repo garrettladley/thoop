@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/garrettladley/thoop/compare/v0.1.10...v0.1.11) (2026-01-25)
+
+
+### Features
+
+* navigate on all pages ([#131](https://github.com/garrettladley/thoop/issues/131)) ([f3b4300](https://github.com/garrettladley/thoop/commit/f3b4300d7e09b217ced1780c752cee55775128f5))
+
 ## [0.1.10](https://github.com/garrettladley/thoop/compare/v0.1.9...v0.1.10) (2026-01-25)
 
 
