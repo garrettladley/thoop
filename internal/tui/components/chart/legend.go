@@ -52,7 +52,7 @@ func NewLegend(items []LegendItem, opts ...LegendOption) *Legend {
 	l := &Legend{
 		items:      items,
 		horizontal: true,
-		textColor:  theme.ColorDim,
+		textColor:  theme.ColorWhite,
 		spacing:    2,
 	}
 	for _, opt := range opts {

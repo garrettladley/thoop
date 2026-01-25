@@ -91,6 +91,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case tea.MouseWheelDown:
 				m.state.dashboard.ScrollOffset += 3
+				// cap at reasonable max to prevent scrolling into void
+				maxScroll := m.viewportHeight * 2
+				if m.state.dashboard.ScrollOffset > maxScroll {
+					m.state.dashboard.ScrollOffset = maxScroll
+				}
 			}
 			return m, nil
 		}
@@ -131,7 +136,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(
 				dashboard.FetchSleepCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
 				dashboard.FetchRecoveryCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
+				dashboard.FetchTodaysWorkoutsCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.Start),
 			)
+		}
+		return m, nil
+
+	case dashboard.WorkoutsMsg:
+		if msg.Err == nil {
+			m.state.dashboard.TodaysWorkouts = msg.Workouts
 		}
 		return m, nil
 
@@ -229,6 +241,11 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				// Scroll down in drill pages
 				m.state.dashboard.ScrollOffset++
+				// cap at reasonable max to prevent scrolling into void
+				maxScroll := m.viewportHeight * 2
+				if m.state.dashboard.ScrollOffset > maxScroll {
+					m.state.dashboard.ScrollOffset = maxScroll
+				}
 			}
 			return m, nil
 		}

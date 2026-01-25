@@ -9,20 +9,29 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
+// LegendPosition specifies where the legend is rendered.
+type LegendPosition int
+
+const (
+	LegendBottom LegendPosition = iota
+	LegendTopRight
+)
+
 // StackedBarChart renders a stacked vertical bar chart.
 type StackedBarChart struct {
-	data         []StackedDataPoint
-	height       int
-	colors       []color.Color
-	labels       []string // legend labels for each segment
-	formatter    ValueFormatter
-	showValues   bool
-	showAxis     bool
-	showLegend   bool
-	barWidth     int
-	barGap       int
-	bgColor      color.Color
-	showSegTotal bool // show total value above bars
+	data           []StackedDataPoint
+	height         int
+	colors         []color.Color
+	labels         []string // legend labels for each segment
+	formatter      ValueFormatter
+	showValues     bool
+	showAxis       bool
+	showLegend     bool
+	legendPosition LegendPosition
+	barWidth       int
+	barGap         int
+	bgColor        color.Color
+	showSegTotal   bool // show total value above bars
 }
 
 // StackedBarChartOption configures a StackedBarChart.
@@ -74,6 +83,13 @@ func WithStackedBarShowAxis(show bool) StackedBarChartOption {
 func WithStackedBarShowLegend(show bool) StackedBarChartOption {
 	return func(sbc *StackedBarChart) {
 		sbc.showLegend = show
+	}
+}
+
+// WithStackedBarLegendPosition sets the legend position.
+func WithStackedBarLegendPosition(pos LegendPosition) StackedBarChartOption {
+	return func(sbc *StackedBarChart) {
+		sbc.legendPosition = pos
 	}
 }
 
@@ -143,50 +159,73 @@ func (sbc *StackedBarChart) Render(width int) string {
 		maxTotal = 100
 	}
 
-	// calculate bar dimensions
+	// calculate bar dimensions to fill width
 	numBars := len(sbc.data)
-	totalBarSpace := numBars*sbc.barWidth + (numBars-1)*sbc.barGap
 
-	barWidth := sbc.barWidth
-	barGap := sbc.barGap
-	if totalBarSpace > width {
-		availPerBar := width / numBars
-		barWidth = max(1, availPerBar-1)
-		barGap = max(0, availPerBar-barWidth)
-		totalBarSpace = numBars*barWidth + (numBars-1)*barGap
+	// distribute width evenly among bars with gaps
+	// we want gap to be roughly 30% of available space per bar
+	availPerBar := float64(width) / float64(numBars)
+	barWidth := int(availPerBar * 0.7) // 70% for bar
+	if barWidth < 2 {
+		barWidth = 2
+	}
+	barGap := int(availPerBar) - barWidth // remaining for gap
+	if barGap < 1 {
+		barGap = 1
+	}
+	totalBarSpace := numBars*barWidth + (numBars-1)*barGap
+
+	// calculate padding to center (should be minimal now)
+	leftPad := (width - totalBarSpace) / 2
+	if leftPad < 0 {
+		leftPad = 0
 	}
 
-	leftPad := (width - totalBarSpace) / 2
+	// calculate totals and fill heights for each bar
+	totals := make([]float64, numBars)
+	fillHeights := make([]int, numBars)
+	for i, d := range sbc.data {
+		total := 0.0
+		for _, v := range d.Values {
+			total += v
+		}
+		totals[i] = total
+		fillPct := total / maxTotal
+		if fillPct > 1 {
+			fillPct = 1
+		}
+		if fillPct > 0 {
+			fillHeights[i] = max(1, int(fillPct*float64(sbc.height)+0.5))
+		}
+	}
 
 	var sections []string
-	// value labels above bars
-	if sbc.showValues {
-		valueRow := strings.Repeat(" ", leftPad)
-		for i, d := range sbc.data {
-			total := 0.0
-			for _, v := range d.Values {
-				total += v
+
+	// render legend at top right if configured
+	if sbc.showLegend && len(sbc.labels) > 0 && sbc.legendPosition == LegendTopRight {
+		var items []LegendItem
+		for i, label := range sbc.labels {
+			c := sbc.bgColor
+			if i < len(sbc.colors) {
+				c = sbc.colors[i]
 			}
-			valueStr := sbc.formatter(total)
-			padded := centerString(valueStr, barWidth)
-			valueRow += padded
-			if i < numBars-1 {
-				valueRow += strings.Repeat(" ", barGap)
-			}
+			items = append(items, LegendItem{Label: label, Color: c})
 		}
-		valueStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite)
-		sections = append(sections, valueStyle.Render(valueRow))
+		legend := NewLegend(items)
+		legendStr := legend.Render()
+		legendWidth := lipgloss.Width(legendStr)
+		padding := width - legendWidth
+		if padding > 0 {
+			sections = append(sections, strings.Repeat(" ", padding)+legendStr)
+		} else {
+			sections = append(sections, legendStr)
+		}
+		sections = append(sections, "")
 	}
 
 	// render stacked bars
 	barStrings := make([][]string, numBars)
 	for i, d := range sbc.data {
-		// calculate fill percentages for each segment
-		total := 0.0
-		for _, v := range d.Values {
-			total += v
-		}
-
 		var segments []Segment
 		for j, v := range d.Values {
 			fillPct := v / maxTotal
@@ -207,11 +246,56 @@ func (sbc *StackedBarChart) Render(width int) string {
 		barStrings[i] = strings.Split(bar.Render(), "\n")
 	}
 
-	// combine bars horizontally
+	// calculate the row where each bar starts (from top) - this is where the label goes above
+	labelRows := make([]int, numBars)
+	for i := range numBars {
+		emptyRows := sbc.height - fillHeights[i]
+		if emptyRows > 0 {
+			labelRows[i] = emptyRows - 1
+		} else {
+			labelRows[i] = -1 // label above the chart area
+		}
+	}
+
+	// determine if we need a label row above the chart (for bars that fill the entire height)
+	needsTopLabelRow := false
+	if sbc.showValues {
+		for i := range numBars {
+			if labelRows[i] < 0 {
+				needsTopLabelRow = true
+				break
+			}
+		}
+	}
+
+	// render top label row if needed (for full-height bars)
+	if sbc.showValues && needsTopLabelRow {
+		rowStr := strings.Repeat(" ", leftPad)
+		for i := range numBars {
+			if labelRows[i] < 0 {
+				valueStr := sbc.formatter(totals[i])
+				padded := centerString(valueStr, barWidth)
+				rowStr += lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(padded)
+			} else {
+				rowStr += strings.Repeat(" ", barWidth)
+			}
+			if i < numBars-1 {
+				rowStr += strings.Repeat(" ", barGap)
+			}
+		}
+		sections = append(sections, rowStr)
+	}
+
+	// combine bars horizontally, inserting labels at the right positions
 	for row := range sbc.height {
 		rowStr := strings.Repeat(" ", leftPad)
 		for i := range numBars {
-			if row < len(barStrings[i]) {
+			// check if this row should show a label for this bar
+			if sbc.showValues && labelRows[i] == row {
+				valueStr := sbc.formatter(totals[i])
+				padded := centerString(valueStr, barWidth)
+				rowStr += lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(padded)
+			} else if row < len(barStrings[i]) {
 				rowStr += barStrings[i][row]
 			} else {
 				rowStr += strings.Repeat(" ", barWidth)
@@ -226,10 +310,12 @@ func (sbc *StackedBarChart) Render(width int) string {
 	// X-axis labels
 	if sbc.showAxis {
 		labels := make([]string, numBars)
+		positions := make([]int, numBars)
 		for i, d := range sbc.data {
 			labels[i] = d.Label
+			positions[i] = i*(barWidth+barGap) + barWidth/2
 		}
-		axis := NewAxis(labels, totalBarSpace, WithAxisTextColor(theme.ColorDim))
+		axis := NewAxis(labels, totalBarSpace, WithAxisTextColor(theme.ColorDim), WithAxisPositions(positions))
 		axisStr := axis.Render()
 		axisLines := strings.Split(axisStr, "\n")
 		for _, line := range axisLines {
@@ -237,7 +323,8 @@ func (sbc *StackedBarChart) Render(width int) string {
 		}
 	}
 
-	if sbc.showLegend && len(sbc.labels) > 0 {
+	// render legend at bottom if configured (default)
+	if sbc.showLegend && len(sbc.labels) > 0 && sbc.legendPosition == LegendBottom {
 		var items []LegendItem
 		for i, label := range sbc.labels {
 			c := sbc.bgColor

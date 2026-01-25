@@ -60,6 +60,9 @@ type State struct {
 	CurrentCycle    *whoop.Cycle
 	Averages        *ThirtyDayAverages
 
+	// today's workouts for the strain page
+	TodaysWorkouts []whoop.Workout
+
 	// historical data for charts (last 7 days)
 	HistoricalRecoveries []whoop.Recovery
 	HistoricalCycles     []whoop.Cycle

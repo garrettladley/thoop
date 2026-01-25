@@ -16,6 +16,7 @@ type Axis struct {
 	showLine  bool
 	labelGap  int // minimum gap between labels
 	textColor color.Color
+	positions []int // explicit label positions (centers)
 }
 
 // AxisOption configures an Axis.
@@ -39,6 +40,13 @@ func WithAxisLabelGap(gap int) AxisOption {
 func WithAxisTextColor(c color.Color) AxisOption {
 	return func(a *Axis) {
 		a.textColor = c
+	}
+}
+
+// WithAxisPositions sets explicit center positions for labels.
+func WithAxisPositions(positions []int) AxisOption {
+	return func(a *Axis) {
+		a.positions = positions
 	}
 }
 
@@ -75,18 +83,40 @@ func (a *Axis) Render() string {
 	// for multi-line labels (e.g., "Mon\n12"), split them
 	maxLabelLines := 1
 	splitLabels := make([][]string, len(a.labels))
+	labelWidths := make([]int, len(a.labels)) // max width per label (for centering all lines)
 	for i, label := range a.labels {
 		splitLabels[i] = strings.Split(label, "\n")
 		if len(splitLabels[i]) > maxLabelLines {
 			maxLabelLines = len(splitLabels[i])
 		}
+		// find max line width for this label
+		for _, part := range splitLabels[i] {
+			if len(part) > labelWidths[i] {
+				labelWidths[i] = len(part)
+			}
+		}
 	}
 
-	// calculate positions
-	// each label is centered at position: (i + 0.5) * width / len(labels)
-	positions := make([]int, len(a.labels))
-	for i := range a.labels {
-		positions[i] = int((float64(i) + 0.5) * float64(a.width) / float64(len(a.labels)))
+	// use explicit positions if provided, otherwise calculate to match Line renderer
+	positions := a.positions
+	if len(positions) != len(a.labels) {
+		// match the positioning from the Line renderer:
+		// braille canvas is width*2 dots wide
+		// xStep = (dotsWidth-1) / (len(points)-1)
+		// for each point i, dotX = i * xStep
+		// character position = int(dotX / 2)
+		dotsWidth := a.width * 2
+		var xStep float64
+		if len(a.labels) == 1 {
+			xStep = 0
+		} else {
+			xStep = float64(dotsWidth-1) / float64(len(a.labels)-1)
+		}
+		positions = make([]int, len(a.labels))
+		for i := range a.labels {
+			dotX := int(float64(i) * xStep)
+			positions[i] = dotX / 2
+		}
 	}
 
 	// render each line of labels
@@ -103,11 +133,14 @@ func (a *Axis) Render() string {
 
 			text := parts[lineIdx]
 			pos := positions[labelIdx]
+			labelWidth := labelWidths[labelIdx]
 
-			startPos := pos - len(text)/2
-			if startPos < 0 {
-				startPos = 0
-			}
+			// center the label block at pos, then center text within that block
+			blockStart := pos - labelWidth/2
+			textOffset := (labelWidth - len(text)) / 2
+			startPos := blockStart + textOffset
+
+			startPos = max(0, startPos)
 			if startPos+len(text) > a.width {
 				startPos = a.width - len(text)
 			}

@@ -98,49 +98,39 @@ func (b *Bar) Render() string {
 		}
 	}
 
+	// calculate total fill height for proper stacking
+	totalFillUnits := 0
+	for _, r := range ranges {
+		totalFillUnits = max(totalFillUnits, r.endUnit)
+	}
+
 	// render each row (from top to bottom in output, but bottom to top in value)
 	for row := range b.height {
 		// this row represents units from rowStartUnit to rowEndUnit
 		rowStartUnit := (b.height - 1 - row) * 8
 		rowEndUnit := rowStartUnit + 8
 
-		var (
-			rowContent strings.Builder
-			rowChar    = ' '
-			rowColor   color.Color
-		)
+		var rowContent strings.Builder
+		rowChar := ' '
+		var rowColor color.Color
 
-		for _, r := range ranges {
-			if r.endUnit <= rowStartUnit {
-				// segment is completely below this row
-				continue
-			}
-			if r.startUnit >= rowEndUnit {
-				// segment is completely above this row
-				continue
-			}
-
-			// segment overlaps with this row
-			overlapStart := max(r.startUnit, rowStartUnit)
-			overlapEnd := min(r.endUnit, rowEndUnit)
-			fillUnits := overlapEnd - overlapStart
-
-			if fillUnits >= 8 {
+		// check how much of the total stack fills this row
+		if totalFillUnits > rowStartUnit {
+			fillInRow := min(totalFillUnits, rowEndUnit) - rowStartUnit
+			if fillInRow >= 8 {
 				rowChar = '█'
-			} else if fillUnits > 0 {
-				// partial fill - use block character
-				// fillUnits is how many 1/8ths are filled from the bottom of this row
-				localStart := overlapStart - rowStartUnit
-				if localStart == 0 {
-					// filling from bottom of row
-					rowChar = verticalBlocks[fillUnits]
-				} else {
-					// there's a gap at the bottom, use full block
-					// (this handles stacking where lower segment filled some)
-					rowChar = '█'
+			} else if fillInRow > 0 {
+				rowChar = verticalBlocks[fillInRow]
+			}
+
+			// find the color: use the topmost segment that overlaps this row
+			for i := len(ranges) - 1; i >= 0; i-- {
+				r := ranges[i]
+				if r.endUnit > rowStartUnit && r.startUnit < rowEndUnit {
+					rowColor = r.color
+					break
 				}
 			}
-			rowColor = r.color
 		}
 
 		// build the row string
@@ -151,9 +141,6 @@ func (b *Bar) Render() string {
 		style := lipgloss.NewStyle()
 		if rowColor != nil {
 			style = style.Foreground(rowColor)
-		}
-		if b.bgColor != nil && rowChar != '█' {
-			style = style.Background(b.bgColor)
 		}
 
 		lines[row] = style.Render(rowContent.String())

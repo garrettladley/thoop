@@ -72,3 +72,17 @@ func FormatDurationFromHours(hours float64) string {
 func FormatFloat1(v float64) string {
 	return fmt.Sprintf("%.1f", v)
 }
+
+// FormatCompact formats a value in compact form (e.g., "2k" for 2000).
+func FormatCompact(v float64) string {
+	if v < 1000 {
+		return fmt.Sprintf("%.0f", v)
+	}
+	return fmt.Sprintf("%.0fk", v/1000)
+}
+
+// FormatThousands formats a value in thousands with one decimal (e.g., "2.1" for 2100).
+// Useful for calories where space is limited but fidelity matters.
+func FormatThousands(v float64) string {
+	return fmt.Sprintf("%.1f", v/1000)
+}

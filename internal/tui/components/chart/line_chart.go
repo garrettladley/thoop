@@ -126,14 +126,6 @@ func (lc *LineChart) Render(width int) string {
 		return ""
 	}
 
-	var sections []string
-
-	// value labels above data points
-	if lc.showValues {
-		valueRow := renderValueLabels(lc.data, width, lc.formatter)
-		sections = append(sections, valueRow)
-	}
-
 	// extract values and normalize
 	values := make([]float64, len(lc.data))
 	for i, d := range lc.data {
@@ -141,13 +133,30 @@ func (lc *LineChart) Render(width int) string {
 	}
 	normalized := NormalizeValues(values, lc.minValue, lc.maxValue)
 
-	// render line
+	// render line (uncolored so we can overlay labels)
 	line := NewLine(normalized, width,
-		WithLineColor(lc.color),
 		WithLineHeight(lc.height),
 		WithLineShowDots(lc.showDots),
 	)
-	sections = append(sections, line.Render())
+
+	var chartStr string
+	if lc.showValues {
+		chartStr = lc.renderWithValueLabels(line.RenderUncolored(), width)
+	} else {
+		// just apply color directly
+		chartStr = line.RenderUncolored()
+		if lc.color != nil {
+			style := lipgloss.NewStyle().Foreground(lc.color)
+			lines := strings.Split(chartStr, "\n")
+			for i, ln := range lines {
+				lines[i] = style.Render(ln)
+			}
+			chartStr = strings.Join(lines, "\n")
+		}
+	}
+
+	var sections []string
+	sections = append(sections, chartStr)
 
 	// X-axis labels
 	if lc.showAxis {
@@ -162,38 +171,120 @@ func (lc *LineChart) Render(width int) string {
 	return strings.Join(sections, "\n")
 }
 
-// renderValueLabels renders value labels above data points.
-func renderValueLabels(data []DataPoint, width int, formatter ValueFormatter) string {
-	if len(data) == 0 {
-		return ""
+// renderWithValueLabels renders value labels just above each data point.
+func (lc *LineChart) renderWithValueLabels(brailleStr string, width int) string {
+	brailleLines := strings.Split(brailleStr, "\n")
+	chartHeight := len(brailleLines)
+
+	// normalize values to get Y positions
+	values := make([]float64, len(lc.data))
+	for i, d := range lc.data {
+		values[i] = d.Value
+	}
+	normalized := NormalizeValues(values, lc.minValue, lc.maxValue)
+
+	// Calculate positions matching Line renderer
+	dotsWidth := width * 2
+	dotsHeight := lc.height * 4
+	var xStep float64
+	if len(lc.data) == 1 {
+		xStep = 0
+	} else {
+		xStep = float64(dotsWidth-1) / float64(len(lc.data)-1)
 	}
 
-	// calculate positions for each value
-	step := float64(width) / float64(len(data))
-	row := make([]rune, width)
-	for i := range row {
-		row[i] = ' '
+	// create label grid - same height as chart, labels go 1 row above data point
+	// add 1 extra row at top for labels of highest points
+	totalRows := chartHeight + 1
+	labelGrid := make([][]rune, totalRows)
+	for i := range labelGrid {
+		labelGrid[i] = make([]rune, width)
 	}
 
-	for i, d := range data {
-		valueStr := formatter(d.Value)
-		pos := int(float64(i)*step + step/2)
-		startPos := pos - len(valueStr)/2
+	// place each label just above its data point's Y position
+	for i, d := range lc.data {
+		valueStr := lc.formatter(d.Value)
 
-		if startPos < 0 {
-			startPos = 0
+		// X position (matches Line renderer)
+		dotX := int(float64(i) * xStep)
+		charX := dotX / 2
+
+		// Y position - data point's row in the chart
+		dotY := (1 - normalized[i]) * float64(dotsHeight-1)
+		charY := int(dotY) / 4 // which row of the chart (0 = top)
+
+		// label goes in the row above the data point
+		// grid row 0 = above the chart, rows 1..chartHeight = chart rows
+		// data point at charY (0-indexed in chart) maps to grid row charY+1
+		// label goes at grid row charY (one above)
+		labelRow := charY
+		if labelRow < 0 {
+			labelRow = 0
 		}
-		if startPos+len(valueStr) > width {
-			startPos = width - len(valueStr)
+		if labelRow >= totalRows {
+			labelRow = totalRows - 1
 		}
 
+		startX := charX - len(valueStr)/2
+		if startX < 0 {
+			startX = 0
+		}
+		if startX+len(valueStr) > width {
+			startX = width - len(valueStr)
+		}
+
+		// write label to grid
 		for j, r := range valueStr {
-			if startPos+j < width {
-				row[startPos+j] = r
+			if startX+j >= 0 && startX+j < width {
+				labelGrid[labelRow][startX+j] = r
 			}
 		}
 	}
 
-	style := lipgloss.NewStyle().Foreground(theme.ColorWhite)
-	return style.Render(string(row))
+	// build output - combine labels with chart
+	lineStyle := lipgloss.NewStyle().Foreground(lc.color)
+	labelStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite)
+
+	result := make([]string, totalRows)
+	for row := 0; row < totalRows; row++ {
+		var rowBuilder strings.Builder
+
+		// get braille for this row (row 0 is above chart, has no braille)
+		var brailleRunes []rune
+		if row > 0 && row-1 < len(brailleLines) {
+			brailleRunes = []rune(brailleLines[row-1])
+		}
+		for len(brailleRunes) < width {
+			brailleRunes = append(brailleRunes, ' ')
+		}
+
+		col := 0
+		for col < width {
+			if labelGrid[row][col] != 0 {
+				// consecutive label characters
+				start := col
+				for col < width && labelGrid[row][col] != 0 {
+					col++
+				}
+				labelText := string(labelGrid[row][start:col])
+				rowBuilder.WriteString(labelStyle.Render(labelText))
+			} else {
+				// consecutive non-label characters
+				start := col
+				for col < width && labelGrid[row][col] == 0 {
+					col++
+				}
+				if row == 0 {
+					// row above chart - just spaces
+					rowBuilder.WriteString(strings.Repeat(" ", col-start))
+				} else {
+					// chart row - braille with color
+					rowBuilder.WriteString(lineStyle.Render(string(brailleRunes[start:col])))
+				}
+			}
+		}
+		result[row] = rowBuilder.String()
+	}
+
+	return strings.Join(result, "\n")
 }

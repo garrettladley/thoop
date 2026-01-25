@@ -14,19 +14,23 @@ import (
 
 // DualLineChart renders two line series overlaid on the same chart.
 type DualLineChart struct {
-	series1    []DataPoint
-	series2    []DataPoint
-	series1Lbl string
-	series2Lbl string
-	color1     color.Color
-	color2     color.Color
-	height     int
-	minValue   float64
-	maxValue   float64
-	formatter  ValueFormatter
-	showAxis   bool
-	showLegend bool
-	showDots   bool
+	series1        []DataPoint
+	series2        []DataPoint
+	series1Lbl     string
+	series2Lbl     string
+	color1         color.Color
+	color2         color.Color
+	height         int
+	minValue       float64
+	maxValue       float64
+	autoScale      bool // auto-scale min/max from data
+	formatter      ValueFormatter
+	showAxis       bool
+	showLegend     bool
+	legendPosition LegendPosition
+	showDots       bool
+	showValues     bool // show value labels above data points
+	smoothness     int
 }
 
 // DualLineChartOption configures a DualLineChart.
@@ -97,6 +101,34 @@ func WithDualLineShowDots(show bool) DualLineChartOption {
 	}
 }
 
+// WithDualLineSmoothness sets the number of interpolation points between data points.
+func WithDualLineSmoothness(s int) DualLineChartOption {
+	return func(dlc *DualLineChart) {
+		dlc.smoothness = s
+	}
+}
+
+// WithDualLineAutoScale enables auto-scaling min/max from data with padding.
+func WithDualLineAutoScale(auto bool) DualLineChartOption {
+	return func(dlc *DualLineChart) {
+		dlc.autoScale = auto
+	}
+}
+
+// WithDualLineShowValues shows value labels above data points.
+func WithDualLineShowValues(show bool) DualLineChartOption {
+	return func(dlc *DualLineChart) {
+		dlc.showValues = show
+	}
+}
+
+// WithDualLineLegendPosition sets the legend position.
+func WithDualLineLegendPosition(pos LegendPosition) DualLineChartOption {
+	return func(dlc *DualLineChart) {
+		dlc.legendPosition = pos
+	}
+}
+
 // NewDualLineChart creates a new dual line chart.
 func NewDualLineChart(series1, series2 []DataPoint, opts ...DualLineChartOption) *DualLineChart {
 	dlc := &DualLineChart{
@@ -111,24 +143,48 @@ func NewDualLineChart(series1, series2 []DataPoint, opts ...DualLineChartOption)
 		showAxis:   true,
 		showLegend: true,
 		showDots:   true,
+		showValues: false,
+		smoothness: 8,
+		autoScale:  false,
 	}
 	for _, opt := range opts {
 		opt(dlc)
 	}
 
-	// Auto-detect min/max
-	if dlc.maxValue <= dlc.minValue {
+	// auto-detect min/max from data
+	if dlc.autoScale || dlc.maxValue <= dlc.minValue {
+		// find actual min and max from data
+		dataMin := float64(1e18)
+		dataMax := float64(-1e18)
 		for _, d := range dlc.series1 {
-			if d.Value > dlc.maxValue {
-				dlc.maxValue = d.Value
+			if d.Value < dataMin {
+				dataMin = d.Value
+			}
+			if d.Value > dataMax {
+				dataMax = d.Value
 			}
 		}
 		for _, d := range dlc.series2 {
-			if d.Value > dlc.maxValue {
-				dlc.maxValue = d.Value
+			if d.Value < dataMin {
+				dataMin = d.Value
+			}
+			if d.Value > dataMax {
+				dataMax = d.Value
 			}
 		}
-		if dlc.maxValue <= 0 {
+
+		if dataMax > dataMin {
+			// add 10% padding above and below
+			padding := (dataMax - dataMin) * 0.1
+			if dlc.autoScale {
+				dlc.minValue = dataMin - padding
+				dlc.maxValue = dataMax + padding
+			} else {
+				// only set max if not already set
+				dlc.maxValue = dataMax + padding
+			}
+		} else {
+			dlc.minValue = 0
 			dlc.maxValue = 100
 		}
 	}
@@ -144,6 +200,23 @@ func (dlc *DualLineChart) Render(width int) string {
 
 	var sections []string
 
+	if dlc.showLegend && dlc.legendPosition == LegendTopRight {
+		items := []LegendItem{
+			{Label: dlc.series1Lbl, Color: dlc.color1},
+			{Label: dlc.series2Lbl, Color: dlc.color2},
+		}
+		legend := NewLegend(items)
+		legendStr := legend.Render()
+		legendWidth := lipgloss.Width(legendStr)
+		padding := width - legendWidth
+		if padding > 0 {
+			sections = append(sections, strings.Repeat(" ", padding)+legendStr)
+		} else {
+			sections = append(sections, legendStr)
+		}
+		sections = append(sections, "")
+	}
+
 	// determine the number of points (use the longer series)
 	numPoints := max(len(dlc.series1), len(dlc.series2))
 
@@ -154,16 +227,24 @@ func (dlc *DualLineChart) Render(width int) string {
 	// create canvas for series 1
 	canvas1 := drawille.NewCanvas()
 	normalized1 := normalizeDataPoints(dlc.series1, dlc.minValue, dlc.maxValue)
-	drawLineOnCanvas(&canvas1, normalized1, dotsWidth, dotsHeight, numPoints, dlc.showDots)
+	drawLineOnCanvas(&canvas1, normalized1, dotsWidth, dotsHeight, numPoints, dlc.showDots, dlc.smoothness)
 
 	// create canvas for series 2
 	canvas2 := drawille.NewCanvas()
 	normalized2 := normalizeDataPoints(dlc.series2, dlc.minValue, dlc.maxValue)
-	drawLineOnCanvas(&canvas2, normalized2, dotsWidth, dotsHeight, numPoints, dlc.showDots)
+	drawLineOnCanvas(&canvas2, normalized2, dotsWidth, dotsHeight, numPoints, dlc.showDots, dlc.smoothness)
 
 	// render both canvases and combine with colors
 	str1 := getCanvasString(&canvas1, dotsWidth, dotsHeight)
 	str2 := getCanvasString(&canvas2, dotsWidth, dotsHeight)
+
+	// value labels above the chart (two rows - one for each series)
+	if dlc.showValues {
+		label1Row := dlc.renderValueRow(dlc.series1, width, numPoints, dlc.color1)
+		label2Row := dlc.renderValueRow(dlc.series2, width, numPoints, dlc.color2)
+		sections = append(sections, label1Row)
+		sections = append(sections, label2Row)
+	}
 
 	combined := overlayLines(str1, str2, dlc.color1, dlc.color2)
 	sections = append(sections, combined)
@@ -183,8 +264,7 @@ func (dlc *DualLineChart) Render(width int) string {
 		sections = append(sections, axis.Render())
 	}
 
-	// legend
-	if dlc.showLegend {
+	if dlc.showLegend && dlc.legendPosition == LegendBottom {
 		items := []LegendItem{
 			{Label: dlc.series1Lbl, Color: dlc.color1},
 			{Label: dlc.series2Lbl, Color: dlc.color2},
@@ -195,6 +275,52 @@ func (dlc *DualLineChart) Render(width int) string {
 	}
 
 	return strings.Join(sections, "\n")
+}
+
+// renderValueRow renders a single row of value labels for a series.
+func (dlc *DualLineChart) renderValueRow(data []DataPoint, width, numPoints int, clr color.Color) string {
+	if len(data) == 0 {
+		return strings.Repeat(" ", width)
+	}
+
+	// calculate X positions matching the line renderer
+	dotsWidth := width * 2
+	var xStep float64
+	if numPoints == 1 {
+		xStep = 0
+	} else {
+		xStep = float64(dotsWidth-1) / float64(numPoints-1)
+	}
+
+	row := make([]rune, width)
+	for i := range row {
+		row[i] = ' '
+	}
+
+	for i, d := range data {
+		valueStr := dlc.formatter(d.Value)
+
+		dotX := int(float64(i) * xStep)
+		charX := dotX / 2
+
+		// center the label around charX
+		startX := charX - len(valueStr)/2
+		if startX < 0 {
+			startX = 0
+		}
+		if startX+len(valueStr) > width {
+			startX = width - len(valueStr)
+		}
+
+		for j, r := range valueStr {
+			if startX+j >= 0 && startX+j < width {
+				row[startX+j] = r
+			}
+		}
+	}
+
+	style := lipgloss.NewStyle().Foreground(clr)
+	return style.Render(string(row))
 }
 
 // normalizeDataPoints normalizes data points to [0, 1] range.
@@ -217,7 +343,7 @@ func normalizeDataPoints(data []DataPoint, minVal, maxVal float64) []float64 {
 }
 
 // drawLineOnCanvas draws a line on a braille canvas.
-func drawLineOnCanvas(canvas *drawille.Canvas, points []float64, dotsWidth, dotsHeight, totalPoints int, showDots bool) {
+func drawLineOnCanvas(canvas *drawille.Canvas, points []float64, dotsWidth, dotsHeight, totalPoints int, showDots bool, smoothness int) {
 	if len(points) == 0 {
 		return
 	}
@@ -228,17 +354,30 @@ func drawLineOnCanvas(canvas *drawille.Canvas, points []float64, dotsWidth, dots
 		xStep = 0
 	}
 
-	// draw lines
-	for i := 0; i < len(points)-1; i++ {
-		x1 := int(float64(i) * xStep)
-		y1 := int((1 - points[i]) * float64(dotsHeight-1))
-		x2 := int(float64(i+1) * xStep)
-		y2 := int((1 - points[i+1]) * float64(dotsHeight-1))
+	// generate interpolated points for smooth curves
+	var interpolatedPoints [][2]float64
+	if smoothness > 0 && len(points) > 1 {
+		interpolatedPoints = interpolateLinePoints(points, dotsHeight, xStep, smoothness)
+	} else {
+		// no interpolation, just use original points
+		for i, p := range points {
+			x := float64(i) * xStep
+			y := (1 - p) * float64(dotsHeight-1)
+			interpolatedPoints = append(interpolatedPoints, [2]float64{x, y})
+		}
+	}
+
+	// draw lines between interpolated points
+	for i := 0; i < len(interpolatedPoints)-1; i++ {
+		x1 := int(interpolatedPoints[i][0])
+		y1 := int(interpolatedPoints[i][1])
+		x2 := int(interpolatedPoints[i+1][0])
+		y2 := int(interpolatedPoints[i+1][1])
 
 		drawBresenhamLine(canvas, x1, y1, x2, y2, 1)
 	}
 
-	// draw dots
+	// draw dots at original data points
 	if showDots {
 		for i, p := range points {
 			x := int(float64(i) * xStep)
@@ -254,6 +393,52 @@ func drawLineOnCanvas(canvas *drawille.Canvas, points []float64, dotsWidth, dots
 			}
 		}
 	}
+}
+
+// interpolateLinePoints generates smooth curve points using Catmull-Rom spline interpolation.
+func interpolateLinePoints(points []float64, dotsHeight int, xStep float64, smoothness int) [][2]float64 {
+	n := len(points)
+	var result [][2]float64
+
+	for i := 0; i < n-1; i++ {
+		// get 4 control points for Catmull-Rom (p0, p1, p2, p3)
+		p0 := points[max(0, i-1)]
+		p1 := points[i]
+		p2 := points[i+1]
+		p3 := points[min(n-1, i+2)]
+
+		x0 := float64(max(0, i-1)) * xStep
+		x1 := float64(i) * xStep
+		x2 := float64(i+1) * xStep
+		x3 := float64(min(n-1, i+2)) * xStep
+
+		// convert y values to canvas coordinates
+		y0 := (1 - p0) * float64(dotsHeight-1)
+		y1 := (1 - p1) * float64(dotsHeight-1)
+		y2 := (1 - p2) * float64(dotsHeight-1)
+		y3 := (1 - p3) * float64(dotsHeight-1)
+
+		// generate interpolated points along this segment
+		for j := 0; j <= smoothness; j++ {
+			t := float64(j) / float64(smoothness)
+
+			// catmull-Rom spline formula
+			x := catmullRom(x0, x1, x2, x3, t)
+			y := catmullRom(y0, y1, y2, y3, t)
+
+			// clamp y to valid range
+			if y < 0 {
+				y = 0
+			}
+			if y > float64(dotsHeight-1) {
+				y = float64(dotsHeight - 1)
+			}
+
+			result = append(result, [2]float64{x, y})
+		}
+	}
+
+	return result
 }
 
 const emptyBraille rune = '\u2800'

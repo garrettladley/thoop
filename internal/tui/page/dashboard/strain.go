@@ -2,14 +2,18 @@ package dashboard
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/tui/components/chart"
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
 	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
 	"github.com/garrettladley/thoop/internal/tui/components/viewport"
 	"github.com/garrettladley/thoop/internal/tui/theme"
+	"github.com/garrettladley/thoop/internal/units"
 )
 
 func RenderStrainDetail(state State, width, height int) string {
@@ -22,13 +26,19 @@ func RenderStrainDetail(state State, width, height int) string {
 
 	gaugeStr := strainGauge.Render()
 
-	metricsWidth := 40
+	metricsWidth := 56
 	metrics := renderStrainMetrics(state, metricsWidth)
 
 	var contentParts []string
 	contentParts = append(contentParts, gaugeStr)
 	contentParts = append(contentParts, "", "")
 	contentParts = append(contentParts, metrics)
+
+	activitiesSection := renderTodaysActivities(state.TodaysWorkouts, metricsWidth)
+	if activitiesSection != "" {
+		contentParts = append(contentParts, "", "", "")
+		contentParts = append(contentParts, activitiesSection)
+	}
 
 	chartsSection := renderStrainCharts(state, metricsWidth)
 	if chartsSection != "" {
@@ -78,20 +88,21 @@ func renderStrainMetrics(state State, width int) string {
 			width,
 			metric_row.WithDirection(strainDirection),
 			metric_row.WithSubValue(formatAvg(strainAvg, "%.1f")),
+			metric_row.WithLabelColor(theme.ColorWhite),
 		)
 		rows = append(rows, strainRow.Render())
 		rows = append(rows, "")
 
-		const kjPerKcal = 4.184
-		calories := score.Kilojoule / kjPerKcal
+		calories := units.KilojoulesToCalories(score.Kilojoule)
 		caloriesAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.Calories })
 		caloriesDirection := getDirectionHigherBetter(calories, caloriesAvg)
 		caloriesRow := metric_row.New(
 			"Calories",
-			fmt.Sprintf("%.0f", calories),
+			units.FormatWithCommas(calories),
 			width,
 			metric_row.WithDirection(caloriesDirection),
-			metric_row.WithSubValue(formatAvg(caloriesAvg, "%.0f")),
+			metric_row.WithSubValue(formatAvgWithCommas(caloriesAvg)),
+			metric_row.WithLabelColor(theme.ColorWhite),
 		)
 		rows = append(rows, caloriesRow.Render())
 		rows = append(rows, "")
@@ -105,6 +116,7 @@ func renderStrainMetrics(state State, width int) string {
 			width,
 			metric_row.WithDirection(avgHRDirection),
 			metric_row.WithSubValue(formatAvg(avgHRAvg, "%.0f")),
+			metric_row.WithLabelColor(theme.ColorWhite),
 		)
 		rows = append(rows, avgHRRow.Render())
 		rows = append(rows, "")
@@ -118,6 +130,7 @@ func renderStrainMetrics(state State, width int) string {
 			width,
 			metric_row.WithDirection(maxHRDirection),
 			metric_row.WithSubValue(formatAvg(maxHRAvg, "%.0f")),
+			metric_row.WithLabelColor(theme.ColorWhite),
 		)
 		rows = append(rows, maxHRRow.Render())
 		rows = append(rows, "")
@@ -143,11 +156,14 @@ func renderStrainCharts(state State, width int) string {
 		Foreground(theme.ColorWhite).
 		Bold(true)
 
+	weeklyTrendsTitle := titleStyle.Width(width).Render("WEEKLY TRENDS")
+
 	var sections []string
-	sections = append(sections, titleStyle.Render("WEEKLY STRAIN"))
+	sections = append(sections, weeklyTrendsTitle)
+	sections = append(sections, "", "")
+	sections = append(sections, titleStyle.Render("STRAIN"))
 	sections = append(sections, "")
 
-	// Build strain bar chart data
 	var strainData []chart.DataPoint
 	for i := len(state.HistoricalCycles) - 1; i >= 0 && len(strainData) < 7; i-- {
 		c := state.HistoricalCycles[i]
@@ -158,10 +174,6 @@ func renderStrainCharts(state State, width int) string {
 			Label: c.Start.Format("Mon\n2"),
 			Value: c.Score.Strain,
 		})
-	}
-
-	for i, j := 0, len(strainData)-1; i < j; i, j = i+1, j-1 {
-		strainData[i], strainData[j] = strainData[j], strainData[i]
 	}
 
 	if len(strainData) > 0 {
@@ -177,11 +189,10 @@ func renderStrainCharts(state State, width int) string {
 
 	sections = append(sections, "")
 	sections = append(sections, "")
-	sections = append(sections, titleStyle.Render("CALORIES BURNED"))
+	sections = append(sections, titleStyle.Render("CALORIES"))
 	sections = append(sections, "")
 
 	var caloriesData []chart.DataPoint
-	const kjPerKcal = 4.184
 	for i := len(state.HistoricalCycles) - 1; i >= 0 && len(caloriesData) < 7; i-- {
 		c := state.HistoricalCycles[i]
 		if c.Score == nil {
@@ -189,24 +200,92 @@ func renderStrainCharts(state State, width int) string {
 		}
 		caloriesData = append(caloriesData, chart.DataPoint{
 			Label: c.Start.Format("Mon\n2"),
-			Value: c.Score.Kilojoule / kjPerKcal,
+			Value: units.KilojoulesToCalories(c.Score.Kilojoule),
 		})
 	}
 
-	for i, j := 0, len(caloriesData)-1; i < j; i, j = i+1, j-1 {
-		caloriesData[i], caloriesData[j] = caloriesData[j], caloriesData[i]
-	}
-
 	if len(caloriesData) > 0 {
-		caloriesChart := chart.NewLineChart(caloriesData,
-			chart.WithLineChartColor(theme.ColorStrain),
-			chart.WithLineChartFormatter(chart.FormatInt),
-			chart.WithLineChartHeight(5),
-			chart.WithLineChartShowValues(true),
-			chart.WithLineChartShowDots(true),
+		caloriesChart := chart.NewBarChart(caloriesData,
+			chart.WithBarChartColorFunc(chart.StaticColor(theme.ColorStrain)),
+			chart.WithBarChartFormatter(chart.FormatIntWithCommas),
+			chart.WithBarChartHeight(6),
+			chart.WithBarChartShowValues(true),
 		)
 		sections = append(sections, caloriesChart.Render(width))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+}
+
+func renderTodaysActivities(workouts []whoop.Workout, width int) string {
+	if len(workouts) == 0 {
+		return ""
+	}
+
+	titleStyle := lipgloss.NewStyle().
+		Foreground(theme.ColorWhite).
+		Bold(true)
+
+	var sections []string
+	sections = append(sections, titleStyle.Render("TODAY'S ACTIVITIES"))
+	sections = append(sections, "")
+
+	for _, w := range workouts {
+		activityRow := renderActivityRow(w, width)
+		sections = append(sections, activityRow)
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+}
+
+func renderActivityRow(w whoop.Workout, width int) string {
+	var strainStr string
+	if w.Score != nil {
+		strainStr = fmt.Sprintf("%.1f", w.Score.Strain)
+	} else {
+		strainStr = "--"
+	}
+
+	badgeStyle := lipgloss.NewStyle().
+		Background(theme.ColorStrain).
+		Foreground(theme.ColorWhite).
+		Bold(true).
+		Padding(0, 1)
+
+	badge := badgeStyle.Render(strainStr)
+
+	nameStyle := lipgloss.NewStyle().
+		Foreground(theme.ColorWhite).
+		Bold(true).
+		MarginLeft(2)
+
+	name := nameStyle.Render(strings.ToUpper(w.SportName))
+
+	timeRange := formatTimeRange(w.Start, w.End)
+	timeStyle := lipgloss.NewStyle().
+		Foreground(theme.ColorDim)
+
+	leftContent := lipgloss.JoinHorizontal(lipgloss.Center, badge, name)
+	leftWidth := lipgloss.Width(leftContent)
+	timeWidth := lipgloss.Width(timeRange)
+	spacing := width - leftWidth - timeWidth
+	if spacing < 2 {
+		spacing = 2
+	}
+
+	spacer := strings.Repeat(" ", spacing)
+
+	return leftContent + spacer + timeStyle.Render(timeRange)
+}
+
+func formatTimeRange(start, end time.Time) string {
+	const timeFormat = "3:04 PM"
+	return fmt.Sprintf("%s - %s", start.Local().Format(timeFormat), end.Local().Format(timeFormat))
+}
+
+func formatAvgWithCommas(avg float64) string {
+	if avg == 0 {
+		return ""
+	}
+	return units.FormatWithCommas(avg)
 }

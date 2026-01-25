@@ -12,12 +12,13 @@ import (
 
 // Line renders a line using braille characters.
 type Line struct {
-	points    []float64   // normalized values [0, 1]
-	width     int         // width in characters
-	height    int         // height in characters
-	color     color.Color // line color
-	showDots  bool        // show dots at data points
-	lineWidth int         // line thickness in braille dots
+	points     []float64   // normalized values [0, 1]
+	width      int         // width in characters
+	height     int         // height in characters
+	color      color.Color // line color
+	showDots   bool        // show dots at data points
+	lineWidth  int         // line thickness in braille dots
+	smoothness int         // interpolation points between data points (0 = straight lines)
 }
 
 // LineOption configures a Line.
@@ -51,14 +52,23 @@ func WithLineWidth(w int) LineOption {
 	}
 }
 
+// WithLineSmoothness sets the number of interpolation points between data points.
+// Higher values create smoother curves. 0 = straight lines (default: 8).
+func WithLineSmoothness(s int) LineOption {
+	return func(l *Line) {
+		l.smoothness = s
+	}
+}
+
 // NewLine creates a new line renderer.
 func NewLine(points []float64, width int, opts ...LineOption) *Line {
 	l := &Line{
-		points:    points,
-		width:     width,
-		height:    6,
-		showDots:  true,
-		lineWidth: 1,
+		points:     points,
+		width:      width,
+		height:     6,
+		showDots:   true,
+		lineWidth:  1,
+		smoothness: 8, // default interpolation for smooth curves
 	}
 	for _, opt := range opts {
 		opt(l)
@@ -68,6 +78,23 @@ func NewLine(points []float64, width int, opts ...LineOption) *Line {
 
 // Render renders the line using braille characters.
 func (l *Line) Render() string {
+	result := l.RenderUncolored()
+
+	// apply color
+	if l.color != nil {
+		style := lipgloss.NewStyle().Foreground(l.color)
+		lines := strings.Split(result, "\n")
+		for i, line := range lines {
+			lines[i] = style.Render(line)
+		}
+		result = strings.Join(lines, "\n")
+	}
+
+	return result
+}
+
+// RenderUncolored renders the line without color styling.
+func (l *Line) RenderUncolored() string {
 	if len(l.points) == 0 || l.width <= 0 || l.height <= 0 {
 		return ""
 	}
@@ -84,17 +111,30 @@ func (l *Line) Render() string {
 		xStep = 0
 	}
 
-	// draw lines between points using Bresenham's algorithm
-	for i := 0; i < len(l.points)-1; i++ {
-		x1 := int(float64(i) * xStep)
-		y1 := int((1 - l.points[i]) * float64(dotsHeight-1))
-		x2 := int(float64(i+1) * xStep)
-		y2 := int((1 - l.points[i+1]) * float64(dotsHeight-1))
+	// generate interpolated points for smooth curves
+	var interpolatedPoints [][2]float64
+	if l.smoothness > 0 && len(l.points) > 1 {
+		interpolatedPoints = l.interpolatePoints(dotsWidth, dotsHeight, xStep)
+	} else {
+		// no interpolation, just use original points
+		for i, p := range l.points {
+			x := float64(i) * xStep
+			y := (1 - p) * float64(dotsHeight-1)
+			interpolatedPoints = append(interpolatedPoints, [2]float64{x, y})
+		}
+	}
+
+	// draw lines between interpolated points
+	for i := 0; i < len(interpolatedPoints)-1; i++ {
+		x1 := int(interpolatedPoints[i][0])
+		y1 := int(interpolatedPoints[i][1])
+		x2 := int(interpolatedPoints[i+1][0])
+		y2 := int(interpolatedPoints[i+1][1])
 
 		drawBresenhamLine(&canvas, x1, y1, x2, y2, l.lineWidth)
 	}
 
-	// draw dots at data points if enabled
+	// draw dots at original data points if enabled
 	if l.showDots {
 		for i, p := range l.points {
 			x := int(float64(i) * xStep)
@@ -112,20 +152,65 @@ func (l *Line) Render() string {
 		}
 	}
 
-	// extract canvas as string
-	result := getCanvasString(&canvas, dotsWidth, dotsHeight)
+	return getCanvasString(&canvas, dotsWidth, dotsHeight)
+}
 
-	// apply color
-	if l.color != nil {
-		style := lipgloss.NewStyle().Foreground(l.color)
-		lines := strings.Split(result, "\n")
-		for i, line := range lines {
-			lines[i] = style.Render(line)
+// interpolatePoints generates smooth curve points using Catmull-Rom spline interpolation.
+func (l *Line) interpolatePoints(_, dotsHeight int, xStep float64) [][2]float64 {
+	points := l.points
+	n := len(points)
+	var result [][2]float64
+
+	for i := 0; i < n-1; i++ {
+		// get 4 control points for Catmull-Rom (p0, p1, p2, p3)
+		// p1 and p2 are the segment endpoints
+		p0 := points[max(0, i-1)]
+		p1 := points[i]
+		p2 := points[i+1]
+		p3 := points[min(n-1, i+2)]
+
+		x0 := float64(max(0, i-1)) * xStep
+		x1 := float64(i) * xStep
+		x2 := float64(i+1) * xStep
+		x3 := float64(min(n-1, i+2)) * xStep
+
+		// convert y values to canvas coordinates
+		y0 := (1 - p0) * float64(dotsHeight-1)
+		y1 := (1 - p1) * float64(dotsHeight-1)
+		y2 := (1 - p2) * float64(dotsHeight-1)
+		y3 := (1 - p3) * float64(dotsHeight-1)
+
+		// generate interpolated points along this segment
+		for j := 0; j <= l.smoothness; j++ {
+			t := float64(j) / float64(l.smoothness)
+
+			// catmull-Rom spline formula
+			x := catmullRom(x0, x1, x2, x3, t)
+			y := catmullRom(y0, y1, y2, y3, t)
+
+			// clamp y to valid range
+			if y < 0 {
+				y = 0
+			}
+			if y > float64(dotsHeight-1) {
+				y = float64(dotsHeight - 1)
+			}
+
+			result = append(result, [2]float64{x, y})
 		}
-		result = strings.Join(lines, "\n")
 	}
 
 	return result
+}
+
+// catmullRom computes a point on a Catmull-Rom spline.
+func catmullRom(p0, p1, p2, p3, t float64) float64 {
+	t2 := t * t
+	t3 := t2 * t
+	return 0.5 * ((2 * p1) +
+		(-p0+p2)*t +
+		(2*p0-5*p1+4*p2-p3)*t2 +
+		(-p0+3*p1-3*p2+p3)*t3)
 }
 
 // drawBresenhamLine draws a line using Bresenham's algorithm.

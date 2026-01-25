@@ -22,7 +22,7 @@ func RenderRecoveryDetail(state State, width, height int) string {
 
 	gaugeStr := recoveryGauge.Render()
 
-	metricsWidth := 40
+	metricsWidth := 56
 	metrics := renderRecoveryMetrics(state, metricsWidth)
 
 	var contentParts []string
@@ -80,6 +80,7 @@ func renderRecoveryMetrics(state State, width int) string {
 			width,
 			metric_row.WithDirection(hrvDirection),
 			metric_row.WithSubValue(formatAvg(hrvAvg, "%.0f")),
+			metric_row.WithLabelColor(theme.ColorWhite),
 		)
 		rows = append(rows, hrvRow.Render())
 		rows = append(rows, "")
@@ -92,6 +93,7 @@ func renderRecoveryMetrics(state State, width int) string {
 			width,
 			metric_row.WithDirection(rhrDirection),
 			metric_row.WithSubValue(formatAvg(rhrAvg, "%.0f")),
+			metric_row.WithLabelColor(theme.ColorWhite),
 		)
 		rows = append(rows, rhrRow.Render())
 		rows = append(rows, "")
@@ -106,6 +108,7 @@ func renderRecoveryMetrics(state State, width int) string {
 				width,
 				metric_row.WithDirection(respDirection),
 				metric_row.WithSubValue(formatAvg(respAvg, "%.1f")),
+				metric_row.WithLabelColor(theme.ColorWhite),
 			)
 			rows = append(rows, respRow.Render())
 			rows = append(rows, "")
@@ -120,6 +123,7 @@ func renderRecoveryMetrics(state State, width int) string {
 				metric_row.WithDirection(sleepDirection),
 				metric_row.WithSubValue(formatAvg(sleepAvg, "%.0f")),
 				metric_row.WithUnit("%"),
+				metric_row.WithLabelColor(theme.ColorWhite),
 			)
 			rows = append(rows, sleepRow.Render())
 			rows = append(rows, "")
@@ -146,8 +150,13 @@ func renderRecoveryCharts(state State, width int) string {
 		Foreground(theme.ColorWhite).
 		Bold(true)
 
+	// make WEEKLY TRENDS full width so it left-aligns properly
+	weeklyTrendsTitle := titleStyle.Width(width).Render("WEEKLY TRENDS")
+
 	var sections []string
-	sections = append(sections, titleStyle.Render("WEEKLY RECOVERY"))
+	sections = append(sections, weeklyTrendsTitle)
+	sections = append(sections, "", "")
+	sections = append(sections, titleStyle.Render("RECOVERY"))
 	sections = append(sections, "")
 
 	var recoveryData []chart.DataPoint
@@ -160,10 +169,6 @@ func renderRecoveryCharts(state State, width int) string {
 			Label: r.CreatedAt.Format("Mon\n2"),
 			Value: r.Score.RecoveryScore,
 		})
-	}
-
-	for i, j := 0, len(recoveryData)-1; i < j; i, j = i+1, j-1 {
-		recoveryData[i], recoveryData[j] = recoveryData[j], recoveryData[i]
 	}
 
 	if len(recoveryData) > 0 {
@@ -195,11 +200,6 @@ func renderRecoveryCharts(state State, width int) string {
 		})
 	}
 
-	// reverse for chronological order
-	for i, j := 0, len(hrvData)-1; i < j; i, j = i+1, j-1 {
-		hrvData[i], hrvData[j] = hrvData[j], hrvData[i]
-	}
-
 	if len(hrvData) > 0 {
 		hrvChart := chart.NewLineChart(hrvData,
 			chart.WithLineChartColor(theme.ColorRecoveryBlue),
@@ -211,14 +211,99 @@ func renderRecoveryCharts(state State, width int) string {
 		sections = append(sections, hrvChart.Render(width))
 	}
 
+	sections = append(sections, "")
+	sections = append(sections, "")
+	sections = append(sections, titleStyle.Render("RESTING HEART RATE"))
+	sections = append(sections, "")
+
+	var rhrData []chart.DataPoint
+	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(rhrData) < 7; i-- {
+		r := state.HistoricalRecoveries[i]
+		if r.Score == nil {
+			continue
+		}
+		rhrData = append(rhrData, chart.DataPoint{
+			Label: r.CreatedAt.Format("Mon\n2"),
+			Value: r.Score.RestingHeartRate,
+		})
+	}
+
+	if len(rhrData) > 0 {
+		rhrChart := chart.NewLineChart(rhrData,
+			chart.WithLineChartColor(theme.ColorRecoveryBlue),
+			chart.WithLineChartFormatter(chart.FormatInt),
+			chart.WithLineChartHeight(5),
+			chart.WithLineChartShowValues(true),
+			chart.WithLineChartShowDots(true),
+		)
+		sections = append(sections, rhrChart.Render(width))
+	}
+
+	sections = append(sections, "")
+	sections = append(sections, "")
+	sections = append(sections, titleStyle.Render("RESPIRATORY RATE"))
+	sections = append(sections, "")
+
+	var respData []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(respData) < 7; i-- {
+		s := state.HistoricalSleeps[i]
+		if s.Nap || s.Score == nil {
+			continue
+		}
+		respData = append(respData, chart.DataPoint{
+			Label: s.CreatedAt.Format("Mon\n2"),
+			Value: s.Score.RespiratoryRate,
+		})
+	}
+
+	if len(respData) > 0 {
+		respChart := chart.NewLineChart(respData,
+			chart.WithLineChartColor(theme.ColorRecoveryBlue),
+			chart.WithLineChartFormatter(chart.FormatFloat1),
+			chart.WithLineChartHeight(5),
+			chart.WithLineChartShowValues(true),
+			chart.WithLineChartShowDots(true),
+		)
+		sections = append(sections, respChart.Render(width))
+	}
+
+	sections = append(sections, "")
+	sections = append(sections, "")
+	sections = append(sections, titleStyle.Render("SLEEP PERFORMANCE"))
+	sections = append(sections, "")
+
+	var sleepPerfData []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(sleepPerfData) < 7; i-- {
+		s := state.HistoricalSleeps[i]
+		if s.Nap || s.Score == nil {
+			continue
+		}
+		sleepPerfData = append(sleepPerfData, chart.DataPoint{
+			Label: s.CreatedAt.Format("Mon\n2"),
+			Value: s.Score.SleepPerformancePercentage,
+		})
+	}
+
+	if len(sleepPerfData) > 0 {
+		sleepPerfChart := chart.NewBarChart(sleepPerfData,
+			chart.WithBarChartColorFunc(chart.SleepPerformanceColor),
+			chart.WithBarChartFormatter(chart.FormatPercentage),
+			chart.WithBarChartMax(100),
+			chart.WithBarChartHeight(6),
+			chart.WithBarChartShowValues(true),
+		)
+		sections = append(sections, sleepPerfChart.Render(width))
+	}
+
 	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
 
 func renderComparisonLegend() string {
 	upArrow := lipgloss.NewStyle().Foreground(theme.ColorTeal).Render("▲")
 	downArrow := lipgloss.NewStyle().Foreground(theme.ColorOrange).Render("▼")
-	text := lipgloss.NewStyle().Foreground(theme.ColorDim).Render(" Today vs. last 30 days")
-	return upArrow + downArrow + text
+	today := lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(" Today")
+	rest := lipgloss.NewStyle().Foreground(theme.ColorDim).Render(" vs. last 30 days")
+	return upArrow + downArrow + today + rest
 }
 
 func getAvgValue(averages *ThirtyDayAverages, getAvg func(*ThirtyDayAverages) float64) float64 {
