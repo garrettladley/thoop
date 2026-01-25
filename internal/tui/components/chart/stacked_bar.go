@@ -31,7 +31,6 @@ type StackedBarChart struct {
 	barWidth       int
 	barGap         int
 	bgColor        color.Color
-	showSegTotal   bool // show total value above bars
 }
 
 // StackedBarChartOption configures a StackedBarChart.
