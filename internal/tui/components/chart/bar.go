@@ -84,6 +84,10 @@ func (b *Bar) Render() string {
 	currentUnit := 0
 	for _, seg := range b.segments {
 		units := int(seg.Value * float64(totalUnits))
+		// ensure positive values render at least the smallest block
+		if seg.Value > 0 && units == 0 {
+			units = 1
+		}
 		if units > 0 {
 			ranges = append(ranges, segmentRange{
 				startUnit: currentUnit,
