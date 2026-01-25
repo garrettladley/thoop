@@ -8,7 +8,7 @@ import (
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/tui/components/auth"
-	"github.com/garrettladley/thoop/internal/tui/components/dateheader"
+	"github.com/garrettladley/thoop/internal/tui/components/date_header"
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
@@ -111,7 +111,7 @@ func (s *State) ClearPendingRecovery() {
 }
 
 func View(state State, width, height int) string {
-	dateHeader := dateheader.Render(state.SelectedDate, width)
+	dateHeader := date_header.Render(state.SelectedDate, width)
 	dateHeaderHeight := lipgloss.Height(dateHeader)
 	contentHeight := height - dateHeaderHeight
 
@@ -131,23 +131,31 @@ func View(state State, width, height int) string {
 }
 
 func renderOverview(state State, width, height int) string {
+	// Only show values when all data is ready
+	var sleepScore, recoveryScore, strainScore *float64
+	if state.DataReady() {
+		sleepScore = state.SleepScore
+		recoveryScore = state.RecoveryScore
+		strainScore = state.StrainScore
+	}
+
 	var (
 		sleepGauge = gauge.New(
-			state.SleepScore,
+			sleepScore,
 			100,
 			"SLEEP",
 			theme.ColorSleep,
 		)
 
 		recoveryGauge = gauge.New(
-			state.RecoveryScore,
+			recoveryScore,
 			100,
 			"RECOVERY",
-			recoveryColor(state.RecoveryScore),
+			recoveryColor(recoveryScore),
 		)
 
 		strainGauge = gauge.New(
-			state.StrainScore,
+			strainScore,
 			21,
 			"STRAIN",
 			theme.ColorStrain,

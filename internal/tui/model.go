@@ -18,6 +18,7 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/theme"
 	"github.com/garrettladley/thoop/internal/xslices"
 	"github.com/garrettladley/thoop/internal/xslog"
+	"github.com/garrettladley/thoop/internal/xtime"
 )
 
 var _ tea.Model = (*Model)(nil)
@@ -246,14 +247,12 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
 			// Go forward one day only if not already at today
 			current := m.state.dashboard.EffectiveDate()
-			today := time.Now().Truncate(24 * time.Hour)
-			currentDay := current.Truncate(24 * time.Hour)
+			now := time.Now()
 
-			if currentDay.Before(today) {
+			if xtime.BeforeDay(current, now) {
 				newDate := current.AddDate(0, 0, 1)
-				newDay := newDate.Truncate(24 * time.Hour)
-				if newDay.Equal(today) || newDay.After(today) {
-					// Reached today, set to nil (today mode)
+				if xtime.SameDay(newDate, now) {
+					// reached today, set to nil (today mode)
 					return m, m.handleDateChange(nil)
 				}
 				return m, m.handleDateChange(&newDate)

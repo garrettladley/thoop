@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
+	"github.com/garrettladley/thoop/internal/xtime"
 )
 
 // DateChangedMsg signals that the selected date has changed.
@@ -38,7 +39,7 @@ func FetchCycleForDateCmd(ctx context.Context, client *whoop.Client, referenceDa
 		defer cancel()
 
 		// query cycles that span the reference date
-		start := referenceDate.Truncate(24 * time.Hour)
+		start := xtime.StartOfDay(referenceDate)
 		end := start.Add(24 * time.Hour)
 
 		cycles, err := client.Cycle.List(ctx, &whoop.ListParams{
@@ -118,8 +119,7 @@ func FetchWorkoutsForDateCmd(ctx context.Context, client *whoop.Client, cycleSta
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
-		// end of the reference date (to capture all workouts on that day)
-		endOfDay := referenceDate.Truncate(24 * time.Hour).Add(24 * time.Hour)
+		endOfDay := xtime.StartOfDay(referenceDate).Add(24 * time.Hour)
 		resp, err := client.Workout.List(ctx, &whoop.ListParams{
 			Start: &cycleStart,
 			End:   &endOfDay,
@@ -156,7 +156,7 @@ func FetchHistoricalDataForDateCmd(ctx context.Context, client *whoop.Client, re
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 
-		endOfDay := referenceDate.Truncate(24 * time.Hour).Add(24 * time.Hour)
+		endOfDay := xtime.StartOfDay(referenceDate).Add(24 * time.Hour)
 		thirtyDaysAgo := endOfDay.AddDate(0, 0, -30)
 
 		var (
