@@ -2,11 +2,13 @@ package dashboard
 
 import (
 	"image/color"
+	"time"
 
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/tui/components/auth"
+	"github.com/garrettladley/thoop/internal/tui/components/dateheader"
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
@@ -50,6 +52,9 @@ type State struct {
 	AuthIndicator auth.Indicator
 	ActiveTab     Tab
 
+	// selectedDate is the currently viewed date; nil means "today"
+	SelectedDate *time.Time
+
 	CycleID       int64
 	SleepScore    *float64 // 0-100%
 	RecoveryScore *float64 // 0-100%
@@ -76,6 +81,14 @@ type State struct {
 	pendingRecovery bool
 }
 
+// EffectiveDate returns the selected date, or today if none is selected.
+func (s *State) EffectiveDate() time.Time {
+	if s.SelectedDate != nil {
+		return *s.SelectedDate
+	}
+	return time.Now()
+}
+
 func (s *State) Loading() bool {
 	return s.pendingSleep || s.pendingRecovery
 }
@@ -98,16 +111,23 @@ func (s *State) ClearPendingRecovery() {
 }
 
 func View(state State, width, height int) string {
+	dateHeader := dateheader.Render(state.SelectedDate, width)
+	dateHeaderHeight := lipgloss.Height(dateHeader)
+	contentHeight := height - dateHeaderHeight
+
+	var content string
 	switch state.ActiveTab {
 	case TabSleep:
-		return RenderSleepDetail(state, width, height)
+		content = RenderSleepDetail(state, width, contentHeight)
 	case TabRecovery:
-		return RenderRecoveryDetail(state, width, height)
+		content = RenderRecoveryDetail(state, width, contentHeight)
 	case TabStrain:
-		return RenderStrainDetail(state, width, height)
+		content = RenderStrainDetail(state, width, contentHeight)
 	default:
-		return renderOverview(state, width, height)
+		content = renderOverview(state, width, contentHeight)
 	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, dateHeader, content)
 }
 
 func renderOverview(state State, width, height int) string {
