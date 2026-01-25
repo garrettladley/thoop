@@ -80,7 +80,7 @@ type State struct {
 	CalendarMode        bool             // true when calendar is open
 	CalendarCursor      time.Time        // currently highlighted date in calendar
 	CalendarMonth       time.Time        // current month being viewed
-	CalendarRecoveries  []whoop.Recovery // recovery data for calendar coloring (30 days)
+	CalendarRecoveries  []whoop.Recovery // recovery data for calendar coloring (50 days)
 	CalendarLoading     bool             // true when fetching recovery data
 	CalendarSpinnerStep int              // current spinner animation frame
 
