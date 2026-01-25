@@ -131,7 +131,6 @@ func View(state State, width, height int) string {
 }
 
 func renderOverview(state State, width, height int) string {
-	// Only show values when all data is ready
 	var sleepScore, recoveryScore, strainScore *float64
 	if state.DataReady() {
 		sleepScore = state.SleepScore

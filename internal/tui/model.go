@@ -419,8 +419,8 @@ func (m *Model) startDashboardServices() tea.Cmd {
 
 func (m *Model) handleDateChange(date *time.Time) tea.Cmd {
 	m.state.dashboard.SelectedDate = date
+	m.state.dashboard.SetPending()
 
-	// Clear existing data to show loading state
 	m.state.dashboard.CurrentCycle = nil
 	m.state.dashboard.CurrentSleep = nil
 	m.state.dashboard.CurrentRecovery = nil

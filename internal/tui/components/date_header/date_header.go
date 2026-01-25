@@ -12,7 +12,7 @@ import (
 
 // Render renders the date header centered in the given width.
 // If selectedDate is nil or is today, displays "TODAY".
-// Otherwise displays the date as "Mon Jan 2".
+// Otherwise displays the date as "Mon, Jan 2".
 func Render(selectedDate *time.Time, width int) string {
 	var label string
 	if selectedDate == nil || xtime.IsToday(*selectedDate) {
