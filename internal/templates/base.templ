@@ -1,0 +1,49 @@
+package templates
+
+type PageVariant string
+
+const (
+	VariantSuccess PageVariant = "success"
+	VariantWarning PageVariant = "warning"
+	VariantError   PageVariant = "error"
+)
+
+// Card renders a centered card layout, typically used for OAuth callback pages.
+templ Card(title string, variant PageVariant) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<meta name="color-scheme" content="dark"/>
+			<meta name="theme-color" content="#101518"/>
+			<title>{ title }</title>
+			<style>*,*::before,*::after{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background-color:#101518;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e4e4e7;line-height:1.6;padding:1rem}.card{background-color:#283339;border-radius:12px;padding:2rem;max-width:480px;width:100%;text-align:center;animation:fadeIn .3s ease-out}@media(prefers-reduced-motion:reduce){.card{animation:none}}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}h1{margin:0 0 1rem;font-size:1.5rem;font-weight:600}.success h1{color:#00F19F}.warning h1{color:#F1AE45}.error h1{color:#FF0026}p{margin:0 0 1rem;color:#a1a1aa}p:last-child{margin-bottom:0}.code-block{position:relative;margin:1rem 0}pre{background-color:#1a2328;border-radius:8px;padding:1rem;padding-right:3rem;overflow-x:auto;margin:0;text-align:left}code{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Monaco,Consolas,monospace;font-size:.875rem;color:#e4e4e7}pre code{background:none;padding:0}.copy-btn{position:absolute;top:50%;right:.5rem;transform:translateY(-50%);background:0 0;border:none;border-radius:4px;padding:.375rem;cursor:pointer;color:#a1a1aa;display:flex;align-items:center;justify-content:center;transition:color .15s ease}.copy-btn:hover{color:#e4e4e7}.copy-btn:focus-visible{outline:2px solid #00F19F;outline-offset:2px}.copy-btn.copied{color:#00F19F}.copy-btn svg{width:18px;height:18px}a{color:#00F19F;text-decoration:none}a:hover{text-decoration:underline}a:focus-visible{outline:2px solid #00F19F;outline-offset:2px;border-radius:2px}</style>
+		</head>
+		<body>
+			<div class={ "card", string(variant) }>
+				{ children... }
+			</div>
+		</body>
+	</html>
+}
+
+// Document renders a document-style layout, typically used for content pages like privacy policy.
+templ Document(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<meta name="color-scheme" content="dark"/>
+			<meta name="theme-color" content="#101518"/>
+			<title>{ title } - thoop</title>
+			<style>*,*::before,*::after{box-sizing:border-box}body{margin:0;min-height:100vh;background-color:#101518;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e4e4e7;line-height:1.6;padding:2rem 1rem}.container{max-width:720px;margin:0 auto}h1{color:#fff;font-size:1.75rem;font-weight:600;margin:0 0 1.5rem;border-bottom:1px solid #283339;padding-bottom:1rem}h2{color:#e4e4e7;font-size:1.25rem;font-weight:600;margin:2rem 0 1rem}h3{color:#a1a1aa;font-size:1rem;font-weight:600;margin:1.5rem 0 0.75rem}p,ul,ol{margin:0 0 1rem;color:#a1a1aa}ul,ol{padding-left:1.5rem}li{margin-bottom:0.5rem}a{color:#00F19F;text-decoration:none}a:hover{text-decoration:underline}a:focus-visible{outline:2px solid #00F19F;outline-offset:2px;border-radius:2px}code{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Monaco,Consolas,monospace;font-size:.875rem;background:#1a2328;padding:0.125rem 0.375rem;border-radius:4px}strong{color:#e4e4e7}.last-updated{color:#71717a;font-size:.875rem;margin-bottom:2rem}</style>
+		</head>
+		<body>
+			<div class="container">
+				{ children... }
+			</div>
+		</body>
+	</html>
+}

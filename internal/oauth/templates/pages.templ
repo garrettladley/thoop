@@ -1,16 +1,19 @@
 package templates
 
-import "github.com/garrettladley/thoop/internal/oauth/templates/icons"
+import (
+	"github.com/garrettladley/thoop/internal/oauth/templates/icons"
+	"github.com/garrettladley/thoop/internal/templates"
+)
 
 templ Success() {
-	@Base("Authorization Successful", VariantSuccess) {
+	@templates.Card("Authorization Successful", templates.VariantSuccess) {
 		<h1>Authorization Successful</h1>
 		<p>You can close this window and return to the terminal.</p>
 	}
 }
 
 templ VersionError(description string) {
-	@Base("Version Incompatibility", VariantWarning) {
+	@templates.Card("Version Incompatibility", templates.VariantWarning) {
 		<h1>Version Incompatibility</h1>
 		<p>{ description }</p>
 		<p>Please upgrade to the latest version:</p>
@@ -51,7 +54,7 @@ templ CodeBlock(code string) {
 }
 
 templ AccountBanned() {
-	@Base("Account Banned", VariantError) {
+	@templates.Card("Account Banned", templates.VariantError) {
 		<h1>Account Banned</h1>
 		<p>Your account has been banned from using this service.</p>
 		<p>You can close this window.</p>
@@ -59,7 +62,7 @@ templ AccountBanned() {
 }
 
 templ RateLimited() {
-	@Base("Rate Limited", VariantWarning) {
+	@templates.Card("Rate Limited", templates.VariantWarning) {
 		<h1>Rate Limited</h1>
 		<p>Too many requests. Please wait a moment and try again.</p>
 		<p>You can close this window.</p>
