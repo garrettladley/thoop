@@ -14,11 +14,21 @@ import (
 
 type RecoveryData map[string]float64
 
-func BuildRecoveryData(recoveries []whoop.Recovery) RecoveryData {
+func BuildRecoveryData(recoveries []whoop.Recovery, cycles []whoop.Cycle) RecoveryData {
+	// build cycleID -> start date map
+	cycleStarts := make(map[int64]time.Time, len(cycles))
+	for _, c := range cycles {
+		cycleStarts[c.ID] = c.Start
+	}
+
 	data := make(RecoveryData, len(recoveries))
 	for _, r := range recoveries {
 		if r.Score != nil {
+			// use cycle start date if available, fall back to CreatedAt
 			dateKey := r.CreatedAt.Format("2006-01-02")
+			if cycleStart, ok := cycleStarts[r.CycleID]; ok {
+				dateKey = cycleStart.Format("2006-01-02")
+			}
 			data[dateKey] = r.Score.RecoveryScore
 		}
 	}

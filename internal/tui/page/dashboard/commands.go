@@ -145,31 +145,31 @@ type HistoricalDataMsg struct {
 	ErrSource  string
 }
 
-// CalendarRecoveriesMsg contains recovery data for calendar month coloring.
-type CalendarRecoveriesMsg struct {
+// CalendarDataMsg contains recovery and cycle data for calendar month coloring.
+type CalendarDataMsg struct {
 	Recoveries []whoop.Recovery
+	Cycles     []whoop.Cycle
 	FromCache  bool
 	Err        error
 }
 
-// FetchCalendarRecoveriesCmd fetches recovery data for a month via CacheService.
-// This is optimized to only fetch recoveries for calendar coloring.
-func FetchCalendarRecoveriesCmd(ctx context.Context, cacheSvc cache.CacheService, month time.Time) tea.Cmd {
+// FetchCalendarDataCmd fetches recovery and cycle data for a month via CacheService.
+func FetchCalendarDataCmd(ctx context.Context, cacheSvc cache.CacheService, month time.Time) tea.Cmd {
 	if cacheSvc == nil {
 		return func() tea.Msg {
-			return CalendarRecoveriesMsg{}
+			return CalendarDataMsg{}
 		}
 	}
 
 	return func() tea.Msg {
-		result, err := cacheSvc.GetCalendarRecoveries(ctx, month)
+		result, err := cacheSvc.GetCalendarData(ctx, month)
 		if err != nil {
-			return CalendarRecoveriesMsg{Err: err}
+			return CalendarDataMsg{Err: err}
 		}
 		if result == nil {
-			return CalendarRecoveriesMsg{}
+			return CalendarDataMsg{}
 		}
-		return CalendarRecoveriesMsg{Recoveries: result.Records, FromCache: result.FromCache}
+		return CalendarDataMsg{Recoveries: result.Recoveries, Cycles: result.Cycles, FromCache: result.FromCache}
 	}
 }
 

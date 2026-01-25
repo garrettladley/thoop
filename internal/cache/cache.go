@@ -22,8 +22,8 @@ type CacheService interface {
 	GetRecoveriesForRange(ctx context.Context, start, end time.Time) (*DateRangeResult[whoop.Recovery], error)
 	GetSleepsForRange(ctx context.Context, start, end time.Time) (*DateRangeResult[whoop.Sleep], error)
 
-	// Calendar-specific (optimized - only fetches recoveries)
-	GetCalendarRecoveries(ctx context.Context, month time.Time) (*DateRangeResult[whoop.Recovery], error)
+	// Calendar-specific (fetches recoveries and cycles for proper date mapping)
+	GetCalendarData(ctx context.Context, month time.Time) (*CalendarData, error)
 
 	// Historical bundle (30-day data for charts)
 	GetHistoricalData(ctx context.Context, referenceDate time.Time, days int) (*HistoricalData, error)
@@ -51,5 +51,12 @@ type HistoricalData struct {
 	Recoveries []whoop.Recovery
 	Sleeps     []whoop.Sleep
 	Workouts   []whoop.Workout
+	FromCache  bool
+}
+
+// CalendarData bundles recoveries and cycles for calendar display.
+type CalendarData struct {
+	Recoveries []whoop.Recovery
+	Cycles     []whoop.Cycle
 	FromCache  bool
 }

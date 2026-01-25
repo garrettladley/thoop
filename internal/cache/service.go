@@ -206,29 +206,22 @@ func (s *Service) GetSleepsForRange(ctx context.Context, start, end time.Time) (
 // GetCalendarRecoveries fetches recovery data for a calendar month.
 // This is optimized to only fetch recoveries (not cycles), since
 // the calendar only needs recovery scores for coloring days.
-func (s *Service) GetCalendarRecoveries(ctx context.Context, month time.Time) (*DateRangeResult[whoop.Recovery], error) {
+func (s *Service) GetCalendarData(ctx context.Context, month time.Time) (*CalendarData, error) {
 	startOfMonth := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, month.Location())
 	endOfMonth := startOfMonth.AddDate(0, 1, 0)
 
 	// 1. check cache for existing data
-	cachedRecoveries, cachedDates := s.loadCalendarCache(ctx, startOfMonth, endOfMonth)
+	cachedRecoveries, cachedCycles, cachedDates := s.loadCalendarCache(ctx, startOfMonth, endOfMonth)
 
-	// check if all cached data is fresh
-	if len(cachedRecoveries) > 0 && s.hasSufficientCoverage(startOfMonth, endOfMonth, cachedDates) {
-		if s.isCalendarCacheFresh(ctx, startOfMonth, endOfMonth, cachedRecoveries) {
-			return &DateRangeResult[whoop.Recovery]{Records: cachedRecoveries, FromCache: true}, nil
-		}
-	}
-
-	// 2. find missing date ranges
+	// 2. find missing date ranges (always check - don't skip based on coverage percentage)
 	missingRanges := s.findMissingRanges(startOfMonth, endOfMonth, cachedDates)
 
 	// 3. fetch missing data from API
 	if s.client == nil {
 		if len(cachedRecoveries) > 0 {
-			return &DateRangeResult[whoop.Recovery]{Records: cachedRecoveries, FromCache: true}, nil
+			return &CalendarData{Recoveries: cachedRecoveries, Cycles: cachedCycles, FromCache: true}, nil
 		}
-		return &DateRangeResult[whoop.Recovery]{Records: nil, FromCache: false}, nil
+		return &CalendarData{}, nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -306,26 +299,27 @@ func (s *Service) GetCalendarRecoveries(ctx context.Context, month time.Time) (*
 		}
 	}
 
-	// 5. merge cached and fetched recoveries
+	// 5. merge cached and fetched data
 	allRecoveries := MergeRecoverySlices(cachedRecoveries, fetchedRecoveries)
+	allCycles := MergeCycleSlices(cachedCycles, fetchedCycles)
 
 	// if we got nothing and had cached data, return cached
 	if len(allRecoveries) == 0 && len(cachedRecoveries) > 0 {
-		return &DateRangeResult[whoop.Recovery]{Records: cachedRecoveries, FromCache: true}, nil
+		return &CalendarData{Recoveries: cachedRecoveries, Cycles: cachedCycles, FromCache: true}, nil
 	}
 
-	partialCache := len(cachedRecoveries) > 0 && len(fetchedRecoveries) > 0
-	return &DateRangeResult[whoop.Recovery]{
-		Records:      allRecoveries,
-		FromCache:    len(fetchedRecoveries) == 0,
-		PartialCache: partialCache,
+	return &CalendarData{
+		Recoveries: allRecoveries,
+		Cycles:     allCycles,
+		FromCache:  len(fetchedRecoveries) == 0,
 	}, nil
 }
 
 // GetHistoricalData fetches bundled historical data for charts.
 func (s *Service) GetHistoricalData(ctx context.Context, referenceDate time.Time, days int) (*HistoricalData, error) {
-	endOfDay := xtime.StartOfDay(referenceDate).Add(24 * time.Hour)
-	startDate := endOfDay.AddDate(0, 0, -days)
+	startOfDay := xtime.StartOfDay(referenceDate)
+	endOfDay := startOfDay.Add(24 * time.Hour)
+	startDate := startOfDay.AddDate(0, 0, -days)
 
 	// 1. load all cached data from SQLite
 	cachedCycles, cachedRecoveries, cachedSleeps := s.loadHistoricalCache(ctx, startDate, endOfDay)
@@ -503,31 +497,39 @@ func (s *Service) tryGetWorkoutsFromCache(ctx context.Context, start, end time.T
 }
 
 // loadCalendarCache loads cached cycles and recoveries for calendar display.
-func (s *Service) loadCalendarCache(ctx context.Context, start, end time.Time) ([]whoop.Recovery, map[string]bool) {
+func (s *Service) loadCalendarCache(ctx context.Context, start, end time.Time) ([]whoop.Recovery, []whoop.Cycle, map[string]bool) {
 	if s.repo == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	cycleResult, err := s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
 	if err != nil || cycleResult == nil || len(cycleResult.Records) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	cachedDates := make(map[string]bool)
 	cycleIDs := make([]int64, len(cycleResult.Records))
+	cycleStartByID := make(map[int64]time.Time, len(cycleResult.Records))
 
 	for i, c := range cycleResult.Records {
 		cycleIDs[i] = c.ID
-		dateKey := c.Start.Format("2006-01-02")
-		cachedDates[dateKey] = true
+		cycleStartByID[c.ID] = c.Start
 	}
 
 	recoveries, err := s.repo.Recoveries.GetByCycleIDs(ctx, cycleIDs)
 	if err != nil {
-		return nil, cachedDates
+		return nil, cycleResult.Records, nil
 	}
 
-	return recoveries, cachedDates
+	// only mark dates as cached if we have BOTH cycle AND recovery
+	cachedDates := make(map[string]bool)
+	for _, r := range recoveries {
+		if cycleStart, ok := cycleStartByID[r.CycleID]; ok {
+			dateKey := cycleStart.Format("2006-01-02")
+			cachedDates[dateKey] = true
+		}
+	}
+
+	return recoveries, cycleResult.Records, cachedDates
 }
 
 // isCalendarCacheFresh checks if all cached calendar data is fresh.
@@ -875,6 +877,27 @@ func MergeRecoverySlices(a, b []whoop.Recovery) []whoop.Recovery {
 		if _, ok := seen[r.CycleID]; !ok {
 			seen[r.CycleID] = struct{}{}
 			result = append(result, r)
+		}
+	}
+
+	return result
+}
+
+// MergeCycleSlices merges two cycle slices, deduplicating by ID.
+func MergeCycleSlices(a, b []whoop.Cycle) []whoop.Cycle {
+	seen := make(map[int64]struct{})
+	result := make([]whoop.Cycle, 0, len(a)+len(b))
+
+	for _, c := range a {
+		if _, ok := seen[c.ID]; !ok {
+			seen[c.ID] = struct{}{}
+			result = append(result, c)
+		}
+	}
+	for _, c := range b {
+		if _, ok := seen[c.ID]; !ok {
+			seen[c.ID] = struct{}{}
+			result = append(result, c)
 		}
 	}
 

@@ -181,8 +181,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				xslog.Error(msg.Err))
 		} else {
 			m.state.dashboard.Averages = dashboard.ComputeAverages(msg.Recoveries, msg.Cycles, msg.Sleeps)
-			// store full recoveries for calendar coloring (50 days)
+			// store full data for calendar coloring (50 days)
 			m.state.dashboard.CalendarRecoveries = msg.Recoveries
+			m.state.dashboard.CalendarCycles = msg.Cycles
 			// store last 7 days of data for charts
 			m.state.dashboard.HistoricalRecoveries = xslices.Truncate(msg.Recoveries, 7)
 			m.state.dashboard.HistoricalCycles = xslices.Truncate(msg.Cycles, 7)
@@ -190,11 +191,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case dashboard.CalendarRecoveriesMsg:
+	case dashboard.CalendarDataMsg:
 		m.state.dashboard.CalendarLoading = false
 		if msg.Err == nil {
-			// merge new recoveries with existing ones
+			// merge new data with existing
 			m.state.dashboard.CalendarRecoveries = cache.MergeRecoverySlices(m.state.dashboard.CalendarRecoveries, msg.Recoveries)
+			m.state.dashboard.CalendarCycles = cache.MergeCycleSlices(m.state.dashboard.CalendarCycles, msg.Cycles)
 		}
 		return m, nil
 
@@ -604,7 +606,7 @@ func (m *Model) View() tea.View {
 					cal = cal.PrevMonth()
 				}
 			}
-			recoveryData := calendar.BuildRecoveryData(m.state.dashboard.CalendarRecoveries)
+			recoveryData := calendar.BuildRecoveryData(m.state.dashboard.CalendarRecoveries, m.state.dashboard.CalendarCycles)
 			cal = cal.WithRecoveryData(recoveryData).
 				WithLoading(m.state.dashboard.CalendarLoading).
 				WithSpinnerStep(m.state.dashboard.CalendarSpinnerStep)
@@ -697,7 +699,7 @@ func (m *Model) updateCalendarPosition(cal calendar.Calendar) tea.Cmd {
 		m.state.dashboard.CalendarLoading = true
 		m.state.dashboard.CalendarSpinnerStep = 0
 		return tea.Batch(
-			dashboard.FetchCalendarRecoveriesCmd(m.deps.Ctx, m.deps.CacheService, newMonth),
+			dashboard.FetchCalendarDataCmd(m.deps.Ctx, m.deps.CacheService, newMonth),
 			dashboard.CalendarSpinnerTickCmd(),
 		)
 	}
