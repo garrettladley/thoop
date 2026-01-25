@@ -160,21 +160,8 @@ func (s *Service) GetSleepForCycle(ctx context.Context, cycleID int64) (*CacheRe
 // GetWorkoutsForDateRange fetches workouts within a date range.
 func (s *Service) GetWorkoutsForDateRange(ctx context.Context, start, end time.Time) (*CacheResult[[]whoop.Workout], error) {
 	// 1. try cache first
-	if s.repo != nil {
-		result, err := s.repo.Workouts.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
-		if err == nil && result != nil && len(result.Records) > 0 {
-			// for workouts, check if all are scored
-			allScored := true
-			for _, w := range result.Records {
-				if s.stalenessChecker.ShouldRefresh(w.ScoreState, w.Start, w.UpdatedAt) {
-					allScored = false
-					break
-				}
-			}
-			if allScored {
-				return &CacheResult[[]whoop.Workout]{Data: result.Records, FromCache: true}, nil
-			}
-		}
+	if cached := s.tryGetWorkoutsFromCache(ctx, start, end); cached != nil {
+		return cached, nil
 	}
 
 	// 2. fetch from API
@@ -224,39 +211,12 @@ func (s *Service) GetCalendarRecoveries(ctx context.Context, month time.Time) (*
 	endOfMonth := startOfMonth.AddDate(0, 1, 0)
 
 	// 1. check cache for existing data
-	var cachedRecoveries []whoop.Recovery
-	var cachedDates map[string]bool
-	allCachedFresh := true
+	cachedRecoveries, cachedDates := s.loadCalendarCache(ctx, startOfMonth, endOfMonth)
 
-	if s.repo != nil {
-		cycleResult, err := s.repo.Cycles.GetByDateRange(ctx, startOfMonth, endOfMonth, &repository.CursorParams{Limit: 50})
-		if err == nil && cycleResult != nil && len(cycleResult.Records) > 0 {
-			cachedDates = make(map[string]bool)
-			cycleIDs := make([]int64, len(cycleResult.Records))
-
-			for i, c := range cycleResult.Records {
-				cycleIDs[i] = c.ID
-				dateKey := c.Start.Format("2006-01-02")
-				cachedDates[dateKey] = true
-				if s.stalenessChecker.ShouldRefresh(c.ScoreState, c.Start, c.UpdatedAt) {
-					allCachedFresh = false
-				}
-			}
-
-			recoveries, err := s.repo.Recoveries.GetByCycleIDs(ctx, cycleIDs)
-			if err == nil {
-				for _, r := range recoveries {
-					if s.stalenessChecker.ShouldRefresh(r.ScoreState, r.CreatedAt, r.UpdatedAt) {
-						allCachedFresh = false
-					}
-				}
-				cachedRecoveries = recoveries
-			}
-
-			// if all cached data is fresh and we have good coverage, return it
-			if allCachedFresh && s.hasSufficientCoverage(startOfMonth, endOfMonth, cachedDates) {
-				return &DateRangeResult[whoop.Recovery]{Records: cachedRecoveries, FromCache: true}, nil
-			}
+	// check if all cached data is fresh
+	if len(cachedRecoveries) > 0 && s.hasSufficientCoverage(startOfMonth, endOfMonth, cachedDates) {
+		if s.isCalendarCacheFresh(ctx, startOfMonth, endOfMonth, cachedRecoveries) {
+			return &DateRangeResult[whoop.Recovery]{Records: cachedRecoveries, FromCache: true}, nil
 		}
 	}
 
@@ -368,34 +328,7 @@ func (s *Service) GetHistoricalData(ctx context.Context, referenceDate time.Time
 	startDate := endOfDay.AddDate(0, 0, -days)
 
 	// 1. load all cached data from SQLite
-	var (
-		cachedCycles     []whoop.Cycle
-		cachedRecoveries []whoop.Recovery
-		cachedSleeps     []whoop.Sleep
-	)
-
-	if s.repo != nil {
-		cycleResult, err := s.repo.Cycles.GetByDateRange(ctx, startDate, endOfDay, &repository.CursorParams{Limit: 50})
-		if err == nil && cycleResult != nil {
-			cachedCycles = cycleResult.Records
-		}
-
-		sleepResult, err := s.repo.Sleeps.GetByDateRange(ctx, startDate, endOfDay, &repository.CursorParams{Limit: 50})
-		if err == nil && sleepResult != nil {
-			cachedSleeps = sleepResult.Records
-		}
-
-		if len(cachedCycles) > 0 {
-			cycleIDs := make([]int64, len(cachedCycles))
-			for i, c := range cachedCycles {
-				cycleIDs[i] = c.ID
-			}
-			recoveries, err := s.repo.Recoveries.GetByCycleIDs(ctx, cycleIDs)
-			if err == nil {
-				cachedRecoveries = recoveries
-			}
-		}
-	}
+	cachedCycles, cachedRecoveries, cachedSleeps := s.loadHistoricalCache(ctx, startDate, endOfDay)
 
 	// 2. check if all cached data is fresh
 	allFresh := len(cachedCycles) > 0
@@ -549,6 +482,178 @@ func (s *Service) GetHistoricalData(ctx context.Context, referenceDate time.Time
 	}, nil
 }
 
+// tryGetWorkoutsFromCache attempts to load fresh workouts from cache.
+func (s *Service) tryGetWorkoutsFromCache(ctx context.Context, start, end time.Time) *CacheResult[[]whoop.Workout] {
+	if s.repo == nil {
+		return nil
+	}
+
+	result, err := s.repo.Workouts.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
+	if err != nil || result == nil || len(result.Records) == 0 {
+		return nil
+	}
+
+	for _, w := range result.Records {
+		if s.stalenessChecker.ShouldRefresh(w.ScoreState, w.Start, w.UpdatedAt) {
+			return nil
+		}
+	}
+
+	return &CacheResult[[]whoop.Workout]{Data: result.Records, FromCache: true}
+}
+
+// loadCalendarCache loads cached cycles and recoveries for calendar display.
+func (s *Service) loadCalendarCache(ctx context.Context, start, end time.Time) ([]whoop.Recovery, map[string]bool) {
+	if s.repo == nil {
+		return nil, nil
+	}
+
+	cycleResult, err := s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
+	if err != nil || cycleResult == nil || len(cycleResult.Records) == 0 {
+		return nil, nil
+	}
+
+	cachedDates := make(map[string]bool)
+	cycleIDs := make([]int64, len(cycleResult.Records))
+
+	for i, c := range cycleResult.Records {
+		cycleIDs[i] = c.ID
+		dateKey := c.Start.Format("2006-01-02")
+		cachedDates[dateKey] = true
+	}
+
+	recoveries, err := s.repo.Recoveries.GetByCycleIDs(ctx, cycleIDs)
+	if err != nil {
+		return nil, cachedDates
+	}
+
+	return recoveries, cachedDates
+}
+
+// isCalendarCacheFresh checks if all cached calendar data is fresh.
+func (s *Service) isCalendarCacheFresh(ctx context.Context, start, end time.Time, recoveries []whoop.Recovery) bool {
+	if s.repo == nil {
+		return false
+	}
+
+	cycleResult, err := s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
+	if err != nil || cycleResult == nil {
+		return false
+	}
+
+	for _, c := range cycleResult.Records {
+		if s.stalenessChecker.ShouldRefresh(c.ScoreState, c.Start, c.UpdatedAt) {
+			return false
+		}
+	}
+
+	for _, r := range recoveries {
+		if s.stalenessChecker.ShouldRefresh(r.ScoreState, r.CreatedAt, r.UpdatedAt) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// loadHistoricalCache loads all cached historical data.
+func (s *Service) loadHistoricalCache(ctx context.Context, start, end time.Time) ([]whoop.Cycle, []whoop.Recovery, []whoop.Sleep) {
+	if s.repo == nil {
+		return nil, nil, nil
+	}
+
+	var cachedCycles []whoop.Cycle
+	var cachedRecoveries []whoop.Recovery
+	var cachedSleeps []whoop.Sleep
+
+	cycleResult, err := s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
+	if err == nil && cycleResult != nil {
+		cachedCycles = cycleResult.Records
+	}
+
+	sleepResult, err := s.repo.Sleeps.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
+	if err == nil && sleepResult != nil {
+		cachedSleeps = sleepResult.Records
+	}
+
+	if len(cachedCycles) > 0 {
+		cycleIDs := make([]int64, len(cachedCycles))
+		for i, c := range cachedCycles {
+			cycleIDs[i] = c.ID
+		}
+		if recoveries, err := s.repo.Recoveries.GetByCycleIDs(ctx, cycleIDs); err == nil {
+			cachedRecoveries = recoveries
+		}
+	}
+
+	return cachedCycles, cachedRecoveries, cachedSleeps
+}
+
+// tryGetCyclesFromCache attempts to load fresh cycles from cache.
+func (s *Service) tryGetCyclesFromCache(ctx context.Context, start, end time.Time) *DateRangeResult[whoop.Cycle] {
+	if s.repo == nil {
+		return nil
+	}
+
+	result, err := s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
+	if err != nil || result == nil || len(result.Records) == 0 {
+		return nil
+	}
+
+	for _, c := range result.Records {
+		if s.stalenessChecker.ShouldRefresh(c.ScoreState, c.Start, c.UpdatedAt) {
+			return nil
+		}
+	}
+
+	return &DateRangeResult[whoop.Cycle]{Records: result.Records, FromCache: true}
+}
+
+// tryGetRecoveriesFromCache attempts to load fresh recoveries from cache.
+func (s *Service) tryGetRecoveriesFromCache(ctx context.Context, cycleIDs []int64) *DateRangeResult[whoop.Recovery] {
+	if s.repo == nil {
+		return nil
+	}
+
+	recoveries, err := s.repo.Recoveries.GetByCycleIDs(ctx, cycleIDs)
+	if err != nil || len(recoveries) == 0 {
+		return nil
+	}
+
+	for _, r := range recoveries {
+		if s.stalenessChecker.ShouldRefresh(r.ScoreState, r.CreatedAt, r.UpdatedAt) {
+			return nil
+		}
+	}
+
+	// require 80% coverage
+	if len(recoveries) < len(cycleIDs)*8/10 {
+		return nil
+	}
+
+	return &DateRangeResult[whoop.Recovery]{Records: recoveries, FromCache: true}
+}
+
+// tryGetSleepsFromCache attempts to load fresh sleeps from cache.
+func (s *Service) tryGetSleepsFromCache(ctx context.Context, start, end time.Time) *DateRangeResult[whoop.Sleep] {
+	if s.repo == nil {
+		return nil
+	}
+
+	result, err := s.repo.Sleeps.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
+	if err != nil || result == nil || len(result.Records) == 0 {
+		return nil
+	}
+
+	for _, sl := range result.Records {
+		if s.stalenessChecker.ShouldRefresh(sl.ScoreState, sl.Start, sl.UpdatedAt) {
+			return nil
+		}
+	}
+
+	return &DateRangeResult[whoop.Sleep]{Records: result.Records, FromCache: true}
+}
+
 // hasSufficientCoverage checks if cached data covers enough of the date range.
 // Uses percentage-based coverage (>80%) instead of arbitrary magic numbers.
 func (s *Service) hasSufficientCoverage(start, end time.Time, cachedDates map[string]bool) bool {
@@ -611,20 +716,8 @@ func (s *Service) findMissingRanges(start, end time.Time, cachedDates map[string
 // fetchRangeWithCache fetches cycles for a range with caching.
 func (s *Service) fetchRangeWithCache(ctx context.Context, start, end time.Time) (*DateRangeResult[whoop.Cycle], error) {
 	// 1. try cache
-	if s.repo != nil {
-		result, err := s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
-		if err == nil && result != nil && len(result.Records) > 0 {
-			allFresh := true
-			for _, c := range result.Records {
-				if s.stalenessChecker.ShouldRefresh(c.ScoreState, c.Start, c.UpdatedAt) {
-					allFresh = false
-					break
-				}
-			}
-			if allFresh {
-				return &DateRangeResult[whoop.Cycle]{Records: result.Records, FromCache: true}, nil
-			}
-		}
+	if cached := s.tryGetCyclesFromCache(ctx, start, end); cached != nil {
+		return cached, nil
 	}
 
 	// 2. fetch from API
@@ -682,20 +775,8 @@ func (s *Service) fetchRecoveriesForRange(ctx context.Context, start, end time.T
 	}
 
 	// try cache for recoveries
-	if s.repo != nil {
-		recoveries, err := s.repo.Recoveries.GetByCycleIDs(ctx, cycleIDs)
-		if err == nil && len(recoveries) > 0 {
-			allFresh := true
-			for _, r := range recoveries {
-				if s.stalenessChecker.ShouldRefresh(r.ScoreState, r.CreatedAt, r.UpdatedAt) {
-					allFresh = false
-					break
-				}
-			}
-			if allFresh && len(recoveries) >= len(cycleIDs)*8/10 { // 80% coverage
-				return &DateRangeResult[whoop.Recovery]{Records: recoveries, FromCache: true}, nil
-			}
-		}
+	if cached := s.tryGetRecoveriesFromCache(ctx, cycleIDs); cached != nil {
+		return cached, nil
 	}
 
 	// fetch from API
@@ -737,20 +818,8 @@ func (s *Service) fetchRecoveriesForRange(ctx context.Context, start, end time.T
 // fetchSleepsForRange fetches sleeps for a range with caching.
 func (s *Service) fetchSleepsForRange(ctx context.Context, start, end time.Time) (*DateRangeResult[whoop.Sleep], error) {
 	// 1. try cache
-	if s.repo != nil {
-		result, err := s.repo.Sleeps.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
-		if err == nil && result != nil && len(result.Records) > 0 {
-			allFresh := true
-			for _, sl := range result.Records {
-				if s.stalenessChecker.ShouldRefresh(sl.ScoreState, sl.Start, sl.UpdatedAt) {
-					allFresh = false
-					break
-				}
-			}
-			if allFresh {
-				return &DateRangeResult[whoop.Sleep]{Records: result.Records, FromCache: true}, nil
-			}
-		}
+	if cached := s.tryGetSleepsFromCache(ctx, start, end); cached != nil {
+		return cached, nil
 	}
 
 	// 2. fetch from API
