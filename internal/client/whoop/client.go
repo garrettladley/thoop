@@ -48,9 +48,11 @@ func New(tokenSource oauth2.TokenSource, opts ...Option) *Client {
 		isUsingProxy: cfg.isUsingProxy,
 	}
 
+	retryTransport := xhttp.NewRetryTransport(transport, xhttp.DefaultRetryConfig())
+
 	c := &Client{
 		baseURL:    cfg.baseURL,
-		httpClient: &http.Client{Transport: transport, Timeout: cfg.timeout},
+		httpClient: &http.Client{Transport: retryTransport, Timeout: cfg.timeout},
 		transport:  transport,
 		logger:     cfg.logger,
 	}
