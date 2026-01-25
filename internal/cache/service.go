@@ -532,32 +532,6 @@ func (s *Service) loadCalendarCache(ctx context.Context, start, end time.Time) (
 	return recoveries, cycleResult.Records, cachedDates
 }
 
-// isCalendarCacheFresh checks if all cached calendar data is fresh.
-func (s *Service) isCalendarCacheFresh(ctx context.Context, start, end time.Time, recoveries []whoop.Recovery) bool {
-	if s.repo == nil {
-		return false
-	}
-
-	cycleResult, err := s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
-	if err != nil || cycleResult == nil {
-		return false
-	}
-
-	for _, c := range cycleResult.Records {
-		if s.stalenessChecker.ShouldRefresh(c.ScoreState, c.Start, c.UpdatedAt) {
-			return false
-		}
-	}
-
-	for _, r := range recoveries {
-		if s.stalenessChecker.ShouldRefresh(r.ScoreState, r.CreatedAt, r.UpdatedAt) {
-			return false
-		}
-	}
-
-	return true
-}
-
 // loadHistoricalCache loads all cached historical data.
 func (s *Service) loadHistoricalCache(ctx context.Context, start, end time.Time) ([]whoop.Cycle, []whoop.Recovery, []whoop.Sleep) {
 	if s.repo == nil {
