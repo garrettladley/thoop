@@ -13,6 +13,7 @@ import (
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
 	"github.com/garrettladley/thoop/internal/db"
+	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
 	"github.com/garrettladley/thoop/internal/repository"
@@ -46,6 +47,20 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 	}
 	defer func() { _ = sqlDB.Close() }()
 
+	kr := keyring.NewOSKeyring()
+	if !kr.Available() {
+		fmt.Fprintln(os.Stderr, "Error: OS keyring is not available.")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "On Linux, thoop requires a secret service for secure credential storage.")
+		fmt.Fprintln(os.Stderr, "Please ensure one of the following is installed and running:")
+		fmt.Fprintln(os.Stderr, "  - gnome-keyring (GNOME)")
+		fmt.Fprintln(os.Stderr, "  - kwallet (KDE)")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "For headless servers, consider running with D-Bus session:")
+		fmt.Fprintln(os.Stderr, "  dbus-run-session -- thoop")
+		return fmt.Errorf("keyring unavailable")
+	}
+
 	sessionID := session.NewID()
 	logPath, err := paths.LogFile(sessionID)
 	if err != nil {
@@ -61,13 +76,10 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 	logger := baseLogger.With(xslog.SessionID(sessionID))
 	slog.SetDefault(logger)
 
-	tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier)
-	authFlow := oauth.NewServerFlow(config.ServerURL, querier)
+	tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier, kr)
+	authFlow := oauth.NewServerFlow(config.ServerURL, querier, kr)
 
-	var apiKey string
-	if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
-		apiKey = *apiKeyPtr
-	}
+	apiKey, _ := kr.Get(keyring.KeyAPIKey)
 
 	client := whoop.New(tokenSource,
 		whoop.WithProxyURL(config.ServerURL+"/api/whoop"),

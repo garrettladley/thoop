@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop"
+	"github.com/garrettladley/thoop/internal/keyring"
 	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
 	"github.com/garrettladley/thoop/internal/xhttp"
 	"golang.org/x/oauth2"
@@ -23,6 +24,7 @@ const (
 	callbackPath     = "/callback"
 	shutdownTime     = 5 * time.Second
 	defaultServerURL = "https://thoop.fly.dev"
+	defaultTokenType = "Bearer"
 )
 
 var (
@@ -51,19 +53,21 @@ type callbackHandler func(w http.ResponseWriter, r *http.Request) (*oauth2.Token
 type ServerFlow struct {
 	serverURL string
 	querier   sqlitec.Querier
+	keyring   keyring.Store
 }
 
 var _ Flow = (*ServerFlow)(nil)
 
-func NewServerFlow(serverURL string, querier sqlitec.Querier) *ServerFlow {
+func NewServerFlow(serverURL string, querier sqlitec.Querier, kr keyring.Store) *ServerFlow {
 	return &ServerFlow{
 		serverURL: serverURL,
 		querier:   querier,
+		keyring:   kr,
 	}
 }
 
 func (f *ServerFlow) Run(ctx context.Context) (*AuthResult, error) {
-	return runFlow(ctx, f.querier, f.authURL, serverCallbackHandler)
+	return runFlow(ctx, f.querier, f.keyring, f.authURL, serverCallbackHandler)
 }
 
 func (f *ServerFlow) authURL(port string) string {
@@ -76,12 +80,13 @@ func (f *ServerFlow) authURL(port string) string {
 type DirectFlow struct {
 	config  *oauth2.Config
 	querier sqlitec.Querier
+	keyring keyring.Store
 	state   string
 }
 
 var _ Flow = (*DirectFlow)(nil)
 
-func NewDirectFlow(config *oauth2.Config, querier sqlitec.Querier) (*DirectFlow, error) {
+func NewDirectFlow(config *oauth2.Config, querier sqlitec.Querier, kr keyring.Store) (*DirectFlow, error) {
 	state, err := GenerateState()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate state: %w", err)
@@ -89,12 +94,13 @@ func NewDirectFlow(config *oauth2.Config, querier sqlitec.Querier) (*DirectFlow,
 	return &DirectFlow{
 		config:  config,
 		querier: querier,
+		keyring: kr,
 		state:   state,
 	}, nil
 }
 
 func (f *DirectFlow) Run(ctx context.Context) (*AuthResult, error) {
-	return runFlow(ctx, f.querier, f.authURL, f.callbackHandler())
+	return runFlow(ctx, f.querier, f.keyring, f.authURL, f.callbackHandler())
 }
 
 func (f *DirectFlow) authURL(_ string) string {
@@ -133,6 +139,7 @@ func (f *DirectFlow) callbackHandler() callbackHandler {
 func runFlow(
 	ctx context.Context,
 	querier sqlitec.Querier,
+	kr keyring.Store,
 	authURL func(port string) string,
 	handler callbackHandler,
 ) (*AuthResult, error) {
@@ -165,14 +172,8 @@ func runFlow(
 			return nil, result.err
 		}
 
-		if err := saveToken(ctx, querier, result.token); err != nil {
+		if err := saveToken(ctx, querier, kr, result.token, result.apiKey); err != nil {
 			return nil, fmt.Errorf("failed to save token: %w", err)
-		}
-
-		if result.apiKey != "" {
-			if err := querier.SetAPIKey(ctx, &result.apiKey); err != nil {
-				return nil, fmt.Errorf("failed to save API key: %w", err)
-			}
 		}
 
 		return &AuthResult{Token: result.token, APIKey: result.apiKey}, nil
@@ -258,7 +259,7 @@ func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Toke
 
 	tokenType := r.URL.Query().Get("token_type")
 	if tokenType == "" {
-		tokenType = "Bearer"
+		tokenType = defaultTokenType
 	}
 
 	var expiry time.Time
@@ -320,21 +321,37 @@ func writeRateLimitedHTML(w http.ResponseWriter) {
 </html>`)
 }
 
-func saveToken(ctx context.Context, querier sqlitec.Querier, token *oauth2.Token) error {
-	params := sqlitec.UpsertTokenParams{
-		AccessToken: token.AccessToken,
-		TokenType:   token.TokenType,
-		Expiry:      token.Expiry,
+func saveToken(ctx context.Context, querier sqlitec.Querier, kr keyring.Store, token *oauth2.Token, apiKey string) error {
+	if err := kr.Set(keyring.KeyAccessToken, token.AccessToken); err != nil {
+		return fmt.Errorf("failed to save access token to keyring: %w", err)
 	}
 
 	if token.RefreshToken != "" {
-		params.RefreshToken = &token.RefreshToken
+		if err := kr.Set(keyring.KeyRefreshToken, token.RefreshToken); err != nil {
+			return fmt.Errorf("failed to save refresh token to keyring: %w", err)
+		}
 	}
 
-	err := querier.UpsertToken(ctx, params)
-	if err != nil {
-		return fmt.Errorf("failed to upsert token: %w", err)
+	if apiKey != "" {
+		if err := kr.Set(keyring.KeyAPIKey, apiKey); err != nil {
+			return fmt.Errorf("failed to save API key to keyring: %w", err)
+		}
 	}
+
+	tokenType := token.TokenType
+	if tokenType == "" {
+		tokenType = defaultTokenType
+	}
+
+	params := sqlitec.UpsertTokenMetadataParams{
+		TokenType: tokenType,
+		Expiry:    token.Expiry,
+	}
+
+	if err := querier.UpsertTokenMetadata(ctx, params); err != nil {
+		return fmt.Errorf("failed to save token metadata: %w", err)
+	}
+
 	return nil
 }
 
