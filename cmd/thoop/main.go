@@ -68,5 +68,11 @@ func updateVersionIfNecessary(ctx context.Context) error {
 		return nil
 	}
 
-	return upgrade(ctx, currentVersion, latest.TagName)
+	if err := upgrade(ctx, currentVersion, latest.TagName); err != nil {
+		return err
+	}
+
+	fmt.Println("Run `thoop` again to use the new version.")
+	os.Exit(0)
+	return nil
 }
