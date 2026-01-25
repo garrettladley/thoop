@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/garrettladley/thoop/compare/v0.1.8...v0.1.9) (2026-01-25)
+
+
+### Bug Fixes
+
+* bump to 50 days to avoid month len variation ([#127](https://github.com/garrettladley/thoop/issues/127)) ([c5f314a](https://github.com/garrettladley/thoop/commit/c5f314a50bbd956118426d19a8e6e8a0fd49ae6e))
+
 ## [0.1.8](https://github.com/garrettladley/thoop/compare/v0.1.7...v0.1.8) (2026-01-25)
 
 
