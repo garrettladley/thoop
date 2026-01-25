@@ -3,6 +3,7 @@ permissions: read-all
 env:
   GO_VERSION: "1.25"
   SQLC_VERSION: "1.30.0"
+  TEMPL_VERSION: "v0.3.865"
 on:
   push:
 
@@ -104,3 +105,25 @@ jobs:
         with:
           files: ./coverage.txt
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  templ-diff:
+    name: templ diff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install templ
+        run: go install github.com/a-h/templ/cmd/templ@${{ env.TEMPL_VERSION }}
+
+      - name: Run templ generate
+        run: templ generate
+
+      - name: Check for uncommitted changes
+        run: git diff --exit-code

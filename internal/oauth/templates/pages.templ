@@ -1,0 +1,67 @@
+package templates
+
+import "github.com/garrettladley/thoop/internal/oauth/templates/icons"
+
+templ Success() {
+	@Base("Authorization Successful", VariantSuccess) {
+		<h1>Authorization Successful</h1>
+		<p>You can close this window and return to the terminal.</p>
+	}
+}
+
+templ VersionError(description string) {
+	@Base("Version Incompatibility", VariantWarning) {
+		<h1>Version Incompatibility</h1>
+		<p>{ description }</p>
+		<p>Please upgrade to the latest version:</p>
+		@CodeBlock("thoop upgrade")
+		<p>Then return to the terminal and try again.</p>
+	}
+}
+
+templ CodeBlock(code string) {
+	<div class="code-block">
+		<pre><code id="code-content">{ code }</code></pre>
+		<button class="copy-btn" onclick="copyCode(this)" aria-label="Copy to clipboard">
+			<span class="icon-clipboard">
+				@icons.Clipboard()
+			</span>
+			<span class="icon-check" style="display:none">
+				@icons.ClipboardCheck()
+			</span>
+		</button>
+	</div>
+	<script>
+		function copyCode(btn) {
+			const code = document.getElementById('code-content').textContent;
+			const iconClipboard = btn.querySelector('.icon-clipboard');
+			const iconCheck = btn.querySelector('.icon-check');
+			navigator.clipboard.writeText(code).then(function() {
+				iconClipboard.style.display = 'none';
+				iconCheck.style.display = 'block';
+				btn.classList.add('copied');
+				setTimeout(function() {
+					iconClipboard.style.display = 'block';
+					iconCheck.style.display = 'none';
+					btn.classList.remove('copied');
+				}, 2000);
+			});
+		}
+	</script>
+}
+
+templ AccountBanned() {
+	@Base("Account Banned", VariantError) {
+		<h1>Account Banned</h1>
+		<p>Your account has been banned from using this service.</p>
+		<p>You can close this window.</p>
+	}
+}
+
+templ RateLimited() {
+	@Base("Rate Limited", VariantWarning) {
+		<h1>Rate Limited</h1>
+		<p>Too many requests. Please wait a moment and try again.</p>
+		<p>You can close this window.</p>
+	}
+}

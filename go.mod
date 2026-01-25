@@ -10,6 +10,7 @@ require (
 require (
 	charm.land/bubbletea/v2 v2.0.0-rc.2
 	charm.land/lipgloss/v2 v2.0.0-beta.3.0.20251106193318-19329a3e8410
+	github.com/a-h/templ v0.3.865
 	github.com/charmbracelet/fang v0.4.4
 	github.com/exrook/drawille-go v0.0.0-20180117021400-68d036fca70a
 	github.com/goccy/go-json v0.10.5

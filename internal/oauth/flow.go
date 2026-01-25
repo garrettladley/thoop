@@ -15,8 +15,9 @@ import (
 
 	"github.com/garrettladley/thoop"
 	"github.com/garrettladley/thoop/internal/keyring"
+	"github.com/garrettladley/thoop/internal/oauth/templates"
 	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
-	"github.com/garrettladley/thoop/internal/xhttp"
+	"github.com/garrettladley/thoop/internal/xtempl"
 	"golang.org/x/oauth2"
 )
 
@@ -197,7 +198,7 @@ func startCallbackServer(ctx context.Context, handler callbackHandler, resultCh 
 			resultCh <- tokenResult{err: err}
 			return
 		}
-		writeSuccessHTML(w)
+		_ = xtempl.Render(w, r, templates.Success())
 		resultCh <- tokenResult{token: token, apiKey: apiKey}
 	})
 
@@ -228,21 +229,20 @@ func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Toke
 		errDesc := r.URL.Query().Get(ParamErrorDescription)
 
 		if ErrorCode(errParam) == ErrorCodeIncompatibleVersion {
-			minVersion := r.URL.Query().Get(ParamMinVersion)
-			writeVersionErrorHTML(w, errDesc, minVersion)
+			_ = xtempl.Render(w, r, templates.VersionError(errDesc))
 			fmt.Fprintf(os.Stderr, "\nVersion incompatibility: %s\n", errDesc)
-			fmt.Fprintf(os.Stderr, "Please upgrade: go install github.com/garrettladley/thoop/cmd/thoop@latest\n\n")
+			fmt.Fprintf(os.Stderr, "Please upgrade: thoop upgrade\n\n")
 			return nil, "", fmt.Errorf("version incompatibility: %s", errDesc)
 		}
 
 		if ErrorCode(errParam) == ErrorCodeAccountBanned {
-			writeAccountBannedHTML(w)
+			_ = xtempl.Render(w, r, templates.AccountBanned())
 			fmt.Fprintf(os.Stderr, "\nAccount banned: %s\n", errDesc)
 			return nil, "", fmt.Errorf("account banned: %s", errDesc)
 		}
 
 		if ErrorCode(errParam) == ErrorCodeRateLimited {
-			writeRateLimitedHTML(w)
+			_ = xtempl.Render(w, r, templates.RateLimited())
 			fmt.Fprintf(os.Stderr, "\nRate limited: %s\n", errDesc)
 			return nil, "", fmt.Errorf("rate limited: %s", errDesc)
 		}
@@ -279,48 +279,6 @@ func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Toke
 	}, apiKey, nil
 }
 
-func writeVersionErrorHTML(w http.ResponseWriter, errDesc string, minVersion string) {
-	xhttp.SetHeaderContentTypeTextHTML(w)
-	upgradeCmd := "go install github.com/garrettladley/thoop/cmd/thoop@latest"
-	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
-<html>
-<head><title>Version Incompatibility</title></head>
-<body>
-<h1>Version Incompatibility</h1>
-<p>%s</p>
-<p>Please upgrade to v%s or later:</p>
-<pre>%s</pre>
-<p>Then return to the terminal and try again.</p>
-</body>
-</html>`, errDesc, minVersion, upgradeCmd)
-}
-
-func writeAccountBannedHTML(w http.ResponseWriter) {
-	xhttp.SetHeaderContentTypeTextHTML(w)
-	_, _ = fmt.Fprint(w, `<!DOCTYPE html>
-<html>
-<head><title>Account Banned</title></head>
-<body>
-<h1>Account Banned</h1>
-<p>Your account has been banned from using this service.</p>
-<p>You can close this window.</p>
-</body>
-</html>`)
-}
-
-func writeRateLimitedHTML(w http.ResponseWriter) {
-	xhttp.SetHeaderContentTypeTextHTML(w)
-	_, _ = fmt.Fprint(w, `<!DOCTYPE html>
-<html>
-<head><title>Rate Limited</title></head>
-<body>
-<h1>Rate Limited</h1>
-<p>Too many requests. Please wait a moment and try again.</p>
-<p>You can close this window.</p>
-</body>
-</html>`)
-}
-
 func saveToken(ctx context.Context, querier sqlitec.Querier, kr keyring.Store, token *oauth2.Token, apiKey string) error {
 	if err := kr.Set(keyring.KeyAccessToken, token.AccessToken); err != nil {
 		return fmt.Errorf("failed to save access token to keyring: %w", err)
@@ -353,18 +311,6 @@ func saveToken(ctx context.Context, querier sqlitec.Querier, kr keyring.Store, t
 	}
 
 	return nil
-}
-
-func writeSuccessHTML(w http.ResponseWriter) {
-	xhttp.SetHeaderContentTypeTextHTML(w)
-	_, _ = fmt.Fprint(w, `<!DOCTYPE html>
-<html>
-<head><title>Authorization Successful</title></head>
-<body>
-<h1>Authorization Successful</h1>
-<p>You can close this window and return to the terminal.</p>
-</body>
-</html>`)
 }
 
 func openBrowser(ctx context.Context, url string) error {

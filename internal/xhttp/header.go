@@ -40,6 +40,11 @@ func SetHeaderContentTypeTextHTML(w http.ResponseWriter) {
 	w.Header().Set(ContentType, textHTML)
 }
 
+func SetHeaderContentTypeTextHTMLCharsetUTF8(w http.ResponseWriter) {
+	const textHTMLCharsetUTF8 = "text/html; charset=utf-8"
+	w.Header().Set(ContentType, textHTMLCharsetUTF8)
+}
+
 func SetHeaderRetryAfter(w http.ResponseWriter, retryAfter time.Duration) {
 	const retryAfterHeader = "Retry-After"
 	retryAfterSeconds := int(retryAfter.Seconds())
