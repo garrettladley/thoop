@@ -33,10 +33,10 @@ var (
 )
 
 var (
-	ColorSleepAwake = lipgloss.Color("#E74C3C") // Awake
-	ColorSleepREM   = lipgloss.Color("#3498DB") // REM sleep
-	ColorSleepLight = lipgloss.Color("#2ECC71") // Light sleep
-	ColorSleepDeep  = lipgloss.Color("#9B59B6") // Deep sleep
+	ColorSleepLight = lipgloss.Color("#A4A3EB")
+	ColorSleepAwake = lipgloss.Color("#C8C8C8")
+	ColorSleepDeep  = lipgloss.Color("#EC9AF4")
+	ColorSleepREM   = lipgloss.Color("#A15EE5")
 )
 
 var ColorChartGrid = lipgloss.Color("#333333") // Grid lines

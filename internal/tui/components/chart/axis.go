@@ -14,7 +14,6 @@ type Axis struct {
 	labels    []string
 	width     int
 	showLine  bool
-	labelGap  int // minimum gap between labels
 	textColor color.Color
 	positions []int // explicit label positions (centers)
 }
@@ -41,7 +40,6 @@ func NewAxis(labels []string, width int, opts ...AxisOption) *Axis {
 	a := &Axis{
 		labels:    labels,
 		width:     width,
-		labelGap:  1,
 		textColor: theme.ColorDim,
 	}
 	for _, opt := range opts {

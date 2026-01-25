@@ -10,14 +10,6 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
-// Sleep stage colors
-var (
-	ColorSleepLight = lipgloss.Color("#A4A3EB")
-	ColorSleepAwake = lipgloss.Color("#C8C8C8")
-	ColorSleepDeep  = lipgloss.Color("#EC9AF4")
-	ColorSleepREM   = lipgloss.Color("#A15EE5")
-)
-
 // SleepStage represents a single sleep stage data.
 type SleepStage struct {
 	Name       string

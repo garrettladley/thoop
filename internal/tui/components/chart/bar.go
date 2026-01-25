@@ -15,10 +15,9 @@ var verticalBlocks = theme.VerticalBlocks
 
 // Bar represents a single vertical bar with optional stacking.
 type Bar struct {
-	height   int         // height in terminal rows
-	width    int         // width of the bar
-	segments []Segment   // segments from bottom to top
-	bgColor  color.Color // background color for unfilled portion
+	height   int       // height in terminal rows
+	width    int       // width of the bar
+	segments []Segment // segments from bottom to top
 }
 
 // Segment represents a colored segment of a bar.
@@ -45,11 +44,6 @@ func WithBarWidth(w int) BarOption {
 }
 
 // WithBarBgColor sets the background color.
-func WithBarBgColor(c color.Color) BarOption {
-	return func(b *Bar) {
-		b.bgColor = c
-	}
-}
 
 // NewBar creates a new bar with the given segments.
 // Values should be normalized to [0, 1] representing the fill percentage.
@@ -149,88 +143,4 @@ func (b *Bar) Render() string {
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-// HorizontalBar represents a horizontal bar (for progress-style displays).
-type HorizontalBar struct {
-	width    int
-	segments []Segment
-	bgColor  color.Color
-}
-
-// HorizontalBarOption configures a HorizontalBar.
-type HorizontalBarOption func(*HorizontalBar)
-
-// WithHorizontalBarBgColor sets the background color.
-func WithHorizontalBarBgColor(c color.Color) HorizontalBarOption {
-	return func(b *HorizontalBar) {
-		b.bgColor = c
-	}
-}
-
-// NewHorizontalBar creates a new horizontal bar.
-func NewHorizontalBar(width int, segments []Segment, opts ...HorizontalBarOption) *HorizontalBar {
-	b := &HorizontalBar{
-		width:    width,
-		segments: segments,
-	}
-	for _, opt := range opts {
-		opt(b)
-	}
-	return b
-}
-
-// horizontal block characters for sub-cell resolution.
-var horizontalBlocks = theme.HorizontalBlocks
-
-// render renders the horizontal bar.
-func (b *HorizontalBar) Render() string {
-	if b.width <= 0 {
-		return ""
-	}
-
-	var (
-		totalUnits = b.width * 8
-		result     strings.Builder
-		currentPos = 0
-	)
-	for _, seg := range b.segments {
-		units := int(seg.Value * float64(totalUnits))
-		if units <= 0 {
-			continue
-		}
-
-		fullChars := units / 8
-		partialUnits := units % 8
-
-		style := lipgloss.NewStyle().Foreground(seg.Color)
-
-		// full characters
-		for range fullChars {
-			result.WriteString(style.Render(theme.SymbolBlockFull))
-			currentPos++
-		}
-
-		// partial character
-		if partialUnits > 0 && currentPos < b.width {
-			result.WriteString(style.Render(string(horizontalBlocks[partialUnits])))
-			currentPos++
-		}
-	}
-
-	// fill remaining with background
-	if b.bgColor != nil && currentPos < b.width {
-		bgStyle := lipgloss.NewStyle().Foreground(b.bgColor)
-		for currentPos < b.width {
-			result.WriteString(bgStyle.Render(theme.SymbolBlockFull))
-			currentPos++
-		}
-	} else {
-		for currentPos < b.width {
-			result.WriteRune(' ')
-			currentPos++
-		}
-	}
-
-	return result.String()
 }

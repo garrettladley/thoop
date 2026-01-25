@@ -2,20 +2,12 @@ package chart
 
 import (
 	"fmt"
-	"image/color"
 )
 
 // DataPoint represents a single data point with a label and value.
 type DataPoint struct {
 	Label string
 	Value float64
-}
-
-// Series represents a named series of data points with a color.
-type Series struct {
-	Name   string
-	Points []DataPoint
-	Color  color.Color
 }
 
 // StackedDataPoint represents a data point with multiple stacked values.
@@ -53,14 +45,6 @@ func formatWithCommas(n int64) string {
 	return formatWithCommas(n/1000) + fmt.Sprintf(",%03d", n%1000)
 }
 
-// FormatDuration formats milliseconds as "H:MM".
-func FormatDuration(ms float64) string {
-	totalMinutes := int(ms / (1000 * 60))
-	hours := totalMinutes / 60
-	minutes := totalMinutes % 60
-	return fmt.Sprintf("%d:%02d", hours, minutes)
-}
-
 // FormatDurationFromHours formats hours as "H:MM".
 func FormatDurationFromHours(hours float64) string {
 	h := int(hours)
@@ -71,18 +55,4 @@ func FormatDurationFromHours(hours float64) string {
 // FormatFloat1 formats a value with one decimal place.
 func FormatFloat1(v float64) string {
 	return fmt.Sprintf("%.1f", v)
-}
-
-// FormatCompact formats a value in compact form (e.g., "2k" for 2000).
-func FormatCompact(v float64) string {
-	if v < 1000 {
-		return fmt.Sprintf("%.0f", v)
-	}
-	return fmt.Sprintf("%.0fk", v/1000)
-}
-
-// FormatThousands formats a value in thousands with one decimal (e.g., "2.1" for 2100).
-// Useful for calories where space is limited but fidelity matters.
-func FormatThousands(v float64) string {
-	return fmt.Sprintf("%.1f", v/1000)
 }

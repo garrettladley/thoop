@@ -171,25 +171,25 @@ func renderSleepStagesChart(state State, width int) string {
 			Name:       "AWAKE",
 			DurationMs: stages.TotalAwakeTimeMilli,
 			Percentage: awakePct,
-			Color:      chart.ColorSleepAwake,
+			Color:      theme.ColorSleepAwake,
 		},
 		{
 			Name:       "LIGHT",
 			DurationMs: stages.TotalLightSleepTimeMilli,
 			Percentage: lightPct,
-			Color:      chart.ColorSleepLight,
+			Color:      theme.ColorSleepLight,
 		},
 		{
 			Name:       "SWS (DEEP)",
 			DurationMs: stages.TotalSlowWaveSleepTimeMilli,
 			Percentage: deepPct,
-			Color:      chart.ColorSleepDeep,
+			Color:      theme.ColorSleepDeep,
 		},
 		{
 			Name:       "REM",
 			DurationMs: stages.TotalREMSleepTimeMilli,
 			Percentage: remPct,
-			Color:      chart.ColorSleepREM,
+			Color:      theme.ColorSleepREM,
 		},
 	}
 
@@ -252,11 +252,10 @@ func sleepPerformanceChart(state State, width int) string {
 
 	title := sleepChartTitle("WEEKLY SLEEP PERFORMANCE")
 	c := chart.NewBarChart(data,
-		chart.WithBarChartColorFunc(chart.SleepPerformanceColor),
+		chart.WithBarChartColorFunc(chart.SleepColor),
 		chart.WithBarChartFormatter(chart.FormatPercentage),
 		chart.WithBarChartMax(100),
 		chart.WithBarChartHeight(6),
-		chart.WithBarChartShowValues(true),
 	)
 	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
 }
@@ -319,7 +318,6 @@ func hoursVsNeededPercentChart(state State, width int) string {
 		chart.WithBarChartFormatter(chart.FormatPercentage),
 		chart.WithBarChartMax(100),
 		chart.WithBarChartHeight(6),
-		chart.WithBarChartShowValues(true),
 	)
 	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
 }
@@ -345,7 +343,7 @@ func restorativeSleepChart(state State, width int) string {
 
 	title := sleepChartTitle("RESTORATIVE SLEEP")
 	c := chart.NewStackedBarChart(data,
-		chart.WithStackedBarColors([]colorpkg.Color{chart.ColorSleepDeep, chart.ColorSleepREM}),
+		chart.WithStackedBarColors([]colorpkg.Color{theme.ColorSleepDeep, theme.ColorSleepREM}),
 		chart.WithStackedBarLabels([]string{"DEEP SLEEP", "REM SLEEP"}),
 		chart.WithStackedBarFormatter(chart.FormatDurationFromHours),
 		chart.WithStackedBarHeight(6),
@@ -377,7 +375,6 @@ func sleepConsistencyChart(state State, width int) string {
 		chart.WithBarChartFormatter(chart.FormatPercentage),
 		chart.WithBarChartMax(100),
 		chart.WithBarChartHeight(6),
-		chart.WithBarChartShowValues(true),
 	)
 	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
 }
@@ -432,7 +429,6 @@ func sleepDebtChart(state State, width int) string {
 		chart.WithBarChartFormatter(chart.FormatDurationFromHours),
 		chart.WithBarChartMax(3),
 		chart.WithBarChartHeight(6),
-		chart.WithBarChartShowValues(true),
 	)
 	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
 }
@@ -522,8 +518,8 @@ func renderSplitSquare() string {
 	// using ◤ (upper-left triangle) with foreground/background colors
 	// the triangle (◤) is colored REM, the background (lower-right) is SWS
 	style := lipgloss.NewStyle().
-		Foreground(chart.ColorSleepREM).
-		Background(chart.ColorSleepDeep)
+		Foreground(theme.ColorSleepREM).
+		Background(theme.ColorSleepDeep)
 	return style.Render("◤")
 }
 

@@ -192,7 +192,6 @@ func strainTrendChart(state State, width int) string {
 		chart.WithBarChartFormatter(chart.FormatFloat1),
 		chart.WithBarChartMax(21),
 		chart.WithBarChartHeight(6),
-		chart.WithBarChartShowValues(true),
 	)
 	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
 }
@@ -218,7 +217,6 @@ func caloriesTrendChart(state State, width int) string {
 		chart.WithBarChartColorFunc(chart.StaticColor(theme.ColorStrain)),
 		chart.WithBarChartFormatter(chart.FormatIntWithCommas),
 		chart.WithBarChartHeight(6),
-		chart.WithBarChartShowValues(true),
 	)
 	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
 }

@@ -194,7 +194,6 @@ func recoveryTrendChart(state State, width int) string {
 		chart.WithBarChartFormatter(chart.FormatPercentage),
 		chart.WithBarChartMax(100),
 		chart.WithBarChartHeight(6),
-		chart.WithBarChartShowValues(true),
 	)
 	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
 }
@@ -298,11 +297,10 @@ func recoverySleepPerfChart(state State, width int) string {
 
 	title := recoveryChartTitle("SLEEP PERFORMANCE")
 	c := chart.NewBarChart(data,
-		chart.WithBarChartColorFunc(chart.SleepPerformanceColor),
+		chart.WithBarChartColorFunc(chart.SleepColor),
 		chart.WithBarChartFormatter(chart.FormatPercentage),
 		chart.WithBarChartMax(100),
 		chart.WithBarChartHeight(6),
-		chart.WithBarChartShowValues(true),
 	)
 	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
 }

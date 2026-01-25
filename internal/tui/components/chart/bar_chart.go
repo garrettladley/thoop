@@ -1,7 +1,6 @@
 package chart
 
 import (
-	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -11,17 +10,13 @@ import (
 
 // BarChart renders a vertical bar chart with labels and optional values.
 type BarChart struct {
-	data       []DataPoint
-	height     int
-	minValue   float64
-	maxValue   float64
-	colorFunc  ColorFunc
-	formatter  ValueFormatter
-	showValues bool
-	showAxis   bool
-	barWidth   int
-	barGap     int
-	bgColor    color.Color
+	data      []DataPoint
+	height    int
+	minValue  float64
+	maxValue  float64
+	colorFunc ColorFunc
+	formatter ValueFormatter
+	showAxis  bool
 }
 
 // BarChartOption configures a BarChart.
@@ -55,26 +50,15 @@ func WithBarChartFormatter(f ValueFormatter) BarChartOption {
 	}
 }
 
-// WithBarChartShowValues shows values above bars.
-func WithBarChartShowValues(show bool) BarChartOption {
-	return func(bc *BarChart) {
-		bc.showValues = show
-	}
-}
-
 // NewBarChart creates a new bar chart.
 func NewBarChart(data []DataPoint, opts ...BarChartOption) *BarChart {
 	bc := &BarChart{
-		data:       data,
-		height:     8,
-		maxValue:   0,
-		colorFunc:  StaticColor(theme.ColorTeal),
-		formatter:  FormatInt,
-		showValues: true,
-		showAxis:   true,
-		barWidth:   4,
-		barGap:     2,
-		bgColor:    nil,
+		data:      data,
+		height:    8,
+		maxValue:  0,
+		colorFunc: StaticColor(theme.ColorTeal),
+		formatter: FormatInt,
+		showAxis:  true,
 	}
 	for _, opt := range opts {
 		opt(bc)
@@ -112,20 +96,14 @@ func (bc *BarChart) Render(width int) string {
 	// barWidth = width / (numBars + (numBars-1)/3)
 	availPerBar := float64(width) / float64(numBars)
 	barWidth := int(availPerBar * 0.7) // 70% for bar
-	if barWidth < 2 {
-		barWidth = 2
-	}
+	barWidth = max(barWidth, 2)
 	barGap := int(availPerBar) - barWidth // remaining for gap
-	if barGap < 1 {
-		barGap = 1
-	}
+	barGap = max(barGap, 1)
 	totalBarSpace := numBars*barWidth + (numBars-1)*barGap
 
 	// calculate padding to center (should be minimal now)
 	leftPad := (width - totalBarSpace) / 2
-	if leftPad < 0 {
-		leftPad = 0
-	}
+	leftPad = max(leftPad, 0)
 
 	// calculate fill percentages and label rows for each bar
 	fillPcts := make([]float64, numBars)
@@ -165,13 +143,12 @@ func (bc *BarChart) Render(width int) string {
 		bar := NewSimpleBar(fillPcts[i], bc.colorFunc(bc.data[i].Value),
 			WithBarHeight(bc.height),
 			WithBarWidth(barWidth),
-			WithBarBgColor(bc.bgColor),
 		)
 		barStrings[i] = strings.Split(bar.Render(), "\n")
 	}
 
 	// render top label row if any bar fills entire height
-	if bc.showValues && needsTopLabelRow {
+	if needsTopLabelRow {
 		rowStr := strings.Repeat(" ", leftPad)
 		for i, d := range bc.data {
 			if labelRows[i] < 0 {
@@ -192,7 +169,7 @@ func (bc *BarChart) Render(width int) string {
 	for row := range bc.height {
 		rowStr := strings.Repeat(" ", leftPad)
 		for i := range numBars {
-			if bc.showValues && labelRows[i] == row {
+			if labelRows[i] == row {
 				// render label on this row for this bar
 				valueStr := bc.formatter(bc.data[i].Value)
 				padded := centerString(valueStr, barWidth)

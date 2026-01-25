@@ -199,7 +199,6 @@ func (sbc *StackedBarChart) Render(width int) string {
 		bar := NewBar(segments,
 			WithBarHeight(sbc.height),
 			WithBarWidth(barWidth),
-			WithBarBgColor(sbc.bgColor),
 		)
 		barStrings[i] = strings.Split(bar.Render(), "\n")
 	}
