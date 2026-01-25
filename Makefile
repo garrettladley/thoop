@@ -128,7 +128,19 @@ migrate/create:
 	@echo 'Creating migration files for $(NAME)...'
 	@go run -tags 'sqlite3' github.com/golang-migrate/migrate/v4/cmd/migrate create -ext sql -dir $(MIGRATIONS_PATH) -seq $(NAME)
 
-# SQL and Code Generation
+# Code Generation
+TEMPL_VERSION := v0.3.865
+
+## templ/install: install templ CLI
+.PHONY: templ/install
+templ/install:
+	@go install github.com/a-h/templ/cmd/templ@$(TEMPL_VERSION)
+
+## templ/generate: generate Go code from templ files
+.PHONY: templ/generate
+templ/generate:
+	@templ generate
+
 ## sqlc/install: install sqlc
 .PHONY: sqlc/install
 sqlc/install:
