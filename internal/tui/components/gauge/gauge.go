@@ -10,6 +10,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/garrettladley/thoop/internal/braille"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
@@ -197,9 +198,9 @@ func overlayArcsRaw(bgStr, fillStr string, bgColor, fillColor color.Color) strin
 				fillChar = fillRunes[j]
 			}
 
-			bgIsBraille := isBraille(bgChar)
+			bgIsBraille := braille.Is(bgChar)
 			// only consider fill as having content if it has actual dots (not empty braille)
-			fillHasDots := isBraille(fillChar) && fillChar != emptyBraille
+			fillHasDots := braille.Is(fillChar) && fillChar != emptyBraille
 
 			if fillHasDots && bgIsBraille {
 				// combine braille dots: filled arc on top of background arc
@@ -218,11 +219,6 @@ func overlayArcsRaw(bgStr, fillStr string, bgColor, fillColor color.Color) strin
 	}
 
 	return strings.Join(result, "\n")
-}
-
-// isBraille returns true if the rune is a braille character (U+2800 to U+28FF)
-func isBraille(r rune) bool {
-	return r >= 0x2800 && r <= 0x28FF
 }
 
 // combineBraille ORs the dots of two braille characters together

@@ -25,3 +25,20 @@ var (
 	ColorBgDark  = lipgloss.Color("#101518") // Darker end of gradient
 	ColorBgLight = lipgloss.Color("#283339") // Lighter end of gradient
 )
+
+var (
+	ColorHRZone1 = lipgloss.Color("#4A90D9") // Zone 1 (lowest)
+	ColorHRZone2 = lipgloss.Color("#2ECC71") // Zone 2
+	ColorHRZone3 = lipgloss.Color("#F39C12") // Zone 3 (highest)
+)
+
+var (
+	ColorSleepAwake = lipgloss.Color("#E74C3C") // Awake
+	ColorSleepREM   = lipgloss.Color("#3498DB") // REM sleep
+	ColorSleepLight = lipgloss.Color("#2ECC71") // Light sleep
+	ColorSleepDeep  = lipgloss.Color("#9B59B6") // Deep sleep
+)
+
+var (
+	ColorChartGrid = lipgloss.Color("#333333") // Grid lines
+)

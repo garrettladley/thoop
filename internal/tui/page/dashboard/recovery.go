@@ -5,8 +5,10 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/garrettladley/thoop/internal/tui/components/chart"
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
 	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
+	"github.com/garrettladley/thoop/internal/tui/components/viewport"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
@@ -23,20 +25,43 @@ func RenderRecoveryDetail(state State, width, height int) string {
 	metricsWidth := 40
 	metrics := renderRecoveryMetrics(state, metricsWidth)
 
-	content := lipgloss.JoinVertical(
-		lipgloss.Center,
-		gaugeStr,
-		"",
-		"",
-		metrics,
-	)
+	var contentParts []string
+	contentParts = append(contentParts, gaugeStr)
+	contentParts = append(contentParts, "", "")
+	contentParts = append(contentParts, metrics)
+
+	chartsSection := renderRecoveryCharts(state, metricsWidth)
+	if chartsSection != "" {
+		contentParts = append(contentParts, "", "", "")
+		contentParts = append(contentParts, chartsSection)
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Center, contentParts...)
+
+	contentHeight := lipgloss.Height(content)
+	viewportHeight := height - 2 // reserve space for footer
+
+	if contentHeight <= viewportHeight {
+		return lipgloss.Place(
+			width,
+			height,
+			lipgloss.Center,
+			lipgloss.Center,
+			content,
+		)
+	}
+
+	// apply viewport scrolling
+	vp := viewport.New(viewport.WithSize(width, viewportHeight))
+	offset := vp.ClampOffset(content, state.ScrollOffset)
+	scrolledContent := vp.Render(content, offset)
 
 	return lipgloss.Place(
 		width,
 		height,
 		lipgloss.Center,
-		lipgloss.Center,
-		content,
+		lipgloss.Top,
+		scrolledContent,
 	)
 }
 
@@ -110,6 +135,83 @@ func renderRecoveryMetrics(state State, width int) string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func renderRecoveryCharts(state State, width int) string {
+	if len(state.HistoricalRecoveries) == 0 {
+		return ""
+	}
+
+	titleStyle := lipgloss.NewStyle().
+		Foreground(theme.ColorWhite).
+		Bold(true)
+
+	var sections []string
+	sections = append(sections, titleStyle.Render("WEEKLY RECOVERY"))
+	sections = append(sections, "")
+
+	var recoveryData []chart.DataPoint
+	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(recoveryData) < 7; i-- {
+		r := state.HistoricalRecoveries[i]
+		if r.Score == nil {
+			continue
+		}
+		recoveryData = append(recoveryData, chart.DataPoint{
+			Label: r.CreatedAt.Format("Mon\n2"),
+			Value: r.Score.RecoveryScore,
+		})
+	}
+
+	for i, j := 0, len(recoveryData)-1; i < j; i, j = i+1, j-1 {
+		recoveryData[i], recoveryData[j] = recoveryData[j], recoveryData[i]
+	}
+
+	if len(recoveryData) > 0 {
+		recoveryChart := chart.NewBarChart(recoveryData,
+			chart.WithBarChartColorFunc(chart.RecoveryColor),
+			chart.WithBarChartFormatter(chart.FormatPercentage),
+			chart.WithBarChartMax(100),
+			chart.WithBarChartHeight(6),
+			chart.WithBarChartShowValues(true),
+		)
+		sections = append(sections, recoveryChart.Render(width))
+	}
+
+	// HRV trend line chart
+	sections = append(sections, "")
+	sections = append(sections, "")
+	sections = append(sections, titleStyle.Render("HRV TREND"))
+	sections = append(sections, "")
+
+	var hrvData []chart.DataPoint
+	for i := len(state.HistoricalRecoveries) - 1; i >= 0 && len(hrvData) < 7; i-- {
+		r := state.HistoricalRecoveries[i]
+		if r.Score == nil {
+			continue
+		}
+		hrvData = append(hrvData, chart.DataPoint{
+			Label: r.CreatedAt.Format("Mon\n2"),
+			Value: r.Score.HRVRmssdMilli,
+		})
+	}
+
+	// reverse for chronological order
+	for i, j := 0, len(hrvData)-1; i < j; i, j = i+1, j-1 {
+		hrvData[i], hrvData[j] = hrvData[j], hrvData[i]
+	}
+
+	if len(hrvData) > 0 {
+		hrvChart := chart.NewLineChart(hrvData,
+			chart.WithLineChartColor(theme.ColorRecoveryBlue),
+			chart.WithLineChartFormatter(chart.FormatInt),
+			chart.WithLineChartHeight(5),
+			chart.WithLineChartShowValues(true),
+			chart.WithLineChartShowDots(true),
+		)
+		sections = append(sections, hrvChart.Render(width))
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
 
 func renderComparisonLegend() string {

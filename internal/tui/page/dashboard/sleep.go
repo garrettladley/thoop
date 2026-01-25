@@ -5,8 +5,10 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/garrettladley/thoop/internal/tui/components/chart"
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
 	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
+	"github.com/garrettladley/thoop/internal/tui/components/viewport"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
@@ -23,20 +25,42 @@ func RenderSleepDetail(state State, width, height int) string {
 	metricsWidth := 40
 	metrics := renderSleepMetrics(state, metricsWidth)
 
-	content := lipgloss.JoinVertical(
-		lipgloss.Center,
-		gaugeStr,
-		"",
-		"",
-		metrics,
-	)
+	var contentParts []string
+	contentParts = append(contentParts, gaugeStr)
+	contentParts = append(contentParts, "", "")
+	contentParts = append(contentParts, metrics)
+
+	chartsSection := renderSleepCharts(state, metricsWidth)
+	if chartsSection != "" {
+		contentParts = append(contentParts, "", "", "")
+		contentParts = append(contentParts, chartsSection)
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Center, contentParts...)
+
+	contentHeight := lipgloss.Height(content)
+	viewportHeight := height - 2 // reserve space for footer
+
+	if contentHeight <= viewportHeight {
+		return lipgloss.Place(
+			width,
+			height,
+			lipgloss.Center,
+			lipgloss.Center,
+			content,
+		)
+	}
+
+	vp := viewport.New(viewport.WithSize(width, viewportHeight))
+	offset := vp.ClampOffset(content, state.ScrollOffset)
+	scrolledContent := vp.Render(content, offset)
 
 	return lipgloss.Place(
 		width,
 		height,
 		lipgloss.Center,
-		lipgloss.Center,
-		content,
+		lipgloss.Top,
+		scrolledContent,
 	)
 }
 
@@ -86,11 +110,6 @@ func renderSleepMetrics(state State, width int) string {
 		rows = append(rows, efficiencyRow.Render())
 		rows = append(rows, "")
 
-		// padding to match recovery/strain page heights (they have 4 metrics with sub-values)
-		rows = append(rows, "")
-		rows = append(rows, "")
-		rows = append(rows, "")
-
 		rows = append(rows, "")
 		rows = append(rows, renderSleepLegend())
 	} else {
@@ -101,6 +120,90 @@ func renderSleepMetrics(state State, width int) string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func renderSleepCharts(state State, width int) string {
+	if len(state.HistoricalSleeps) == 0 {
+		return ""
+	}
+
+	titleStyle := lipgloss.NewStyle().
+		Foreground(theme.ColorWhite).
+		Bold(true)
+
+	var sections []string
+	sections = append(sections, titleStyle.Render("WEEKLY SLEEP PERFORMANCE"))
+	sections = append(sections, "")
+
+	var perfData []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(perfData) < 7; i-- {
+		s := state.HistoricalSleeps[i]
+		if s.Nap || s.Score == nil {
+			continue
+		}
+		perfData = append(perfData, chart.DataPoint{
+			Label: s.CreatedAt.Format("Mon\n2"),
+			Value: s.Score.SleepPerformancePercentage,
+		})
+	}
+
+	for i, j := 0, len(perfData)-1; i < j; i, j = i+1, j-1 {
+		perfData[i], perfData[j] = perfData[j], perfData[i]
+	}
+
+	if len(perfData) > 0 {
+		perfChart := chart.NewBarChart(perfData,
+			chart.WithBarChartColorFunc(chart.SleepPerformanceColor),
+			chart.WithBarChartFormatter(chart.FormatPercentage),
+			chart.WithBarChartMax(100),
+			chart.WithBarChartHeight(6),
+			chart.WithBarChartShowValues(true),
+		)
+		sections = append(sections, perfChart.Render(width))
+	}
+
+	// add hours slept vs needed dual line chart
+	sections = append(sections, "")
+	sections = append(sections, "")
+	sections = append(sections, titleStyle.Render("HOURS OF SLEEP VS NEEDED"))
+	sections = append(sections, "")
+
+	var actualData, neededData []chart.DataPoint
+	for i := len(state.HistoricalSleeps) - 1; i >= 0 && len(actualData) < 7; i-- {
+		s := state.HistoricalSleeps[i]
+		if s.Nap || s.Score == nil {
+			continue
+		}
+		hoursSlept := calculateHoursSlept(s.Score.StageSummary.TotalInBedTimeMilli - s.Score.StageSummary.TotalAwakeTimeMilli)
+		hoursNeeded := calculateHoursNeeded(
+			s.Score.SleepNeeded.BaselineMilli,
+			s.Score.SleepNeeded.NeedFromSleepDebtMilli,
+			s.Score.SleepNeeded.NeedFromRecentStrainMilli,
+			s.Score.SleepNeeded.NeedFromRecentNapMilli,
+		)
+		label := s.CreatedAt.Format("Mon\n2")
+		actualData = append(actualData, chart.DataPoint{Label: label, Value: hoursSlept})
+		neededData = append(neededData, chart.DataPoint{Label: label, Value: hoursNeeded})
+	}
+
+	for i, j := 0, len(actualData)-1; i < j; i, j = i+1, j-1 {
+		actualData[i], actualData[j] = actualData[j], actualData[i]
+		neededData[i], neededData[j] = neededData[j], neededData[i]
+	}
+
+	if len(actualData) > 0 {
+		dualChart := chart.NewDualLineChart(actualData, neededData,
+			chart.WithDualLineColors(theme.ColorSleep, theme.ColorDim),
+			chart.WithDualLineLabels("Actual", "Needed"),
+			chart.WithDualLineHeight(5),
+			chart.WithDualLineMin(0),
+			chart.WithDualLineMax(12),
+			chart.WithDualLineShowLegend(true),
+		)
+		sections = append(sections, dualChart.Render(width))
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
 
 func renderSleepLegend() string {

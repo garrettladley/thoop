@@ -5,8 +5,10 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/garrettladley/thoop/internal/tui/components/chart"
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
 	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
+	"github.com/garrettladley/thoop/internal/tui/components/viewport"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
@@ -23,20 +25,42 @@ func RenderStrainDetail(state State, width, height int) string {
 	metricsWidth := 40
 	metrics := renderStrainMetrics(state, metricsWidth)
 
-	content := lipgloss.JoinVertical(
-		lipgloss.Center,
-		gaugeStr,
-		"",
-		"",
-		metrics,
-	)
+	var contentParts []string
+	contentParts = append(contentParts, gaugeStr)
+	contentParts = append(contentParts, "", "")
+	contentParts = append(contentParts, metrics)
+
+	chartsSection := renderStrainCharts(state, metricsWidth)
+	if chartsSection != "" {
+		contentParts = append(contentParts, "", "", "")
+		contentParts = append(contentParts, chartsSection)
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Center, contentParts...)
+
+	contentHeight := lipgloss.Height(content)
+	viewportHeight := height - 2
+
+	if contentHeight <= viewportHeight {
+		return lipgloss.Place(
+			width,
+			height,
+			lipgloss.Center,
+			lipgloss.Center,
+			content,
+		)
+	}
+
+	vp := viewport.New(viewport.WithSize(width, viewportHeight))
+	offset := vp.ClampOffset(content, state.ScrollOffset)
+	scrolledContent := vp.Render(content, offset)
 
 	return lipgloss.Place(
 		width,
 		height,
 		lipgloss.Center,
-		lipgloss.Center,
-		content,
+		lipgloss.Top,
+		scrolledContent,
 	)
 }
 
@@ -108,4 +132,81 @@ func renderStrainMetrics(state State, width int) string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func renderStrainCharts(state State, width int) string {
+	if len(state.HistoricalCycles) == 0 {
+		return ""
+	}
+
+	titleStyle := lipgloss.NewStyle().
+		Foreground(theme.ColorWhite).
+		Bold(true)
+
+	var sections []string
+	sections = append(sections, titleStyle.Render("WEEKLY STRAIN"))
+	sections = append(sections, "")
+
+	// Build strain bar chart data
+	var strainData []chart.DataPoint
+	for i := len(state.HistoricalCycles) - 1; i >= 0 && len(strainData) < 7; i-- {
+		c := state.HistoricalCycles[i]
+		if c.Score == nil {
+			continue
+		}
+		strainData = append(strainData, chart.DataPoint{
+			Label: c.Start.Format("Mon\n2"),
+			Value: c.Score.Strain,
+		})
+	}
+
+	for i, j := 0, len(strainData)-1; i < j; i, j = i+1, j-1 {
+		strainData[i], strainData[j] = strainData[j], strainData[i]
+	}
+
+	if len(strainData) > 0 {
+		strainChart := chart.NewBarChart(strainData,
+			chart.WithBarChartColorFunc(chart.StrainColor),
+			chart.WithBarChartFormatter(chart.FormatFloat1),
+			chart.WithBarChartMax(21),
+			chart.WithBarChartHeight(6),
+			chart.WithBarChartShowValues(true),
+		)
+		sections = append(sections, strainChart.Render(width))
+	}
+
+	sections = append(sections, "")
+	sections = append(sections, "")
+	sections = append(sections, titleStyle.Render("CALORIES BURNED"))
+	sections = append(sections, "")
+
+	var caloriesData []chart.DataPoint
+	const kjPerKcal = 4.184
+	for i := len(state.HistoricalCycles) - 1; i >= 0 && len(caloriesData) < 7; i-- {
+		c := state.HistoricalCycles[i]
+		if c.Score == nil {
+			continue
+		}
+		caloriesData = append(caloriesData, chart.DataPoint{
+			Label: c.Start.Format("Mon\n2"),
+			Value: c.Score.Kilojoule / kjPerKcal,
+		})
+	}
+
+	for i, j := 0, len(caloriesData)-1; i < j; i, j = i+1, j-1 {
+		caloriesData[i], caloriesData[j] = caloriesData[j], caloriesData[i]
+	}
+
+	if len(caloriesData) > 0 {
+		caloriesChart := chart.NewLineChart(caloriesData,
+			chart.WithLineChartColor(theme.ColorStrain),
+			chart.WithLineChartFormatter(chart.FormatInt),
+			chart.WithLineChartHeight(5),
+			chart.WithLineChartShowValues(true),
+			chart.WithLineChartShowDots(true),
+		)
+		sections = append(sections, caloriesChart.Render(width))
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
