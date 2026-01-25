@@ -299,8 +299,8 @@ func renderRecoveryCharts(state State, width int) string {
 }
 
 func renderComparisonLegend() string {
-	upArrow := lipgloss.NewStyle().Foreground(theme.ColorTeal).Render("▲")
-	downArrow := lipgloss.NewStyle().Foreground(theme.ColorOrange).Render("▼")
+	upArrow := lipgloss.NewStyle().Foreground(theme.ColorTeal).Render(theme.SymbolArrowUp)
+	downArrow := lipgloss.NewStyle().Foreground(theme.ColorOrange).Render(theme.SymbolArrowDown)
 	today := lipgloss.NewStyle().Foreground(theme.ColorWhite).Render(" Today")
 	rest := lipgloss.NewStyle().Foreground(theme.ColorDim).Render(" vs. last 30 days")
 	return upArrow + downArrow + today + rest

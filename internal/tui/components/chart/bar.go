@@ -5,11 +5,13 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
 // Block characters for sub-cell resolution (each represents 1/8 of a cell height).
 // Index 0 = empty, Index 8 = full block.
-var verticalBlocks = []rune{' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
+var verticalBlocks = theme.VerticalBlocks
 
 // Bar represents a single vertical bar with optional stacking.
 type Bar struct {
@@ -118,7 +120,7 @@ func (b *Bar) Render() string {
 		if totalFillUnits > rowStartUnit {
 			fillInRow := min(totalFillUnits, rowEndUnit) - rowStartUnit
 			if fillInRow >= 8 {
-				rowChar = '█'
+				rowChar = theme.VerticalBlocks[8]
 			} else if fillInRow > 0 {
 				rowChar = verticalBlocks[fillInRow]
 			}
@@ -179,7 +181,7 @@ func NewHorizontalBar(width int, segments []Segment, opts ...HorizontalBarOption
 }
 
 // horizontal block characters for sub-cell resolution.
-var horizontalBlocks = []rune{' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'}
+var horizontalBlocks = theme.HorizontalBlocks
 
 // render renders the horizontal bar.
 func (b *HorizontalBar) Render() string {
@@ -205,7 +207,7 @@ func (b *HorizontalBar) Render() string {
 
 		// full characters
 		for range fullChars {
-			result.WriteString(style.Render("█"))
+			result.WriteString(style.Render(theme.SymbolBlockFull))
 			currentPos++
 		}
 
@@ -220,7 +222,7 @@ func (b *HorizontalBar) Render() string {
 	if b.bgColor != nil && currentPos < b.width {
 		bgStyle := lipgloss.NewStyle().Foreground(b.bgColor)
 		for currentPos < b.width {
-			result.WriteString(bgStyle.Render("█"))
+			result.WriteString(bgStyle.Render(theme.SymbolBlockFull))
 			currentPos++
 		}
 	} else {

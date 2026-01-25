@@ -39,6 +39,4 @@ var (
 	ColorSleepDeep  = lipgloss.Color("#9B59B6") // Deep sleep
 )
 
-var (
-	ColorChartGrid = lipgloss.Color("#333333") // Grid lines
-)
+var ColorChartGrid = lipgloss.Color("#333333") // Grid lines

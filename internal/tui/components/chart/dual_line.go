@@ -151,45 +151,48 @@ func NewDualLineChart(series1, series2 []DataPoint, opts ...DualLineChartOption)
 		opt(dlc)
 	}
 
-	// auto-detect min/max from data
-	if dlc.autoScale || dlc.maxValue <= dlc.minValue {
-		// find actual min and max from data
-		dataMin := float64(1e18)
-		dataMax := float64(-1e18)
-		for _, d := range dlc.series1 {
-			if d.Value < dataMin {
-				dataMin = d.Value
-			}
-			if d.Value > dataMax {
-				dataMax = d.Value
-			}
-		}
-		for _, d := range dlc.series2 {
-			if d.Value < dataMin {
-				dataMin = d.Value
-			}
-			if d.Value > dataMax {
-				dataMax = d.Value
-			}
-		}
+	dlc.computeMinMax()
+	return dlc
+}
 
-		if dataMax > dataMin {
-			// add 10% padding above and below
-			padding := (dataMax - dataMin) * 0.1
-			if dlc.autoScale {
-				dlc.minValue = dataMin - padding
-				dlc.maxValue = dataMax + padding
-			} else {
-				// only set max if not already set
-				dlc.maxValue = dataMax + padding
-			}
-		} else {
-			dlc.minValue = 0
-			dlc.maxValue = 100
-		}
+// computeMinMax auto-detects min/max from data if needed.
+func (dlc *DualLineChart) computeMinMax() {
+	if !dlc.autoScale && dlc.maxValue > dlc.minValue {
+		return
 	}
 
-	return dlc
+	dataMin, dataMax := findDataMinMax(dlc.series1, dlc.series2)
+
+	if dataMax <= dataMin {
+		dlc.minValue = 0
+		dlc.maxValue = 100
+		return
+	}
+
+	padding := (dataMax - dataMin) * 0.1
+	if dlc.autoScale {
+		dlc.minValue = dataMin - padding
+		dlc.maxValue = dataMax + padding
+	} else {
+		dlc.maxValue = dataMax + padding
+	}
+}
+
+// findDataMinMax finds the min and max values across multiple data series.
+func findDataMinMax(series ...[]DataPoint) (dataMin, dataMax float64) {
+	dataMin = 1e18
+	dataMax = -1e18
+	for _, s := range series {
+		for _, d := range s {
+			if d.Value < dataMin {
+				dataMin = d.Value
+			}
+			if d.Value > dataMax {
+				dataMax = d.Value
+			}
+		}
+	}
+	return dataMin, dataMax
 }
 
 // Render renders the dual line chart.
@@ -470,7 +473,7 @@ func overlayLines(str1, str2 string, color1, color2 color.Color) string {
 		var lineBuilder strings.Builder
 
 		for j := range maxLen {
-			var r1, r2 rune = ' ', ' '
+			r1, r2 := ' ', ' '
 			if j < len(runes1) {
 				r1 = runes1[j]
 			}

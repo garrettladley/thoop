@@ -192,7 +192,7 @@ func (bc *BarChart) Render(width int) string {
 		}
 	}
 
-	var sections []string
+	sections := make([]string, 0, bc.height+4)
 
 	// render bars
 	barStrings := make([][]string, numBars)

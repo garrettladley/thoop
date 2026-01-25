@@ -73,47 +73,10 @@ func (ssc *SleepStagesChart) Render(width int) string {
 	// pre-allocate: header (2 lines) + stages (2 lines each)
 	sections := make([]string, 0, 2+len(ssc.stages)*2)
 
-	// header row: "HOURS OF SLEEP" on left, duration with trend on right
 	if ssc.showHeader {
-		labelStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite).Bold(true)
-		durationStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite).Bold(true)
-
-		leftLabel := labelStyle.Render("HOURS OF SLEEP")
-		totalDurationStr := formatDurationFromMs(ssc.totalDuration)
-
-		// determine trend direction
-		var trendStr string
-		if ssc.baselineDuration > 0 {
-			if ssc.totalDuration > ssc.baselineDuration {
-				trendStr = " " + lipgloss.NewStyle().Foreground(theme.ColorTeal).Render("▲")
-			} else if ssc.totalDuration < ssc.baselineDuration {
-				trendStr = " " + lipgloss.NewStyle().Foreground(theme.ColorOrange).Render("▼")
-			}
-		}
-
-		rightValue := durationStyle.Render(totalDurationStr) + trendStr
-
-		leftWidth := lipgloss.Width(leftLabel)
-		rightWidth := lipgloss.Width(rightValue)
-		padding := max(width-leftWidth-rightWidth, 1)
-
-		headerRow := leftLabel + strings.Repeat(" ", padding) + rightValue
-		sections = append(sections, headerRow)
-
-		// add baseline subtext row if available
-		if ssc.baselineDuration > 0 {
-			baselineStr := formatDurationFromMs(ssc.baselineDuration)
-			subValueStyle := lipgloss.NewStyle().Foreground(theme.ColorDim)
-			subValueText := subValueStyle.Render(baselineStr)
-			subPadding := width - lipgloss.Width(subValueText)
-			subRow := strings.Repeat(" ", max(subPadding, 0)) + subValueText
-			sections = append(sections, subRow)
-		}
-
-		sections = append(sections, "")
+		sections = ssc.renderHeader(sections, width)
 	}
 
-	// render each stage
 	for _, stage := range ssc.stages {
 		stageRow := ssc.renderStageRow(stage, width)
 		sections = append(sections, stageRow)
@@ -122,11 +85,59 @@ func (ssc *SleepStagesChart) Render(width int) string {
 	return strings.Join(sections, "\n")
 }
 
+// renderHeader renders the header section with title and trend indicator.
+func (ssc *SleepStagesChart) renderHeader(sections []string, width int) []string {
+	labelStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite).Bold(true)
+	durationStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite).Bold(true)
+
+	leftLabel := labelStyle.Render("HOURS OF SLEEP")
+	totalDurationStr := formatDurationFromMs(ssc.totalDuration)
+	trendStr := ssc.getTrendIndicator()
+
+	rightValue := durationStyle.Render(totalDurationStr) + trendStr
+
+	leftWidth := lipgloss.Width(leftLabel)
+	rightWidth := lipgloss.Width(rightValue)
+	padding := max(width-leftWidth-rightWidth, 1)
+
+	headerRow := leftLabel + strings.Repeat(" ", padding) + rightValue
+	sections = append(sections, headerRow)
+
+	if ssc.baselineDuration > 0 {
+		sections = append(sections, ssc.renderBaselineRow(width))
+	}
+
+	return append(sections, "")
+}
+
+// getTrendIndicator returns the trend arrow based on comparison with baseline.
+func (ssc *SleepStagesChart) getTrendIndicator() string {
+	if ssc.baselineDuration <= 0 {
+		return ""
+	}
+	if ssc.totalDuration > ssc.baselineDuration {
+		return " " + lipgloss.NewStyle().Foreground(theme.ColorTeal).Render(theme.SymbolArrowUp)
+	}
+	if ssc.totalDuration < ssc.baselineDuration {
+		return " " + lipgloss.NewStyle().Foreground(theme.ColorOrange).Render(theme.SymbolArrowDown)
+	}
+	return ""
+}
+
+// renderBaselineRow renders the baseline duration subtext row.
+func (ssc *SleepStagesChart) renderBaselineRow(width int) string {
+	baselineStr := formatDurationFromMs(ssc.baselineDuration)
+	subValueStyle := lipgloss.NewStyle().Foreground(theme.ColorDim)
+	subValueText := subValueStyle.Render(baselineStr)
+	subPadding := width - lipgloss.Width(subValueText)
+	return strings.Repeat(" ", max(subPadding, 0)) + subValueText
+}
+
 func (ssc *SleepStagesChart) renderStageRow(stage SleepStage, width int) string {
 	var lines []string
 
 	circleStyle := lipgloss.NewStyle().Foreground(stage.Color)
-	circle := circleStyle.Render("○")
+	circle := circleStyle.Render(theme.SymbolCircleEmpty)
 
 	nameStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite).Bold(true)
 	pctStyle := lipgloss.NewStyle().Foreground(stage.Color)
@@ -160,7 +171,7 @@ func (ssc *SleepStagesChart) renderStageBar(stage SleepStage, barWidth int) stri
 
 	filledStyle := lipgloss.NewStyle().Foreground(stage.Color)
 	for range actualWidth {
-		result.WriteString(filledStyle.Render("█"))
+		result.WriteString(filledStyle.Render(theme.SymbolBlockFull))
 	}
 
 	return result.String()

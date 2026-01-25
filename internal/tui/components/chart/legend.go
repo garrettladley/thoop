@@ -69,10 +69,10 @@ func (l *Legend) Render() string {
 
 	textStyle := lipgloss.NewStyle().Foreground(l.textColor)
 
-	var parts []string
+	parts := make([]string, 0, len(l.items))
 	for _, item := range l.items {
 		boxStyle := lipgloss.NewStyle().Foreground(item.Color)
-		entry := boxStyle.Render("■") + " " + textStyle.Render(item.Label)
+		entry := boxStyle.Render(theme.SymbolSquareFilled) + " " + textStyle.Render(item.Label)
 		parts = append(parts, entry)
 	}
 

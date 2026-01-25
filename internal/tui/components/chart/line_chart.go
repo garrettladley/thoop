@@ -98,26 +98,33 @@ func NewLineChart(data []DataPoint, opts ...LineChartOption) *LineChart {
 		opt(lc)
 	}
 
-	// Auto-detect min/max if not set
-	if lc.maxValue <= lc.minValue {
-		for _, d := range lc.data {
-			if d.Value > lc.maxValue {
-				lc.maxValue = d.Value
-			}
-			if d.Value < lc.minValue || lc.minValue == 0 {
-				lc.minValue = d.Value
-			}
+	lc.computeMinMax()
+	return lc
+}
+
+// computeMinMax auto-detects min/max from data if needed.
+func (lc *LineChart) computeMinMax() {
+	if lc.maxValue > lc.minValue {
+		return
+	}
+
+	for _, d := range lc.data {
+		if d.Value > lc.maxValue {
+			lc.maxValue = d.Value
 		}
-		// Add some padding
-		if lc.minValue == lc.maxValue {
-			lc.minValue = 0
-			if lc.maxValue == 0 {
-				lc.maxValue = 100
-			}
+		if d.Value < lc.minValue || lc.minValue == 0 {
+			lc.minValue = d.Value
 		}
 	}
 
-	return lc
+	if lc.minValue != lc.maxValue {
+		return
+	}
+
+	lc.minValue = 0
+	if lc.maxValue == 0 {
+		lc.maxValue = 100
+	}
 }
 
 // Render renders the line chart.

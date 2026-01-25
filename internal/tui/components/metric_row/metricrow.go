@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	symbolUp      = "▲"
-	symbolDown    = "▼"
-	symbolNeutral = "●"
+	symbolUp      = theme.SymbolArrowUp
+	symbolDown    = theme.SymbolArrowDown
+	symbolNeutral = theme.SymbolCircleFilled
 )
 
 type Direction int

@@ -199,7 +199,7 @@ func (sbc *StackedBarChart) Render(width int) string {
 		}
 	}
 
-	var sections []string
+	sections := make([]string, 0, sbc.height+6)
 
 	// render legend at top right if configured
 	if sbc.showLegend && len(sbc.labels) > 0 && sbc.legendPosition == LegendTopRight {

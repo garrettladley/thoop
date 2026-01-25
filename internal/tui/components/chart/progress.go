@@ -206,7 +206,7 @@ func (cp *ComparisonProgress) Render(width int) string {
 		barWidth = 10
 	}
 
-	var lines []string
+	lines := make([]string, 0, len(cp.values))
 	for _, v := range cp.values {
 		var row strings.Builder
 

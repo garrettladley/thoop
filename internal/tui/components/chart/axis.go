@@ -22,20 +22,6 @@ type Axis struct {
 // AxisOption configures an Axis.
 type AxisOption func(*Axis)
 
-// WithAxisLine shows a line separator above the labels.
-func WithAxisLine(show bool) AxisOption {
-	return func(a *Axis) {
-		a.showLine = show
-	}
-}
-
-// WithAxisLabelGap sets the minimum gap between labels.
-func WithAxisLabelGap(gap int) AxisOption {
-	return func(a *Axis) {
-		a.labelGap = gap
-	}
-}
-
 // WithAxisTextColor sets the label text color.
 func WithAxisTextColor(c color.Color) AxisOption {
 	return func(a *Axis) {
@@ -70,12 +56,6 @@ func (a *Axis) Render() string {
 		return ""
 	}
 
-	var lines []string
-
-	if a.showLine {
-		lines = append(lines, strings.Repeat("─", a.width))
-	}
-
 	// calculate label positions
 	// labels are evenly distributed across the width
 	labelStyle := lipgloss.NewStyle().Foreground(a.textColor)
@@ -95,6 +75,12 @@ func (a *Axis) Render() string {
 				labelWidths[i] = len(part)
 			}
 		}
+	}
+
+	lines := make([]string, 0, maxLabelLines+1)
+
+	if a.showLine {
+		lines = append(lines, strings.Repeat("─", a.width))
 	}
 
 	// use explicit positions if provided, otherwise calculate to match Line renderer

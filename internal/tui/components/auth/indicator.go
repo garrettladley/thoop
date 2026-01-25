@@ -6,7 +6,7 @@ import (
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
-const statusDot = "●"
+const statusDot = theme.SymbolCircleFilled
 
 type Indicator struct {
 	Checked       bool

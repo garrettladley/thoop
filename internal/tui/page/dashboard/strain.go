@@ -226,7 +226,7 @@ func renderTodaysActivities(workouts []whoop.Workout, width int) string {
 		Foreground(theme.ColorWhite).
 		Bold(true)
 
-	var sections []string
+	sections := make([]string, 0, len(workouts)+2)
 	sections = append(sections, titleStyle.Render("TODAY'S ACTIVITIES"))
 	sections = append(sections, "")
 

@@ -422,11 +422,11 @@ func renderSleepCharts(state State, width int) string {
 }
 
 func renderSleepLegend() string {
-	poorBox := lipgloss.NewStyle().Foreground(theme.ColorOrange).Render("■")
+	poorBox := lipgloss.NewStyle().Foreground(theme.ColorOrange).Render(theme.SymbolSquareFilled)
 	poorText := lipgloss.NewStyle().Foreground(theme.ColorDim).Render(" Poor  ")
-	suffBox := lipgloss.NewStyle().Foreground(theme.ColorNeutral).Render("■")
+	suffBox := lipgloss.NewStyle().Foreground(theme.ColorNeutral).Render(theme.SymbolSquareFilled)
 	suffText := lipgloss.NewStyle().Foreground(theme.ColorDim).Render(" Sufficient  ")
-	optBox := lipgloss.NewStyle().Foreground(theme.ColorTeal).Render("■")
+	optBox := lipgloss.NewStyle().Foreground(theme.ColorTeal).Render(theme.SymbolSquareFilled)
 	optText := lipgloss.NewStyle().Foreground(theme.ColorDim).Render(" Optimal")
 	return poorBox + poorText + suffBox + suffText + optBox + optText
 }
@@ -465,9 +465,9 @@ func renderRestorativeSleepFooter(state State, width int) string {
 	var directionStr string
 	if baselineRestorativeMs > 0 {
 		if currentRestorativeMs > baselineRestorativeMs {
-			directionStr = " " + lipgloss.NewStyle().Foreground(theme.ColorTeal).Render("▲")
+			directionStr = " " + lipgloss.NewStyle().Foreground(theme.ColorTeal).Render(theme.SymbolArrowUp)
 		} else if currentRestorativeMs < baselineRestorativeMs {
-			directionStr = " " + lipgloss.NewStyle().Foreground(theme.ColorOrange).Render("▼")
+			directionStr = " " + lipgloss.NewStyle().Foreground(theme.ColorOrange).Render(theme.SymbolArrowDown)
 		}
 	}
 
