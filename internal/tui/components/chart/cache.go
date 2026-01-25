@@ -75,11 +75,11 @@ func ClearCache() {
 func HashDataPoints(data []DataPoint) uint64 {
 	h := fnv.New64a()
 	for _, d := range data {
-		h.Write([]byte(d.Label))
+		_, _ = h.Write([]byte(d.Label))
 		// write float64 as bytes
 		bits := uint64(d.Value * 1000000) // preserve 6 decimal places
 		for i := range 8 {
-			h.Write([]byte{byte(bits >> (i * 8))})
+			_, _ = h.Write([]byte{byte(bits >> (i * 8))})
 		}
 	}
 	return h.Sum64()
@@ -89,11 +89,11 @@ func HashDataPoints(data []DataPoint) uint64 {
 func HashStackedDataPoints(data []StackedDataPoint) uint64 {
 	h := fnv.New64a()
 	for _, d := range data {
-		h.Write([]byte(d.Label))
+		_, _ = h.Write([]byte(d.Label))
 		for _, v := range d.Values {
 			bits := uint64(v * 1000000)
 			for i := range 8 {
-				h.Write([]byte{byte(bits >> (i * 8))})
+				_, _ = h.Write([]byte{byte(bits >> (i * 8))})
 			}
 		}
 	}
@@ -104,22 +104,22 @@ func HashStackedDataPoints(data []StackedDataPoint) uint64 {
 func HashSleepStages(stages []SleepStage, totalDuration, baselineDuration int) uint64 {
 	h := fnv.New64a()
 	for _, s := range stages {
-		h.Write([]byte(s.Name))
+		_, _ = h.Write([]byte(s.Name))
 		bits := uint64(s.Percentage * 1000000)
 		for i := range 8 {
-			h.Write([]byte{byte(bits >> (i * 8))})
+			_, _ = h.Write([]byte{byte(bits >> (i * 8))})
 		}
-		dur := uint64(s.DurationMs)
+		dur := uint64(int64(s.DurationMs)) //nolint:gosec // duration is always non-negative
 		for i := range 8 {
-			h.Write([]byte{byte(dur >> (i * 8))})
+			_, _ = h.Write([]byte{byte(dur >> (i * 8))})
 		}
 	}
 	// include total and baseline in hash
-	total := uint64(totalDuration)
-	baseline := uint64(baselineDuration)
+	total := uint64(int64(totalDuration))       //nolint:gosec // duration is always non-negative
+	baseline := uint64(int64(baselineDuration)) //nolint:gosec // duration is always non-negative
 	for i := range 8 {
-		h.Write([]byte{byte(total >> (i * 8))})
-		h.Write([]byte{byte(baseline >> (i * 8))})
+		_, _ = h.Write([]byte{byte(total >> (i * 8))})
+		_, _ = h.Write([]byte{byte(baseline >> (i * 8))})
 	}
 	return h.Sum64()
 }
