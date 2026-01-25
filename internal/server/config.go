@@ -34,13 +34,17 @@ type RateLimit struct {
 }
 
 type WhoopRateLimit struct {
-	// max 10 users as unapproved app, assumes ~5 concurrent
-	PerUserMinuteLimit int `env:"PER_USER_MINUTE_LIMIT" envDefault:"20"`
-	PerUserDayLimit    int `env:"PER_USER_DAY_LIMIT" envDefault:"2000"`
+	// per-user daily limit
+	PerUserDayLimit int `env:"PER_USER_DAY_LIMIT" envDefault:"1000"`
 
 	// w/ safety buffers from WHOOP's 100/min, 10k/day
 	GlobalMinuteLimit int `env:"GLOBAL_MINUTE_LIMIT" envDefault:"95"`
 	GlobalDayLimit    int `env:"GLOBAL_DAY_LIMIT" envDefault:"9950"`
+
+	// dynamic per-user minute limiting
+	ReserveBuffer         int `env:"RESERVE_BUFFER" envDefault:"5"`            // reserve for new users joining
+	MinPerUserMinuteLimit int `env:"MIN_PER_USER_MINUTE_LIMIT" envDefault:"5"` // floor (never go below this)
+	ActiveWindowSeconds   int `env:"ACTIVE_WINDOW_SECONDS" envDefault:"60"`    // window for tracking active users
 }
 
 var _ oauth.ConfigProvider = (*Config)(nil)

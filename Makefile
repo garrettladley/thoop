@@ -182,6 +182,11 @@ down:
 psql:
 	@docker compose exec postgres psql -U thoop -d thoop
 
+## redis/flush: flush all redis data
+.PHONY: redis/flush
+redis/flush:
+	@redis-cli -p 6969 FLUSHALL
+
 # Server
 ## server: run server (requires .env or env vars)
 .PHONY: server

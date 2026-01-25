@@ -18,10 +18,9 @@ import (
 const whoopAPIURL = "https://api.prod.whoop.com/developer"
 
 type RateLimitConfig struct {
-	PerUserMinuteLimit int
-	PerUserDayLimit    int
-	GlobalMinuteLimit  int
-	GlobalDayLimit     int
+	PerUserDayLimit   int
+	GlobalMinuteLimit int
+	GlobalDayLimit    int
 }
 
 type Proxy struct {
@@ -65,7 +64,7 @@ func (p *Proxy) CheckRateLimit(ctx context.Context, userID int64) (*RateLimitInf
 		switch *state.Reason {
 		case storage.WhoopRateLimitReasonPerUserMinute:
 			retryAfter = time.Until(state.MinuteReset)
-			message = fmt.Sprintf("Per-user rate limit exceeded (%d requests/minute)", p.rateLimitCfg.PerUserMinuteLimit)
+			message = fmt.Sprintf("Per-user rate limit exceeded (%d requests/minute)", state.DynamicMinuteLimit)
 		case storage.WhoopRateLimitReasonPerUserDay:
 			retryAfter = time.Until(state.DayReset)
 			message = fmt.Sprintf("Per-user rate limit exceeded (%d requests/day)", p.rateLimitCfg.PerUserDayLimit)
@@ -84,7 +83,10 @@ func (p *Proxy) CheckRateLimit(ctx context.Context, userID int64) (*RateLimitInf
 		message = "Rate limit exceeded"
 	}
 
-	logger.WarnContext(ctx, "rate limit exceeded", xslog.UserID(userID))
+	logger.WarnContext(ctx, "rate limit exceeded",
+		xslog.UserID(userID),
+		xslog.DynamicLimit(state.DynamicMinuteLimit),
+		xslog.ActiveUsers(state.ActiveUserCount))
 
 	return &RateLimitInfo{
 		RetryAfter: retryAfter,
