@@ -8,8 +8,6 @@ import (
 	gokeyring "github.com/zalando/go-keyring"
 )
 
-const ServiceName = "thoop"
-
 const (
 	KeyAccessToken  = "access_token"
 	KeyRefreshToken = "refresh_token"
