@@ -33,5 +33,10 @@ LIMIT sqlc.arg(limit);
 -- name: GetPendingCycles :many
 SELECT * FROM cycles WHERE score_state = 'PENDING_SCORE' ORDER BY start DESC;
 
+-- name: GetCycleByDate :one
+SELECT * FROM cycles
+WHERE start >= sqlc.arg(day_start) AND start < sqlc.arg(day_end)
+ORDER BY start DESC LIMIT 1;
+
 -- name: DeleteCycle :exec
 DELETE FROM cycles WHERE id = ?;

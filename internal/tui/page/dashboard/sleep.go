@@ -3,6 +3,8 @@ package dashboard
 import (
 	"fmt"
 	colorpkg "image/color"
+	"math"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 
@@ -120,7 +122,7 @@ func renderSleepMetrics(state State, width int) string {
 
 		sleepPerfRow := metric_row.New(
 			"Sleep Performance",
-			fmt.Sprintf("%.0f%%", score.SleepPerformancePercentage),
+			fmt.Sprintf("%3.0f%%", score.SleepPerformancePercentage),
 			width,
 			metric_row.WithSegmentedProgressBarThresholds(score.SleepPerformancePercentage, 3, 70, 85),
 			metric_row.WithLabelColor(theme.ColorWhite),
@@ -135,15 +137,14 @@ func renderSleepMetrics(state State, width int) string {
 			score.SleepNeeded.NeedFromRecentStrainMilli,
 			score.SleepNeeded.NeedFromRecentNapMilli,
 		)
-		sleepRatio := 0.0
+		sleepPct := 0.0
 		if hoursNeeded > 0 {
-			sleepRatio = hoursSlept / hoursNeeded
+			sleepPct = min(math.Round((hoursSlept/hoursNeeded)*100), 100)
 		}
-		sleepPct := sleepRatio * 100
 
 		sleptRow := metric_row.New(
 			"Hours vs. Needed",
-			fmt.Sprintf("%.0f%%", sleepPct),
+			fmt.Sprintf("%3.0f%%", sleepPct),
 			width,
 			metric_row.WithSegmentedProgressBarThresholds(sleepPct, 3, 70, 85),
 			metric_row.WithLabelColor(theme.ColorWhite),
@@ -153,7 +154,7 @@ func renderSleepMetrics(state State, width int) string {
 
 		consistencyRow := metric_row.New(
 			"Sleep Consistency",
-			fmt.Sprintf("%.0f%%", score.SleepConsistencyPercentage),
+			fmt.Sprintf("%3.0f%%", score.SleepConsistencyPercentage),
 			width,
 			metric_row.WithSegmentedProgressBarThresholds(score.SleepConsistencyPercentage, 3, 70, 80),
 			metric_row.WithLabelColor(theme.ColorWhite),
@@ -163,7 +164,7 @@ func renderSleepMetrics(state State, width int) string {
 
 		efficiencyRow := metric_row.New(
 			"Sleep Efficiency",
-			fmt.Sprintf("%.0f%%", score.SleepEfficiencyPercentage),
+			fmt.Sprintf("%3.0f%%", score.SleepEfficiencyPercentage),
 			width,
 			metric_row.WithSegmentedProgressBarThresholds(score.SleepEfficiencyPercentage, 3, 80, 90),
 			metric_row.WithLabelColor(theme.ColorWhite),
@@ -179,6 +180,9 @@ func renderSleepMetrics(state State, width int) string {
 
 		rows = append(rows, "")
 		rows = append(rows, renderRestorativeSleepFooter(state, width))
+
+		rows = append(rows, "", "")
+		rows = append(rows, renderHoursVsNeededSection(state, width))
 	} else {
 		noDataStyle := lipgloss.NewStyle().
 			Foreground(theme.ColorDim).
@@ -318,9 +322,20 @@ func hoursVsNeededPercentChart(state State, width int) string {
 		if s.Nap || s.Score == nil {
 			continue
 		}
+		hoursSlept := calculateHoursSlept(s.Score.StageSummary.TotalInBedTimeMilli - s.Score.StageSummary.TotalAwakeTimeMilli)
+		hoursNeeded := calculateHoursNeeded(
+			s.Score.SleepNeeded.BaselineMilli,
+			s.Score.SleepNeeded.NeedFromSleepDebtMilli,
+			s.Score.SleepNeeded.NeedFromRecentStrainMilli,
+			s.Score.SleepNeeded.NeedFromRecentNapMilli,
+		)
+		pct := 0.0
+		if hoursNeeded > 0 {
+			pct = min(math.Round((hoursSlept/hoursNeeded)*100), 100)
+		}
 		data = append(data, chart.DataPoint{
 			Label: s.CreatedAt.Format("Mon\n2"),
-			Value: s.Score.SleepPerformancePercentage,
+			Value: pct,
 		})
 	}
 	if len(data) == 0 {
@@ -526,6 +541,217 @@ func renderRestorativeSleepFooter(state State, width int) string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+func renderHoursVsNeededSection(state State, width int) string {
+	if state.CurrentSleep == nil || state.CurrentSleep.Score == nil {
+		return ""
+	}
+
+	score := state.CurrentSleep.Score
+	stages := score.StageSummary
+	needed := score.SleepNeeded
+
+	hoursSleptMs := stages.TotalInBedTimeMilli - stages.TotalAwakeTimeMilli
+	hoursSlept := float64(hoursSleptMs) / (1000 * 60 * 60)
+
+	hoursNeededMs := needed.BaselineMilli + needed.NeedFromSleepDebtMilli + needed.NeedFromRecentStrainMilli - needed.NeedFromRecentNapMilli
+	hoursNeeded := float64(hoursNeededMs) / (1000 * 60 * 60)
+
+	pct := 0.0
+	if hoursNeeded > 0 {
+		pct = min(math.Round((hoursSlept/hoursNeeded)*100), 100)
+	}
+
+	baselinePct := calculateHoursVsNeededBaseline(state)
+
+	var lines []string
+
+	titleStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite).Bold(true)
+	lines = append(lines, titleStyle.Render("HOURS VS. NEEDED"))
+	lines = append(lines, "")
+
+	pctStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite).Bold(true)
+	pctText := pctStyle.Render(fmt.Sprintf("%3.0f%%", pct))
+
+	var directionStr string
+	if baselinePct > 0 {
+		if pct > baselinePct {
+			directionStr = " " + lipgloss.NewStyle().Foreground(theme.ColorTeal).Render(theme.SymbolArrowUp)
+		} else if pct < baselinePct {
+			directionStr = " " + lipgloss.NewStyle().Foreground(theme.ColorOrange).Render(theme.SymbolArrowDown)
+		}
+	}
+	lines = append(lines, pctText+directionStr)
+
+	if baselinePct > 0 {
+		subStyle := lipgloss.NewStyle().Foreground(theme.ColorDim)
+		lines = append(lines, subStyle.Render(fmt.Sprintf("%.0f%%", math.Round(baselinePct))))
+	}
+	lines = append(lines, "")
+
+	maxHours := max(hoursSlept, hoursNeeded)
+	barWidth := width
+
+	colorHealthyMin := theme.ColorSleepHealthyMin
+	colorStrain := theme.ColorStrain
+	colorDebt := theme.ColorSleepDebt
+
+	hoursSleptLabel := lipgloss.NewStyle().Foreground(theme.ColorWhite).Render("HOURS OF SLEEP")
+	hoursSleptValue := lipgloss.NewStyle().Foreground(theme.ColorWhite).Bold(true).Render(formatDurationMs(hoursSleptMs))
+	hoursSleptHeader := hoursSleptLabel + fmt.Sprintf("%*s", width-lipgloss.Width(hoursSleptLabel)-lipgloss.Width(hoursSleptValue), "") + hoursSleptValue
+	lines = append(lines, hoursSleptHeader)
+
+	sleptBarFill := 0
+	if maxHours > 0 {
+		sleptBarFill = int(float64(barWidth) * (hoursSlept / maxHours))
+	}
+	sleptBar := renderHorizontalBar(sleptBarFill, barWidth, theme.ColorSleep)
+	lines = append(lines, sleptBar)
+	lines = append(lines, "")
+
+	sleepNeededLabel := lipgloss.NewStyle().Foreground(theme.ColorWhite).Render("SLEEP NEEDED")
+	sleepNeededValue := lipgloss.NewStyle().Foreground(theme.ColorWhite).Bold(true).Render(formatDurationMs(hoursNeededMs))
+	sleepNeededHeader := sleepNeededLabel + fmt.Sprintf("%*s", width-lipgloss.Width(sleepNeededLabel)-lipgloss.Width(sleepNeededValue), "") + sleepNeededValue
+	lines = append(lines, sleepNeededHeader)
+
+	baselineWidth := 0
+	strainWidth := 0
+	debtWidth := 0
+	if maxHours > 0 {
+		baselineHours := float64(needed.BaselineMilli) / (1000 * 60 * 60)
+		strainHours := float64(needed.NeedFromRecentStrainMilli) / (1000 * 60 * 60)
+		debtHours := float64(needed.NeedFromSleepDebtMilli) / (1000 * 60 * 60)
+
+		baselineWidth = int(float64(barWidth) * (baselineHours / maxHours))
+		strainWidth = int(float64(barWidth) * (strainHours / maxHours))
+		debtWidth = int(float64(barWidth) * (debtHours / maxHours))
+
+		// ensure positive values render at least 1 character
+		if needed.BaselineMilli > 0 && baselineWidth == 0 {
+			baselineWidth = 1
+		}
+		if needed.NeedFromRecentStrainMilli > 0 && strainWidth == 0 {
+			strainWidth = 1
+		}
+		if needed.NeedFromSleepDebtMilli > 0 && debtWidth == 0 {
+			debtWidth = 1
+		}
+	}
+
+	neededBar := renderHorizontalStackedBar(barWidth, []stackedSegment{
+		{width: baselineWidth, color: colorHealthyMin},
+		{width: strainWidth, color: colorStrain},
+		{width: debtWidth, color: colorDebt},
+	})
+	lines = append(lines, neededBar)
+	lines = append(lines, "")
+
+	labelStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite)
+	valueStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite)
+
+	baselineDur := formatDurationMs(needed.BaselineMilli)
+	strainDur := formatDurationMsSigned(needed.NeedFromRecentStrainMilli)
+	debtDur := formatDurationMsSigned(needed.NeedFromSleepDebtMilli)
+
+	legendBoxMin := lipgloss.NewStyle().Foreground(colorHealthyMin).Render("■")
+	legendBoxStrain := lipgloss.NewStyle().Foreground(colorStrain).Render("■")
+	legendBoxDebt := lipgloss.NewStyle().Foreground(colorDebt).Render("■")
+
+	minLine := legendBoxMin + " " + labelStyle.Render("Healthy Minimum")
+	minValue := valueStyle.Render(baselineDur)
+	minPad := width - lipgloss.Width(minLine) - lipgloss.Width(minValue)
+	lines = append(lines, minLine+fmt.Sprintf("%*s", minPad, "")+minValue)
+
+	strainLine := legendBoxStrain + " " + labelStyle.Render("Recent Strain")
+	strainValue := valueStyle.Render(strainDur)
+	strainPad := width - lipgloss.Width(strainLine) - lipgloss.Width(strainValue)
+	lines = append(lines, strainLine+fmt.Sprintf("%*s", strainPad, "")+strainValue)
+
+	debtLine := legendBoxDebt + " " + labelStyle.Render("Sleep Debt")
+	debtValue := valueStyle.Render(debtDur)
+	debtPad := width - lipgloss.Width(debtLine) - lipgloss.Width(debtValue)
+	lines = append(lines, debtLine+fmt.Sprintf("%*s", debtPad, "")+debtValue)
+
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+type stackedSegment struct {
+	width int
+	color colorpkg.Color
+}
+
+func renderHorizontalBar(fillWidth, totalWidth int, fillColor colorpkg.Color) string {
+	if totalWidth <= 0 {
+		return ""
+	}
+	fillWidth = max(0, min(fillWidth, totalWidth))
+
+	bar := lipgloss.NewStyle().Foreground(fillColor).Render(strings.Repeat("█", fillWidth))
+	return bar
+}
+
+func renderHorizontalStackedBar(totalWidth int, segments []stackedSegment) string {
+	if totalWidth <= 0 {
+		return ""
+	}
+
+	var bar string
+
+	for _, seg := range segments {
+		if seg.width > 0 {
+			bar += lipgloss.NewStyle().Foreground(seg.color).Render(strings.Repeat("█", seg.width))
+		}
+	}
+
+	return bar
+}
+
+func calculateHoursVsNeededBaseline(state State) float64 {
+	if len(state.HistoricalSleeps) == 0 {
+		return 0
+	}
+
+	var totalPct float64
+	var count int
+
+	for _, s := range state.HistoricalSleeps {
+		if s.Nap || s.Score == nil {
+			continue
+		}
+		stages := s.Score.StageSummary
+		needed := s.Score.SleepNeeded
+
+		hoursSleptMs := stages.TotalInBedTimeMilli - stages.TotalAwakeTimeMilli
+		hoursNeededMs := needed.BaselineMilli + needed.NeedFromSleepDebtMilli + needed.NeedFromRecentStrainMilli - needed.NeedFromRecentNapMilli
+
+		if hoursNeededMs > 0 {
+			pct := min(math.Round(float64(hoursSleptMs)/float64(hoursNeededMs)*100), 100)
+			totalPct += pct
+			count++
+		}
+	}
+
+	if count == 0 {
+		return 0
+	}
+
+	return totalPct / float64(count)
+}
+
+func formatDurationMsSigned(ms int) string {
+	if ms == 0 {
+		return "+0:00"
+	}
+	sign := "+"
+	if ms < 0 {
+		sign = "-"
+		ms = -ms
+	}
+	totalMinutes := ms / (1000 * 60)
+	hours := totalMinutes / 60
+	minutes := totalMinutes % 60
+	return fmt.Sprintf("%s%d:%02d", sign, hours, minutes)
 }
 
 func renderSplitSquare() string {

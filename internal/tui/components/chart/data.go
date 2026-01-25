@@ -2,6 +2,7 @@ package chart
 
 import (
 	"fmt"
+	"math"
 )
 
 // DataPoint represents a single data point with a label and value.
@@ -19,14 +20,14 @@ type StackedDataPoint struct {
 // ValueFormatter formats a float64 value for display.
 type ValueFormatter func(value float64) string
 
-// FormatPercentage formats a value as a percentage.
+// FormatPercentage formats a value as a percentage with proper rounding.
 func FormatPercentage(v float64) string {
-	return fmt.Sprintf("%.0f%%", v)
+	return fmt.Sprintf("%.0f%%", math.Round(v))
 }
 
-// FormatInt formats a value as an integer.
+// FormatInt formats a value as an integer with proper rounding.
 func FormatInt(v float64) string {
-	return fmt.Sprintf("%.0f", v)
+	return fmt.Sprintf("%.0f", math.Round(v))
 }
 
 // FormatIntWithCommas formats a value as an integer with comma separators.

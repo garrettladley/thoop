@@ -55,6 +55,23 @@ func (r *cycleRepo) Get(ctx context.Context, id int64) (*whoop.Cycle, error) {
 	return r.toDomain(row)
 }
 
+func (r *cycleRepo) GetByDate(ctx context.Context, date time.Time) (*whoop.Cycle, error) {
+	dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	row, err := r.q.GetCycleByDate(ctx, sqlitec.GetCycleByDateParams{
+		DayStart: dayStart,
+		DayEnd:   dayEnd,
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w", err)
+	}
+	return r.toDomain(row)
+}
+
 func (r *cycleRepo) GetLatest(ctx context.Context, limit int) ([]whoop.Cycle, error) {
 	rows, err := r.q.GetLatestCycles(ctx, int64(limit))
 	if err != nil {

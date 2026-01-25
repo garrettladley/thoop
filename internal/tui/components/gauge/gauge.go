@@ -3,6 +3,7 @@ package gauge
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"strings"
 	"unicode"
 
@@ -98,7 +99,7 @@ func (g Gauge) Render() string {
 	if g.Value == nil {
 		valueStr = "--"
 	} else if g.Max == 100 {
-		valueStr = fmt.Sprintf("%.0f%%", *g.Value)
+		valueStr = fmt.Sprintf("%.0f%%", math.Round(*g.Value))
 	} else {
 		valueStr = fmt.Sprintf("%.1f", *g.Value)
 	}

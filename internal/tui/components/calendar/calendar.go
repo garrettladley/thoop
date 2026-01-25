@@ -7,9 +7,23 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 	"github.com/garrettladley/thoop/internal/xtime"
 )
+
+type RecoveryData map[string]float64
+
+func BuildRecoveryData(recoveries []whoop.Recovery) RecoveryData {
+	data := make(RecoveryData, len(recoveries))
+	for _, r := range recoveries {
+		if r.Score != nil {
+			dateKey := r.CreatedAt.Format("2006-01-02")
+			data[dateKey] = r.Score.RecoveryScore
+		}
+	}
+	return data
+}
 
 const (
 	colWidth  = 6 // width per day column
@@ -23,10 +37,16 @@ var dayHeaders = []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
 
 // calendar renders a calendar modal for date selection.
 type Calendar struct {
-	month  time.Time // month being viewed (any day in that month)
-	cursor time.Time // currently highlighted date
-	today  time.Time // current date (for future date restrictions)
+	month        time.Time    // month being viewed (any day in that month)
+	cursor       time.Time    // currently highlighted date
+	today        time.Time    // current date (for future date restrictions)
+	recoveryData RecoveryData // optional recovery scores for coloring dates
+	loading      bool         // true when fetching recovery data
+	spinnerStep  int          // current spinner animation frame
 }
+
+// spinner frames for loading animation
+var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 // New creates a calendar starting on the given date.
 func New(cursor time.Time, today time.Time) Calendar {
@@ -121,6 +141,24 @@ func (c Calendar) JumpToToday() Calendar {
 	return c
 }
 
+// WithRecoveryData returns a calendar with recovery data for coloring dates.
+func (c Calendar) WithRecoveryData(data RecoveryData) Calendar {
+	c.recoveryData = data
+	return c
+}
+
+// WithLoading returns a calendar with the loading state set.
+func (c Calendar) WithLoading(loading bool) Calendar {
+	c.loading = loading
+	return c
+}
+
+// WithSpinnerStep returns a calendar with the spinner step set.
+func (c Calendar) WithSpinnerStep(step int) Calendar {
+	c.spinnerStep = step
+	return c
+}
+
 // Render renders the calendar as a string.
 func (c Calendar) Render() string {
 	var b strings.Builder
@@ -145,12 +183,6 @@ func (c Calendar) Render() string {
 	futureDayStyle := dayStyle.Foreground(theme.ColorDim)
 
 	paddingDayStyle := dayStyle.Foreground(lipgloss.Color("#333333"))
-
-	cursorStyle := lipgloss.NewStyle().
-		Foreground(theme.ColorBlack).
-		Background(theme.ColorWhite).
-		Width(colWidth).
-		Align(lipgloss.Center)
 
 	hintStyle := lipgloss.NewStyle().
 		Foreground(theme.ColorNavHint)
@@ -189,22 +221,56 @@ func (c Calendar) Render() string {
 	dayNum := 1
 	nextMonthDay := 1
 
+	// actual grid width is 7 columns * colWidth each
+	actualGridWidth := numCols * colWidth
+
 	// always render 6 weeks to prevent layout shift between months
-	for week := range 6 {
-		for weekday := range 7 {
-			cellIndex := week*7 + weekday
+	if c.loading {
+		// render loading spinner centered in grid
+		spinnerStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite)
+		frame := spinnerFrames[c.spinnerStep%len(spinnerFrames)]
+		spinner := spinnerStyle.Render(frame)
+		spinnerWidth := lipgloss.Width(spinner)
 
-			cellStr, style, newDayNum, newNextMonthDay := c.renderCell(
-				cellIndex, startWeekday, dayNum, daysInMonth, nextMonthDay,
-				lastOfPrevMonth, paddingDayStyle, dayStyle, futureDayStyle, cursorStyle,
-			)
-			dayNum = newDayNum
-			nextMonthDay = newNextMonthDay
-
-			b.WriteString(style.Render(cellStr))
+		// place spinner in middle row (row 3)
+		for week := range 6 {
+			if week == 2 {
+				// center spinner in this row
+				leftPad := (actualGridWidth - spinnerWidth) / 2
+				rightPad := actualGridWidth - leftPad - spinnerWidth
+				b.WriteString(strings.Repeat(" ", leftPad))
+				b.WriteString(spinner)
+				b.WriteString(strings.Repeat(" ", rightPad))
+			} else {
+				// empty row - same width as day grid
+				b.WriteString(strings.Repeat(" ", actualGridWidth))
+			}
+			b.WriteString("\n\n")
 		}
-		b.WriteString("\n\n")
+	} else {
+		for week := range 6 {
+			for weekday := range 7 {
+				cellIndex := week*7 + weekday
+
+				rendered, newDayNum, newNextMonthDay := c.renderCell(
+					cellIndex, startWeekday, dayNum, daysInMonth, nextMonthDay,
+					lastOfPrevMonth, paddingDayStyle, dayStyle, futureDayStyle,
+				)
+				dayNum = newDayNum
+				nextMonthDay = newNextMonthDay
+
+				b.WriteString(rendered)
+			}
+			b.WriteString("\n\n")
+		}
 	}
+
+	// render legend
+	legend := renderLegend()
+	legendPadding := max((gridWidth-lipgloss.Width(legend))/2, 0)
+	b.WriteString(strings.Repeat(" ", legendPadding))
+	b.WriteString(legend)
+	b.WriteString("\n\n")
 
 	hints := "[/H prev    L/] next"
 	hintPadding := max((gridWidth-len(hints))/2, 0)
@@ -214,34 +280,86 @@ func (c Calendar) Render() string {
 	return borderStyle.Render(b.String())
 }
 
-// renderCell returns the display string, style, and updated counters for a calendar cell.
+// renderCell returns the rendered cell string and updated counters for a calendar cell.
 func (c Calendar) renderCell(
 	cellIndex, startWeekday, dayNum, daysInMonth, nextMonthDay int,
 	lastOfPrevMonth time.Time,
-	paddingDayStyle, dayStyle, futureDayStyle, cursorStyle lipgloss.Style,
-) (string, lipgloss.Style, int, int) {
+	paddingDayStyle, dayStyle, futureDayStyle lipgloss.Style,
+) (string, int, int) {
 	// previous month padding
 	if cellIndex < startWeekday {
 		prevDay := lastOfPrevMonth.Day() - (startWeekday - cellIndex - 1)
-		return fmt.Sprintf("%d", prevDay), paddingDayStyle, dayNum, nextMonthDay
+		return paddingDayStyle.Render(fmt.Sprintf("%d", prevDay)), dayNum, nextMonthDay
 	}
 
 	// next month padding
 	if dayNum > daysInMonth {
-		cellStr := fmt.Sprintf("%d", nextMonthDay)
-		return cellStr, paddingDayStyle, dayNum, nextMonthDay + 1
+		return paddingDayStyle.Render(fmt.Sprintf("%d", nextMonthDay)), dayNum, nextMonthDay + 1
 	}
 
 	// current month day
-	cellStr := fmt.Sprintf("%d", dayNum)
 	currentDate := time.Date(c.month.Year(), c.month.Month(), dayNum, 0, 0, 0, 0, c.month.Location())
+	isCursor := xtime.SameDay(currentDate, c.cursor)
 
-	style := dayStyle
-	if xtime.SameDay(currentDate, c.cursor) {
-		style = cursorStyle
-	} else if currentDate.After(c.today) {
-		style = futureDayStyle
+	// determine style for the day number
+	numStyle := futureDayStyle // default to dimmed
+	if currentDate.After(c.today) {
+		// future dates stay dimmed
+		numStyle = futureDayStyle
+	} else if c.recoveryData != nil {
+		// past dates: color by recovery score if available, otherwise dimmed
+		dateKey := currentDate.Format("2006-01-02")
+		if score, ok := c.recoveryData[dateKey]; ok {
+			numStyle = c.recoveryStyle(score, dayStyle)
+		}
+		// no data = stays dimmed (futureDayStyle)
+	}
+	// if no recovery data at all, stays dimmed
+
+	// render cell with optional cursor brackets
+	dayStr := fmt.Sprintf("%d", dayNum)
+	if isCursor {
+		// brackets in white, number in recovery color (without width constraint)
+		bracketStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite)
+		numOnlyStyle := numStyle.Width(0) // remove width to avoid extra padding
+		rendered := bracketStyle.Render("[") + numOnlyStyle.Render(dayStr) + bracketStyle.Render("]")
+		// center within column width
+		width := lipgloss.Width(rendered)
+		if width < colWidth {
+			pad := (colWidth - width) / 2
+			rendered = strings.Repeat(" ", pad) + rendered + strings.Repeat(" ", colWidth-width-pad)
+		}
+		return rendered, dayNum + 1, nextMonthDay
 	}
 
-	return cellStr, style, dayNum + 1, nextMonthDay
+	return numStyle.Render(dayStr), dayNum + 1, nextMonthDay
+}
+
+// recoveryStyle returns a style colored by recovery score.
+func (c Calendar) recoveryStyle(score float64, baseStyle lipgloss.Style) lipgloss.Style {
+	switch {
+	case score >= 67:
+		return baseStyle.Foreground(theme.ColorHighRecovery)
+	case score >= 34:
+		return baseStyle.Foreground(theme.ColorMediumRecovery)
+	default:
+		return baseStyle.Foreground(theme.ColorLowRecovery)
+	}
+}
+
+// renderLegend renders the recovery color legend.
+func renderLegend() string {
+	lowStyle := lipgloss.NewStyle().Foreground(theme.ColorLowRecovery)
+	medStyle := lipgloss.NewStyle().Foreground(theme.ColorMediumRecovery)
+	highStyle := lipgloss.NewStyle().Foreground(theme.ColorHighRecovery)
+	dimStyle := lipgloss.NewStyle().Foreground(theme.ColorDim)
+
+	return fmt.Sprintf("%s %s  %s %s  %s %s",
+		lowStyle.Render(theme.SymbolCircleFilled),
+		dimStyle.Render("<34%"),
+		medStyle.Render(theme.SymbolCircleFilled),
+		dimStyle.Render("34-66%"),
+		highStyle.Render(theme.SymbolCircleFilled),
+		dimStyle.Render(">66%"),
+	)
 }

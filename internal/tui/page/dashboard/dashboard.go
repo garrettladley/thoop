@@ -77,9 +77,12 @@ type State struct {
 	ScrollOffset int
 
 	// calendar mode state
-	CalendarMode   bool      // true when calendar is open
-	CalendarCursor time.Time // currently highlighted date in calendar
-	CalendarMonth  time.Time // current month being viewed
+	CalendarMode        bool             // true when calendar is open
+	CalendarCursor      time.Time        // currently highlighted date in calendar
+	CalendarMonth       time.Time        // current month being viewed
+	CalendarRecoveries  []whoop.Recovery // recovery data for calendar coloring (30 days)
+	CalendarLoading     bool             // true when fetching recovery data
+	CalendarSpinnerStep int              // current spinner animation frame
 
 	// loading tracks pending sleep/recovery requests after cycle fetch
 	pendingSleep    bool

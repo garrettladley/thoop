@@ -41,6 +41,35 @@ func (q *Queries) GetCycle(ctx context.Context, id int64) (Cycle, error) {
 	return i, err
 }
 
+const getCycleByDate = `-- name: GetCycleByDate :one
+SELECT id, user_id, created_at, updated_at, start, "end", timezone_offset, score_state, score_json, fetched_at FROM cycles
+WHERE start >= ?1 AND start < ?2
+ORDER BY start DESC LIMIT 1
+`
+
+type GetCycleByDateParams struct {
+	DayStart time.Time `json:"day_start"`
+	DayEnd   time.Time `json:"day_end"`
+}
+
+func (q *Queries) GetCycleByDate(ctx context.Context, arg GetCycleByDateParams) (Cycle, error) {
+	row := q.db.QueryRowContext(ctx, getCycleByDate, arg.DayStart, arg.DayEnd)
+	var i Cycle
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Start,
+		&i.End,
+		&i.TimezoneOffset,
+		&i.ScoreState,
+		&i.ScoreJson,
+		&i.FetchedAt,
+	)
+	return i, err
+}
+
 const getCyclesByDateRange = `-- name: GetCyclesByDateRange :many
 SELECT id, user_id, created_at, updated_at, start, "end", timezone_offset, score_state, score_json, fetched_at FROM cycles
 WHERE start >= ?1 AND start <= ?2
