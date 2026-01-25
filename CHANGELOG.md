@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.7](https://github.com/garrettladley/thoop/compare/v0.1.6...v0.1.7) (2026-01-25)
+
+
+### Features
+
+* local cache ([#123](https://github.com/garrettladley/thoop/issues/123)) ([36edd20](https://github.com/garrettladley/thoop/commit/36edd2005488ee58f8f5b38f1c907aae6c342508))
+* retry after transport ([#121](https://github.com/garrettladley/thoop/issues/121)) ([eea91e2](https://github.com/garrettladley/thoop/commit/eea91e2c5df3f6e55a99ee7d0adc39e3666e56ff))
+
 ## [0.1.6](https://github.com/garrettladley/thoop/compare/v0.1.5...v0.1.6) (2026-01-25)
 
 
