@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/oauth"
+	"github.com/garrettladley/thoop/internal/tui/components/calendar"
 	"github.com/garrettladley/thoop/internal/tui/components/chart"
 	"github.com/garrettladley/thoop/internal/tui/components/footer"
 	"github.com/garrettladley/thoop/internal/tui/page"
@@ -206,6 +207,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// handle calendar mode separately
+	if m.page == page.Dashboard && m.state.dashboard.CalendarMode {
+		return m.handleCalendarKeyMsg(msg)
+	}
+
 	switch msg.String() {
 	case "q", "ctrl+c":
 		m.deps.Cancel()
@@ -271,6 +277,21 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+	case "c":
+		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
+			// open calendar mode
+			now := time.Now()
+			effectiveDate := m.state.dashboard.EffectiveDate()
+			m.state.dashboard.CalendarMode = true
+			m.state.dashboard.CalendarCursor = effectiveDate
+			m.state.dashboard.CalendarMonth = effectiveDate
+			// ensure we don't have a future date as cursor
+			if effectiveDate.After(now) {
+				m.state.dashboard.CalendarCursor = now
+				m.state.dashboard.CalendarMonth = now
+			}
+			return m, nil
+		}
 	case "j", "down":
 		if m.page == page.Dashboard {
 			if m.state.dashboard.ActiveTab == dashboard.TabOverview {
@@ -309,6 +330,82 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
+	return m, nil
+}
+
+func (m *Model) handleCalendarKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	now := time.Now()
+	cal := calendar.New(m.state.dashboard.CalendarCursor, now)
+
+	// update month view to match current state
+	if m.state.dashboard.CalendarMonth.Month() != cal.Month().Month() ||
+		m.state.dashboard.CalendarMonth.Year() != cal.Month().Year() {
+		for cal.Month().Before(m.state.dashboard.CalendarMonth) {
+			cal = cal.NextMonth()
+		}
+		for cal.Month().After(m.state.dashboard.CalendarMonth) {
+			cal = cal.PrevMonth()
+		}
+	}
+
+	switch msg.String() {
+	case "q", "ctrl+c":
+		m.deps.Cancel()
+		return m, tea.Quit
+	case "esc":
+		// close calendar without changing date
+		m.state.dashboard.CalendarMode = false
+		return m, nil
+	case "enter":
+		// select highlighted date and close calendar
+		m.state.dashboard.CalendarMode = false
+		selectedDate := cal.Cursor()
+		if xtime.SameDay(selectedDate, now) {
+			return m, m.handleDateChange(nil)
+		}
+		return m, m.handleDateChange(&selectedDate)
+	case "t":
+		// jump to today and select
+		m.state.dashboard.CalendarMode = false
+		return m, m.handleDateChange(nil)
+	case "h", "left":
+		// move cursor left (previous day)
+		cal = cal.MoveCursor(-1)
+		m.state.dashboard.CalendarCursor = cal.Cursor()
+		m.state.dashboard.CalendarMonth = cal.Month()
+		return m, nil
+	case "l", "right":
+		// move cursor right (next day)
+		cal = cal.MoveCursor(1)
+		m.state.dashboard.CalendarCursor = cal.Cursor()
+		m.state.dashboard.CalendarMonth = cal.Month()
+		return m, nil
+	case "j", "down":
+		// move cursor down (next week)
+		cal = cal.MoveCursor(7)
+		m.state.dashboard.CalendarCursor = cal.Cursor()
+		m.state.dashboard.CalendarMonth = cal.Month()
+		return m, nil
+	case "k", "up":
+		// move cursor up (previous week)
+		cal = cal.MoveCursor(-7)
+		m.state.dashboard.CalendarCursor = cal.Cursor()
+		m.state.dashboard.CalendarMonth = cal.Month()
+		return m, nil
+	case "H", "[":
+		// previous month
+		cal = cal.PrevMonth()
+		m.state.dashboard.CalendarCursor = cal.Cursor()
+		m.state.dashboard.CalendarMonth = cal.Month()
+		return m, nil
+	case "L", "]":
+		// next month (clamped to current month)
+		cal = cal.NextMonth()
+		m.state.dashboard.CalendarCursor = cal.Cursor()
+		m.state.dashboard.CalendarMonth = cal.Month()
+		return m, nil
+	}
+
 	return m, nil
 }
 
@@ -470,9 +567,13 @@ func (m *Model) View() tea.View {
 
 		switch m.state.dashboard.ActiveTab {
 		case dashboard.TabOverview:
-			f = f.WithNavHints("[/] date    ← sleep    ↑↓ recovery    → strain")
+			if m.state.dashboard.CalendarMode {
+				f = f.WithNavHints("←↑↓→ navigate    enter select    esc cancel    t today")
+			} else {
+				f = f.WithNavHints("[/] date    c calendar    ← sleep    ↑↓ recovery    → strain")
+			}
 		default:
-			f = f.WithNavHints("esc back    ←/→ navigate    j/k scroll")
+			f = f.WithNavHints("esc back    ←/→ navigate    ↑/↓ scroll")
 		}
 
 		footerOverlay := lipgloss.Place(
@@ -483,7 +584,31 @@ func (m *Model) View() tea.View {
 			f.Render(),
 		)
 
-		content = m.overlayStrings(gauges, footerOverlay)
+		// Render calendar overlay when in calendar mode (replaces gauges entirely)
+		if m.state.dashboard.CalendarMode {
+			cal := calendar.New(m.state.dashboard.CalendarCursor, time.Now())
+			// Sync month view
+			for cal.Month().Month() != m.state.dashboard.CalendarMonth.Month() ||
+				cal.Month().Year() != m.state.dashboard.CalendarMonth.Year() {
+				if cal.Month().Before(m.state.dashboard.CalendarMonth) {
+					cal = cal.NextMonth()
+				} else {
+					cal = cal.PrevMonth()
+				}
+			}
+			calendarContent := cal.Render()
+			// Place calendar centered with solid background (no overlay merging)
+			calendarView := lipgloss.Place(
+				m.viewportWidth,
+				m.viewportHeight,
+				lipgloss.Center,
+				lipgloss.Center,
+				calendarContent,
+			)
+			content = m.overlayStrings(calendarView, footerOverlay)
+		} else {
+			content = m.overlayStrings(gauges, footerOverlay)
+		}
 	}
 
 	view.SetContent(content)
