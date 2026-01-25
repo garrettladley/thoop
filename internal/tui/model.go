@@ -267,14 +267,14 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case "[", "H":
-		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
+		if m.page == page.Dashboard {
 			// Go back one day (no limit)
 			current := m.state.dashboard.EffectiveDate()
 			newDate := current.AddDate(0, 0, -1)
 			return m, m.handleDateChange(&newDate)
 		}
 	case "]", "L":
-		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
+		if m.page == page.Dashboard {
 			// Go forward one day only if not already at today
 			current := m.state.dashboard.EffectiveDate()
 			now := time.Now()
@@ -291,15 +291,15 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case "t":
-		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
+		if m.page == page.Dashboard && !m.state.dashboard.CalendarMode {
 			// Return to today
-			if m.state.dashboard.SelectedDate != nil {
+			if m.state.dashboard.SelectedDate != nil && !xtime.IsToday(*m.state.dashboard.SelectedDate) {
 				return m, m.handleDateChange(nil)
 			}
 			return m, nil
 		}
 	case "c":
-		if m.page == page.Dashboard && m.state.dashboard.ActiveTab == dashboard.TabOverview {
+		if m.page == page.Dashboard {
 			// open calendar mode
 			now := time.Now()
 			effectiveDate := m.state.dashboard.EffectiveDate()
@@ -579,11 +579,17 @@ func (m *Model) View() tea.View {
 		case dashboard.TabOverview:
 			if m.state.dashboard.CalendarMode {
 				f = f.WithNavHints("←↑↓→ navigate    enter select    esc cancel    t today")
+			} else if m.state.dashboard.SelectedDate != nil && !xtime.IsToday(*m.state.dashboard.SelectedDate) {
+				f = f.WithNavHints("[/] date    c calendar    t today    ← sleep    ↑↓ recovery    → strain")
 			} else {
 				f = f.WithNavHints("[/] date    c calendar    ← sleep    ↑↓ recovery    → strain")
 			}
 		default:
-			f = f.WithNavHints("esc back    ←/→ navigate    ↑/↓ scroll")
+			if m.state.dashboard.SelectedDate != nil && !xtime.IsToday(*m.state.dashboard.SelectedDate) {
+				f = f.WithNavHints("esc back    [/] date    c calendar    t today    ←/→ navigate    ↑/↓ scroll")
+			} else {
+				f = f.WithNavHints("esc back    [/] date    c calendar    ←/→ navigate    ↑/↓ scroll")
+			}
 		}
 
 		footerOverlay := lipgloss.Place(

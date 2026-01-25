@@ -73,7 +73,7 @@ func updateVersionIfNecessary(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Println("Run `thoop` again to use the new version.")
+	fmt.Println("\nRun `thoop` again to use the new version.")
 	os.Exit(0)
 	return nil
 }
