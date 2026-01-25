@@ -8,42 +8,24 @@ import (
 
 	"github.com/garrettladley/thoop/internal/tui/components/chart"
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
+	"github.com/garrettladley/thoop/internal/tui/components/lazy_list"
 	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
-	"github.com/garrettladley/thoop/internal/tui/components/viewport"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
 func RenderRecoveryDetail(state *State, width, height int) string {
-	recoveryGauge := gauge.New(
-		state.RecoveryScore,
-		100,
-		"RECOVERY",
-		recoveryColor(state.RecoveryScore),
-	)
-
-	gaugeStr := recoveryGauge.Render()
-
 	metricsWidth := 56
-	metrics := renderRecoveryMetrics(*state, metricsWidth)
-
-	var contentParts []string
-	contentParts = append(contentParts, gaugeStr)
-	contentParts = append(contentParts, "", "")
-	contentParts = append(contentParts, metrics)
-
-	chartsSection := renderRecoveryCharts(*state, metricsWidth)
-	if chartsSection != "" {
-		contentParts = append(contentParts, "", "", "")
-		contentParts = append(contentParts, chartsSection)
-	}
-
-	content := lipgloss.JoinVertical(lipgloss.Center, contentParts...)
-
-	contentHeight := lipgloss.Height(content)
 	viewportHeight := height - 2 // reserve space for footer
 
-	if contentHeight <= viewportHeight {
+	items := buildRecoveryItems(state, metricsWidth)
+
+	list := lazy_list.New(items)
+	list.SetSize(metricsWidth, viewportHeight)
+
+	totalHeight := list.TotalHeight()
+	if totalHeight <= viewportHeight {
 		state.ScrollOffset = 0
+		content := list.Render()
 		return lipgloss.Place(
 			width,
 			height,
@@ -54,10 +36,10 @@ func RenderRecoveryDetail(state *State, width, height int) string {
 	}
 
 	// apply viewport scrolling and sync state
-	vp := viewport.New(viewport.WithSize(width, viewportHeight))
-	offset := vp.ClampOffset(content, state.ScrollOffset)
+	offset := list.ClampOffset(state.ScrollOffset)
 	state.ScrollOffset = offset
-	scrolledContent := vp.Render(content, offset)
+	list.SetOffset(offset)
+	scrolledContent := list.Render()
 
 	return lipgloss.Place(
 		width,
@@ -66,6 +48,65 @@ func RenderRecoveryDetail(state *State, width, height int) string {
 		lipgloss.Top,
 		scrolledContent,
 	)
+}
+
+func buildRecoveryItems(state *State, metricsWidth int) []lazy_list.Item {
+	items := make([]lazy_list.Item, 0, 15)
+
+	recoveryGauge := gauge.New(
+		state.RecoveryScore,
+		100,
+		"RECOVERY",
+		recoveryColor(state.RecoveryScore),
+	)
+	items = append(items, lazy_list.NewStaticItem(recoveryGauge.Render()))
+
+	items = append(items, lazy_list.NewSpacerItem(2))
+
+	metrics := renderRecoveryMetrics(*state, metricsWidth)
+	items = append(items, lazy_list.NewStaticItem(metrics))
+
+	if len(state.HistoricalRecoveries) > 0 {
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		titleStyle := lipgloss.NewStyle().
+			Foreground(theme.ColorWhite).
+			Bold(true)
+		weeklyTrendsTitle := titleStyle.Width(metricsWidth).Render("WEEKLY TRENDS")
+		items = append(items, lazy_list.NewStaticItem(weeklyTrendsTitle))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("recovery-trend", func(w int) string {
+			return recoveryTrendChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("recovery-hrv", func(w int) string {
+			return hrvTrendChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("recovery-rhr", func(w int) string {
+			return restingHeartRateChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("recovery-resp", func(w int) string {
+			return respiratoryRateChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("recovery-sleep-perf", func(w int) string {
+			return recoverySleepPerfChart(*state, w)
+		}))
+	}
+
+	return items
 }
 
 func renderRecoveryMetrics(state State, width int) string {
@@ -141,38 +182,6 @@ func renderRecoveryMetrics(state State, width int) string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
-}
-
-func renderRecoveryCharts(state State, width int) string {
-	if len(state.HistoricalRecoveries) == 0 {
-		return ""
-	}
-
-	titleStyle := lipgloss.NewStyle().
-		Foreground(theme.ColorWhite).
-		Bold(true)
-	weeklyTrendsTitle := titleStyle.Width(width).Render("WEEKLY TRENDS")
-
-	var sections []string
-	sections = append(sections, weeklyTrendsTitle)
-
-	if c := recoveryTrendChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-	if c := hrvTrendChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-	if c := restingHeartRateChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-	if c := respiratoryRateChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-	if c := recoverySleepPerfChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-
-	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
 
 func recoveryTrendChart(state State, width int) string {

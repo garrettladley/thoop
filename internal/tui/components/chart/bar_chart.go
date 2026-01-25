@@ -10,6 +10,7 @@ import (
 
 // BarChart renders a vertical bar chart with labels and optional values.
 type BarChart struct {
+	id        string // unique identifier for caching
 	data      []DataPoint
 	height    int
 	minValue  float64
@@ -50,6 +51,13 @@ func WithBarChartFormatter(f ValueFormatter) BarChartOption {
 	}
 }
 
+// WithBarChartID sets the chart ID for caching.
+func WithBarChartID(id string) BarChartOption {
+	return func(bc *BarChart) {
+		bc.id = id
+	}
+}
+
 // NewBarChart creates a new bar chart.
 func NewBarChart(data []DataPoint, opts ...BarChartOption) *BarChart {
 	bc := &BarChart{
@@ -85,6 +93,21 @@ func (bc *BarChart) Render(width int) string {
 		return ""
 	}
 
+	if bc.id != "" {
+		dataHash := HashDataPoints(bc.data)
+		if cached, ok := GetCached(bc.id, width, dataHash); ok {
+			return cached
+		}
+		rendered := bc.renderInternal(width)
+		SetCached(bc.id, width, dataHash, rendered)
+		return rendered
+	}
+
+	return bc.renderInternal(width)
+}
+
+// renderInternal performs the actual rendering without caching.
+func (bc *BarChart) renderInternal(width int) string {
 	// calculate bar dimensions to fill width
 	numBars := len(bc.data)
 

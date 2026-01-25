@@ -14,6 +14,7 @@ import (
 
 // DualLineChart renders two line series overlaid on the same chart.
 type DualLineChart struct {
+	id             string // unique identifier for caching
 	series1        []DataPoint
 	series2        []DataPoint
 	series1Lbl     string
@@ -94,6 +95,13 @@ func WithDualLineLegendPosition(pos LegendPosition) DualLineChartOption {
 	}
 }
 
+// WithDualLineID sets the chart ID for caching.
+func WithDualLineID(id string) DualLineChartOption {
+	return func(dlc *DualLineChart) {
+		dlc.id = id
+	}
+}
+
 // NewDualLineChart creates a new dual line chart.
 func NewDualLineChart(series1, series2 []DataPoint, opts ...DualLineChartOption) *DualLineChart {
 	dlc := &DualLineChart{
@@ -166,6 +174,24 @@ func (dlc *DualLineChart) Render(width int) string {
 		return ""
 	}
 
+	if dlc.id != "" {
+		// combine hashes of both series
+		hash1 := HashDataPoints(dlc.series1)
+		hash2 := HashDataPoints(dlc.series2)
+		dataHash := hash1 ^ (hash2 << 1)
+		if cached, ok := GetCached(dlc.id, width, dataHash); ok {
+			return cached
+		}
+		rendered := dlc.renderInternal(width)
+		SetCached(dlc.id, width, dataHash, rendered)
+		return rendered
+	}
+
+	return dlc.renderInternal(width)
+}
+
+// renderInternal performs the actual rendering without caching.
+func (dlc *DualLineChart) renderInternal(width int) string {
 	var sections []string
 
 	if dlc.showLegend && dlc.legendPosition == LegendTopRight {

@@ -8,42 +8,24 @@ import (
 
 	"github.com/garrettladley/thoop/internal/tui/components/chart"
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
+	"github.com/garrettladley/thoop/internal/tui/components/lazy_list"
 	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
-	"github.com/garrettladley/thoop/internal/tui/components/viewport"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 )
 
 func RenderSleepDetail(state *State, width, height int) string {
-	sleepGauge := gauge.New(
-		state.SleepScore,
-		100,
-		"SLEEP PERFORMANCE",
-		theme.ColorSleep,
-	)
-
-	gaugeStr := sleepGauge.Render()
-
 	metricsWidth := 56
-	metrics := renderSleepMetrics(*state, metricsWidth)
-
-	var contentParts []string
-	contentParts = append(contentParts, gaugeStr)
-	contentParts = append(contentParts, "", "")
-	contentParts = append(contentParts, metrics)
-
-	chartsSection := renderSleepCharts(*state, metricsWidth)
-	if chartsSection != "" {
-		contentParts = append(contentParts, "", "", "")
-		contentParts = append(contentParts, chartsSection)
-	}
-
-	content := lipgloss.JoinVertical(lipgloss.Center, contentParts...)
-
-	contentHeight := lipgloss.Height(content)
 	viewportHeight := height - 2 // reserve space for footer
 
-	if contentHeight <= viewportHeight {
+	items := buildSleepItems(state, metricsWidth)
+
+	list := lazy_list.New(items)
+	list.SetSize(metricsWidth, viewportHeight)
+
+	totalHeight := list.TotalHeight()
+	if totalHeight <= viewportHeight {
 		state.ScrollOffset = 0
+		content := list.Render()
 		return lipgloss.Place(
 			width,
 			height,
@@ -53,11 +35,10 @@ func RenderSleepDetail(state *State, width, height int) string {
 		)
 	}
 
-	// apply viewport scrolling and sync state
-	vp := viewport.New(viewport.WithSize(width, viewportHeight))
-	offset := vp.ClampOffset(content, state.ScrollOffset)
+	offset := list.ClampOffset(state.ScrollOffset)
 	state.ScrollOffset = offset
-	scrolledContent := vp.Render(content, offset)
+	list.SetOffset(offset)
+	scrolledContent := list.Render()
 
 	return lipgloss.Place(
 		width,
@@ -66,6 +47,69 @@ func RenderSleepDetail(state *State, width, height int) string {
 		lipgloss.Top,
 		scrolledContent,
 	)
+}
+
+func buildSleepItems(state *State, metricsWidth int) []lazy_list.Item {
+	items := make([]lazy_list.Item, 0, 20)
+
+	sleepGauge := gauge.New(
+		state.SleepScore,
+		100,
+		"SLEEP PERFORMANCE",
+		theme.ColorSleep,
+	)
+	items = append(items, lazy_list.NewStaticItem(sleepGauge.Render()))
+
+	items = append(items, lazy_list.NewSpacerItem(2))
+
+	metrics := renderSleepMetrics(*state, metricsWidth)
+	items = append(items, lazy_list.NewStaticItem(metrics))
+
+	if len(state.HistoricalSleeps) > 0 {
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("sleep-perf", func(w int) string {
+			return sleepPerformanceChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("sleep-hours-dual", func(w int) string {
+			return hoursVsNeededDualChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("sleep-hours-pct", func(w int) string {
+			return hoursVsNeededPercentChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("sleep-restorative", func(w int) string {
+			return restorativeSleepChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("sleep-consistency", func(w int) string {
+			return sleepConsistencyChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("sleep-efficiency", func(w int) string {
+			return sleepEfficiencyChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("sleep-debt", func(w int) string {
+			return sleepDebtChart(*state, w)
+		}))
+	}
+
+	return items
 }
 
 func renderSleepMetrics(state State, width int) string {
@@ -203,38 +247,6 @@ func renderSleepStagesChart(state State, width int) string {
 		chart.WithSleepStagesBaseline(baselineSleepMs),
 	)
 	return stagesChart.Render(width)
-}
-
-func renderSleepCharts(state State, width int) string {
-	if len(state.HistoricalSleeps) == 0 {
-		return ""
-	}
-
-	var sections []string
-
-	if c := sleepPerformanceChart(state, width); c != "" {
-		sections = append(sections, c)
-	}
-	if c := hoursVsNeededDualChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-	if c := hoursVsNeededPercentChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-	if c := restorativeSleepChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-	if c := sleepConsistencyChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-	if c := sleepEfficiencyChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-	if c := sleepDebtChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-
-	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
 
 func sleepPerformanceChart(state State, width int) string {

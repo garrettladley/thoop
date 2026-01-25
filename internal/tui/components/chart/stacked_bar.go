@@ -19,6 +19,7 @@ const (
 
 // StackedBarChart renders a stacked vertical bar chart.
 type StackedBarChart struct {
+	id             string // unique identifier for caching
 	data           []StackedDataPoint
 	height         int
 	colors         []color.Color
@@ -78,6 +79,13 @@ func WithStackedBarLegendPosition(pos LegendPosition) StackedBarChartOption {
 	}
 }
 
+// WithStackedBarID sets the chart ID for caching.
+func WithStackedBarID(id string) StackedBarChartOption {
+	return func(sbc *StackedBarChart) {
+		sbc.id = id
+	}
+}
+
 // NewStackedBarChart creates a new stacked bar chart.
 func NewStackedBarChart(data []StackedDataPoint, opts ...StackedBarChartOption) *StackedBarChart {
 	sbc := &StackedBarChart{
@@ -103,6 +111,21 @@ func (sbc *StackedBarChart) Render(width int) string {
 		return ""
 	}
 
+	if sbc.id != "" {
+		dataHash := HashStackedDataPoints(sbc.data)
+		if cached, ok := GetCached(sbc.id, width, dataHash); ok {
+			return cached
+		}
+		rendered := sbc.renderInternal(width)
+		SetCached(sbc.id, width, dataHash, rendered)
+		return rendered
+	}
+
+	return sbc.renderInternal(width)
+}
+
+// renderInternal performs the actual rendering without caching.
+func (sbc *StackedBarChart) renderInternal(width int) string {
 	// find max total for scaling
 	maxTotal := 0.0
 	for _, d := range sbc.data {
