@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
+	"github.com/garrettladley/thoop/internal/cache"
 	"github.com/garrettladley/thoop/internal/client/sse"
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
@@ -90,6 +91,7 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 	logger.InfoContext(ctx, "starting thoop", xslog.Version())
 
 	repo := repository.New(querier)
+	cacheSvc := cache.NewService(client, repo)
 
 	sseClient := sse.NewClient(config.ServerURL, tokenSource, sessionID, apiKey, logger)
 	notifProcessor := xsync.NewNotificationProcessor(client, repo, logger)
@@ -102,8 +104,7 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 		TokenChecker:     tokenSource,
 		TokenSource:      tokenSource,
 		AuthFlow:         authFlow,
-		WhoopClient:      client,
-		Repository:       repo,
+		CacheService:     cacheSvc,
 		SSEClient:        sseClient,
 		NotifProcessor:   notifProcessor,
 		NotificationChan: notifChan,

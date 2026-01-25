@@ -39,4 +39,9 @@ var (
 	ColorSleepREM   = lipgloss.Color("#A15EE5")
 )
 
+var (
+	ColorSleepHealthyMin = lipgloss.Color("#6E6E6E") // Gray for healthy minimum baseline
+	ColorSleepDebt       = lipgloss.Color("#C8C8C8") // Light gray for sleep debt
+)
+
 var ColorChartGrid = lipgloss.Color("#333333") // Grid lines

@@ -59,6 +59,7 @@ type CycleRepository interface {
 	Upsert(ctx context.Context, cycle *whoop.Cycle) error
 	UpsertBatch(ctx context.Context, cycles []whoop.Cycle) error
 	Get(ctx context.Context, id int64) (*whoop.Cycle, error)
+	GetByDate(ctx context.Context, date time.Time) (*whoop.Cycle, error)
 	GetLatest(ctx context.Context, limit int) ([]whoop.Cycle, error)
 	GetByDateRange(ctx context.Context, start, end time.Time, cursor *CursorParams) (*CursorResult[whoop.Cycle], error)
 	GetPending(ctx context.Context) ([]whoop.Cycle, error)

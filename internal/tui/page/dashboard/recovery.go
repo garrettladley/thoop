@@ -161,7 +161,7 @@ func renderRecoveryMetrics(state State, width int) string {
 			sleepDirection := getDirectionHigherBetter(sleepPerf, sleepAvg, WithPrecision(0))
 			sleepRow := metric_row.New(
 				"Sleep Performance",
-				fmt.Sprintf("%.0f", sleepPerf),
+				fmt.Sprintf("%.0f", math.Round(sleepPerf)),
 				width,
 				metric_row.WithDirection(sleepDirection),
 				metric_row.WithSubValue(formatAvg(sleepAvg, "%.0f")),

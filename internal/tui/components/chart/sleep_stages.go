@@ -3,6 +3,7 @@ package chart
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -152,7 +153,7 @@ func (ssc *SleepStagesChart) renderStageRow(stage SleepStage, width int) string 
 	durationStyle := lipgloss.NewStyle().Foreground(theme.ColorWhite)
 
 	stageName := nameStyle.Render(stage.Name)
-	stagePct := pctStyle.Render(fmt.Sprintf("  %.0f%%", stage.Percentage))
+	stagePct := pctStyle.Render(fmt.Sprintf("  %.0f%%", math.Round(stage.Percentage)))
 	stageDuration := durationStyle.Render(formatDurationFromMs(stage.DurationMs))
 
 	leftPart := circle + " " + stageName + stagePct

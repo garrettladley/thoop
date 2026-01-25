@@ -34,8 +34,9 @@ func parseAPIError(resp *http.Response) error {
 	}
 
 	var errResp struct {
-		Message string `json:"message"`
-		Error   string `json:"error"`
+		Message    string `json:"message"`
+		Error      string `json:"error"`
+		RetryAfter int64  `json:"retry_after"` // nanoseconds from proxy server
 	}
 
 	if err := go_json.Unmarshal(body, &errResp); err != nil {
@@ -59,7 +60,11 @@ func parseAPIError(resp *http.Response) error {
 	}
 
 	if resp.StatusCode == http.StatusTooManyRequests {
-		apiErr.RetryAfter = parseRetryAfter(resp.Header.Get("Retry-After"))
+		if errResp.RetryAfter > 0 {
+			apiErr.RetryAfter = time.Duration(errResp.RetryAfter)
+		} else {
+			apiErr.RetryAfter = parseRetryAfter(resp.Header.Get("Retry-After"))
+		}
 	}
 
 	return apiErr

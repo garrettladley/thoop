@@ -2,11 +2,11 @@ package dashboard
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/garrettladley/thoop/internal/cache"
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/xtime"
 )
@@ -16,118 +16,123 @@ type DateChangedMsg struct {
 	Date *time.Time
 }
 
+// CalendarSpinnerTickMsg triggers the next spinner animation frame.
+type CalendarSpinnerTickMsg struct{}
+
+// CalendarSpinnerTickCmd returns a command that ticks the spinner at 10 FPS.
+func CalendarSpinnerTickCmd() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
+		return CalendarSpinnerTickMsg{}
+	})
+}
+
 type CycleMsg struct {
-	Cycle *whoop.Cycle
-	Err   error
+	Cycle     *whoop.Cycle
+	FromCache bool
+	Err       error
 }
 
 // FetchCycleCmd fetches the most recent cycle (today's cycle).
-func FetchCycleCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
-	return FetchCycleForDateCmd(ctx, client, time.Now())
+func FetchCycleCmd(ctx context.Context, cacheSvc cache.CacheService) tea.Cmd {
+	return FetchCycleForDateCmd(ctx, cacheSvc, time.Now())
 }
 
-// FetchCycleForDateCmd fetches the cycle containing the given reference date.
-func FetchCycleForDateCmd(ctx context.Context, client *whoop.Client, referenceDate time.Time) tea.Cmd {
-	if client == nil {
+// FetchCycleForDateCmd fetches the cycle for a given date via CacheService.
+func FetchCycleForDateCmd(ctx context.Context, cacheSvc cache.CacheService, referenceDate time.Time) tea.Cmd {
+	if cacheSvc == nil {
 		return func() tea.Msg {
 			return CycleMsg{Cycle: nil}
 		}
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-
-		// query cycles that span the reference date
-		start := xtime.StartOfDay(referenceDate)
-		end := start.Add(24 * time.Hour)
-
-		cycles, err := client.Cycle.List(ctx, &whoop.ListParams{
-			Limit: 1,
-			Start: &start,
-			End:   &end,
-		})
+		result, err := cacheSvc.GetCycleForDate(ctx, referenceDate)
 		if err != nil {
 			return CycleMsg{Err: err}
 		}
-		if len(cycles.Records) == 0 {
+		if result == nil {
 			return CycleMsg{Cycle: nil}
 		}
-		return CycleMsg{Cycle: &cycles.Records[0]}
+		return CycleMsg{Cycle: result.Data, FromCache: result.FromCache}
 	}
 }
 
 type SleepMsg struct {
-	Sleep *whoop.Sleep
-	Err   error
+	Sleep     *whoop.Sleep
+	FromCache bool
+	Err       error
 }
 
-func FetchSleepCmd(ctx context.Context, client *whoop.Client, cycleID int64) tea.Cmd {
-	if client == nil {
+// FetchSleepCmd fetches sleep data for a cycle via CacheService.
+func FetchSleepCmd(ctx context.Context, cacheSvc cache.CacheService, cycleID int64) tea.Cmd {
+	if cacheSvc == nil {
 		return func() tea.Msg {
 			return SleepMsg{Sleep: nil}
 		}
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		sleep, err := client.Cycle.GetSleep(ctx, cycleID)
-		return SleepMsg{Sleep: sleep, Err: err}
+		result, err := cacheSvc.GetSleepForCycle(ctx, cycleID)
+		if err != nil {
+			return SleepMsg{Err: err}
+		}
+		if result == nil {
+			return SleepMsg{Sleep: nil}
+		}
+		return SleepMsg{Sleep: result.Data, FromCache: result.FromCache}
 	}
 }
 
 type RecoveryMsg struct {
-	Recovery *whoop.Recovery
-	Err      error
+	Recovery  *whoop.Recovery
+	FromCache bool
+	Err       error
 }
 
-func FetchRecoveryCmd(ctx context.Context, client *whoop.Client, cycleID int64) tea.Cmd {
-	if client == nil {
+// FetchRecoveryCmd fetches recovery data for a cycle via CacheService.
+func FetchRecoveryCmd(ctx context.Context, cacheSvc cache.CacheService, cycleID int64) tea.Cmd {
+	if cacheSvc == nil {
 		return func() tea.Msg {
 			return RecoveryMsg{Recovery: nil}
 		}
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		recovery, err := client.Cycle.GetRecovery(ctx, cycleID)
-		return RecoveryMsg{Recovery: recovery, Err: err}
+		result, err := cacheSvc.GetRecoveryForCycle(ctx, cycleID)
+		if err != nil {
+			return RecoveryMsg{Err: err}
+		}
+		if result == nil {
+			return RecoveryMsg{Recovery: nil}
+		}
+		return RecoveryMsg{Recovery: result.Data, FromCache: result.FromCache}
 	}
 }
 
 type WorkoutsMsg struct {
-	Workouts []whoop.Workout
-	Err      error
+	Workouts  []whoop.Workout
+	FromCache bool
+	Err       error
 }
 
-// FetchTodaysWorkoutsCmd fetches workouts for today (wrapper for FetchWorkoutsForDateCmd).
-func FetchTodaysWorkoutsCmd(ctx context.Context, client *whoop.Client, cycleStart time.Time) tea.Cmd {
-	return FetchWorkoutsForDateCmd(ctx, client, cycleStart, time.Now())
-}
-
-// FetchWorkoutsForDateCmd fetches workouts between cycleStart and referenceDate.
-func FetchWorkoutsForDateCmd(ctx context.Context, client *whoop.Client, cycleStart, referenceDate time.Time) tea.Cmd {
-	if client == nil {
+// FetchWorkoutsForDateCmd fetches workouts between cycleStart and referenceDate via CacheService.
+func FetchWorkoutsForDateCmd(ctx context.Context, cacheSvc cache.CacheService, cycleStart, referenceDate time.Time) tea.Cmd {
+	if cacheSvc == nil {
 		return func() tea.Msg {
 			return WorkoutsMsg{}
 		}
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-
 		endOfDay := xtime.StartOfDay(referenceDate).Add(24 * time.Hour)
-		resp, err := client.Workout.List(ctx, &whoop.ListParams{
-			Start: &cycleStart,
-			End:   &endOfDay,
-		})
+		result, err := cacheSvc.GetWorkoutsForDateRange(ctx, cycleStart, endOfDay)
 		if err != nil {
 			return WorkoutsMsg{Err: err}
 		}
-		return WorkoutsMsg{Workouts: resp.Records}
+		if result == nil {
+			return WorkoutsMsg{}
+		}
+		return WorkoutsMsg{Workouts: result.Data, FromCache: result.FromCache}
 	}
 }
 
@@ -135,120 +140,65 @@ type HistoricalDataMsg struct {
 	Recoveries []whoop.Recovery
 	Cycles     []whoop.Cycle
 	Sleeps     []whoop.Sleep
+	FromCache  bool
 	Err        error
 	ErrSource  string
 }
 
-// FetchHistoricalDataCmd fetches 30 days of historical data ending at today.
-func FetchHistoricalDataCmd(ctx context.Context, client *whoop.Client) tea.Cmd {
-	return FetchHistoricalDataForDateCmd(ctx, client, time.Now())
+// CalendarRecoveriesMsg contains recovery data for calendar month coloring.
+type CalendarRecoveriesMsg struct {
+	Recoveries []whoop.Recovery
+	FromCache  bool
+	Err        error
 }
 
-// FetchHistoricalDataForDateCmd fetches 30 days of historical data ending at referenceDate.
-func FetchHistoricalDataForDateCmd(ctx context.Context, client *whoop.Client, referenceDate time.Time) tea.Cmd {
-	if client == nil {
+// FetchCalendarRecoveriesCmd fetches recovery data for a month via CacheService.
+// This is optimized to only fetch recoveries for calendar coloring.
+func FetchCalendarRecoveriesCmd(ctx context.Context, cacheSvc cache.CacheService, month time.Time) tea.Cmd {
+	if cacheSvc == nil {
+		return func() tea.Msg {
+			return CalendarRecoveriesMsg{}
+		}
+	}
+
+	return func() tea.Msg {
+		result, err := cacheSvc.GetCalendarRecoveries(ctx, month)
+		if err != nil {
+			return CalendarRecoveriesMsg{Err: err}
+		}
+		if result == nil {
+			return CalendarRecoveriesMsg{}
+		}
+		return CalendarRecoveriesMsg{Recoveries: result.Records, FromCache: result.FromCache}
+	}
+}
+
+// FetchHistoricalDataCmd fetches 30 days of historical data ending at today.
+func FetchHistoricalDataCmd(ctx context.Context, cacheSvc cache.CacheService) tea.Cmd {
+	return FetchHistoricalDataForDateCmd(ctx, cacheSvc, time.Now())
+}
+
+// FetchHistoricalDataForDateCmd fetches 30 days of historical data ending at referenceDate via CacheService.
+func FetchHistoricalDataForDateCmd(ctx context.Context, cacheSvc cache.CacheService, referenceDate time.Time) tea.Cmd {
+	if cacheSvc == nil {
 		return func() tea.Msg {
 			return HistoricalDataMsg{}
 		}
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-
-		endOfDay := xtime.StartOfDay(referenceDate).Add(24 * time.Hour)
-		thirtyDaysAgo := endOfDay.AddDate(0, 0, -30)
-
-		var (
-			allRecoveries []whoop.Recovery
-			allCycles     []whoop.Cycle
-			allSleeps     []whoop.Sleep
-			recoveryErr   error
-			cycleErr      error
-			sleepErr      error
-			wg            sync.WaitGroup
-		)
-
-		wg.Go(func() {
-			var nextToken *string
-			for {
-				params := &whoop.ListParams{
-					Limit:     25,
-					Start:     &thirtyDaysAgo,
-					End:       &endOfDay,
-					NextToken: nextToken,
-				}
-				resp, err := client.Cycle.List(ctx, params)
-				if err != nil {
-					cycleErr = err
-					return
-				}
-				allCycles = append(allCycles, resp.Records...)
-				if !resp.HasMore() {
-					return
-				}
-				nextToken = resp.NextToken
-			}
-		})
-
-		wg.Go(func() {
-			var nextToken *string
-			for {
-				params := &whoop.ListParams{
-					Limit:     25,
-					Start:     &thirtyDaysAgo,
-					End:       &endOfDay,
-					NextToken: nextToken,
-				}
-				resp, err := client.Sleep.List(ctx, params)
-				if err != nil {
-					sleepErr = err
-					return
-				}
-				allSleeps = append(allSleeps, resp.Records...)
-				if !resp.HasMore() {
-					return
-				}
-				nextToken = resp.NextToken
-			}
-		})
-
-		var nextToken *string
-		for {
-			params := &whoop.ListParams{
-				Limit:     25,
-				Start:     &thirtyDaysAgo,
-				End:       &endOfDay,
-				NextToken: nextToken,
-			}
-			resp, err := client.Recovery.List(ctx, params)
-			if err != nil {
-				recoveryErr = err
-				break
-			}
-			allRecoveries = append(allRecoveries, resp.Records...)
-			if !resp.HasMore() {
-				break
-			}
-			nextToken = resp.NextToken
+		result, err := cacheSvc.GetHistoricalData(ctx, referenceDate, 30)
+		if err != nil {
+			return HistoricalDataMsg{Err: err, ErrSource: "cache"}
 		}
-
-		wg.Wait()
-
-		if recoveryErr != nil {
-			return HistoricalDataMsg{Err: recoveryErr, ErrSource: "recovery"}
+		if result == nil {
+			return HistoricalDataMsg{}
 		}
-		if cycleErr != nil {
-			return HistoricalDataMsg{Err: cycleErr, ErrSource: "cycle"}
-		}
-		if sleepErr != nil {
-			return HistoricalDataMsg{Err: sleepErr, ErrSource: "sleep"}
-		}
-
 		return HistoricalDataMsg{
-			Recoveries: allRecoveries,
-			Cycles:     allCycles,
-			Sleeps:     allSleeps,
+			Recoveries: result.Recoveries,
+			Cycles:     result.Cycles,
+			Sleeps:     result.Sleeps,
+			FromCache:  result.FromCache,
 		}
 	}
 }

@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/garrettladley/thoop/internal/cache"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/tui/components/calendar"
 	"github.com/garrettladley/thoop/internal/tui/components/chart"
@@ -138,9 +139,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.dashboard.SetPending()
 			refDate := m.state.dashboard.EffectiveDate()
 			return m, tea.Batch(
-				dashboard.FetchSleepCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
-				dashboard.FetchRecoveryCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.ID),
-				dashboard.FetchWorkoutsForDateCmd(m.deps.Ctx, m.deps.WhoopClient, msg.Cycle.Start, refDate),
+				dashboard.FetchSleepCmd(m.deps.Ctx, m.deps.CacheService, msg.Cycle.ID),
+				dashboard.FetchRecoveryCmd(m.deps.Ctx, m.deps.CacheService, msg.Cycle.ID),
+				dashboard.FetchWorkoutsForDateCmd(m.deps.Ctx, m.deps.CacheService, msg.Cycle.Start, refDate),
 			)
 		}
 		return m, nil
@@ -180,6 +181,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				xslog.Error(msg.Err))
 		} else {
 			m.state.dashboard.Averages = dashboard.ComputeAverages(msg.Recoveries, msg.Cycles, msg.Sleeps)
+			// store full recoveries for calendar coloring (30 days)
+			m.state.dashboard.CalendarRecoveries = msg.Recoveries
 			// store last 7 days of data for charts
 			m.state.dashboard.HistoricalRecoveries = xslices.Truncate(msg.Recoveries, 7)
 			m.state.dashboard.HistoricalCycles = xslices.Truncate(msg.Cycles, 7)
@@ -187,10 +190,26 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case dashboard.CalendarRecoveriesMsg:
+		m.state.dashboard.CalendarLoading = false
+		if msg.Err == nil {
+			// merge new recoveries with existing ones
+			m.state.dashboard.CalendarRecoveries = cache.MergeRecoverySlices(m.state.dashboard.CalendarRecoveries, msg.Recoveries)
+		}
+		return m, nil
+
+	case dashboard.CalendarSpinnerTickMsg:
+		// only tick if still loading
+		if m.state.dashboard.CalendarLoading && m.state.dashboard.CalendarMode {
+			m.state.dashboard.CalendarSpinnerStep++
+			return m, dashboard.CalendarSpinnerTickCmd()
+		}
+		return m, nil
+
 	case NotificationMsg:
 		if m.page == page.Dashboard {
 			return m, tea.Batch(
-				dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
+				dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.CacheService),
 				ListenNotificationsCmd(m.deps.Ctx, m.deps.NotificationChan, m.deps.NotifProcessor, m.deps.SSEClient),
 			)
 		}
@@ -371,39 +390,27 @@ func (m *Model) handleCalendarKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "h", "left":
 		// move cursor left (previous day)
 		cal = cal.MoveCursor(-1)
-		m.state.dashboard.CalendarCursor = cal.Cursor()
-		m.state.dashboard.CalendarMonth = cal.Month()
-		return m, nil
+		return m, m.updateCalendarPosition(cal)
 	case "l", "right":
 		// move cursor right (next day)
 		cal = cal.MoveCursor(1)
-		m.state.dashboard.CalendarCursor = cal.Cursor()
-		m.state.dashboard.CalendarMonth = cal.Month()
-		return m, nil
+		return m, m.updateCalendarPosition(cal)
 	case "j", "down":
 		// move cursor down (next week)
 		cal = cal.MoveCursor(7)
-		m.state.dashboard.CalendarCursor = cal.Cursor()
-		m.state.dashboard.CalendarMonth = cal.Month()
-		return m, nil
+		return m, m.updateCalendarPosition(cal)
 	case "k", "up":
 		// move cursor up (previous week)
 		cal = cal.MoveCursor(-7)
-		m.state.dashboard.CalendarCursor = cal.Cursor()
-		m.state.dashboard.CalendarMonth = cal.Month()
-		return m, nil
+		return m, m.updateCalendarPosition(cal)
 	case "H", "[":
 		// previous month
 		cal = cal.PrevMonth()
-		m.state.dashboard.CalendarCursor = cal.Cursor()
-		m.state.dashboard.CalendarMonth = cal.Month()
-		return m, nil
+		return m, m.updateCalendarPosition(cal)
 	case "L", "]":
 		// next month (clamped to current month)
 		cal = cal.NextMonth()
-		m.state.dashboard.CalendarCursor = cal.Cursor()
-		m.state.dashboard.CalendarMonth = cal.Month()
-		return m, nil
+		return m, m.updateCalendarPosition(cal)
 	}
 
 	return m, nil
@@ -447,8 +454,8 @@ func (m *Model) handleAuthStatus(msg onboarding.AuthStatusMsg) (tea.Model, tea.C
 	// start fetching data during splash if authenticated
 	if m.state.dashboard.AuthIndicator.Authenticated {
 		return m, tea.Batch(
-			dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
-			dashboard.FetchHistoricalDataCmd(m.deps.Ctx, m.deps.WhoopClient),
+			dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.CacheService),
+			dashboard.FetchHistoricalDataCmd(m.deps.Ctx, m.deps.CacheService),
 		)
 	}
 
@@ -463,15 +470,15 @@ func (m *Model) handleAuthFlowResult(msg onboarding.AuthFlowResultMsg) (tea.Mode
 	}
 
 	if msg.APIKey != "" {
-		m.deps.WhoopClient.SetAPIKey(msg.APIKey)
+		m.deps.CacheService.SetAPIKey(msg.APIKey)
 		m.deps.SSEClient.SetAPIKey(msg.APIKey)
 	}
 
 	m.state.dashboard.AuthIndicator.Authenticated = true
 	m.page = page.Dashboard
 	return m, tea.Batch(
-		dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.WhoopClient),
-		dashboard.FetchHistoricalDataCmd(m.deps.Ctx, m.deps.WhoopClient),
+		dashboard.FetchCycleCmd(m.deps.Ctx, m.deps.CacheService),
+		dashboard.FetchHistoricalDataCmd(m.deps.Ctx, m.deps.CacheService),
 		m.startDashboardServices(),
 	)
 }
@@ -527,14 +534,15 @@ func (m *Model) handleDateChange(date *time.Time) tea.Cmd {
 	m.state.dashboard.StrainScore = nil
 	m.state.dashboard.TodaysWorkouts = nil
 	m.state.dashboard.Averages = nil
+	m.state.dashboard.CalendarRecoveries = nil
 	m.state.dashboard.HistoricalRecoveries = nil
 	m.state.dashboard.HistoricalCycles = nil
 	m.state.dashboard.HistoricalSleeps = nil
 
 	refDate := m.state.dashboard.EffectiveDate()
 	return tea.Batch(
-		dashboard.FetchCycleForDateCmd(m.deps.Ctx, m.deps.WhoopClient, refDate),
-		dashboard.FetchHistoricalDataForDateCmd(m.deps.Ctx, m.deps.WhoopClient, refDate),
+		dashboard.FetchCycleForDateCmd(m.deps.Ctx, m.deps.CacheService, refDate),
+		dashboard.FetchHistoricalDataForDateCmd(m.deps.Ctx, m.deps.CacheService, refDate),
 	)
 }
 
@@ -596,8 +604,11 @@ func (m *Model) View() tea.View {
 					cal = cal.PrevMonth()
 				}
 			}
+			recoveryData := calendar.BuildRecoveryData(m.state.dashboard.CalendarRecoveries)
+			cal = cal.WithRecoveryData(recoveryData).
+				WithLoading(m.state.dashboard.CalendarLoading).
+				WithSpinnerStep(m.state.dashboard.CalendarSpinnerStep)
 			calendarContent := cal.Render()
-			// Place calendar centered with solid background (no overlay merging)
 			calendarView := lipgloss.Place(
 				m.viewportWidth,
 				m.viewportHeight,
@@ -666,4 +677,30 @@ func (m *Model) overlayStrings(base, overlay string) string {
 	}
 
 	return strings.Join(result, "\n")
+}
+
+// updateCalendarPosition updates the calendar position, fetching data if month changed.
+// CacheService handles staleness checking - we always call fetch and let it decide
+// whether to return cached data or fetch from API.
+func (m *Model) updateCalendarPosition(cal calendar.Calendar) tea.Cmd {
+	newCursor := cal.Cursor()
+	newMonth := cal.Month()
+	oldMonth := m.state.dashboard.CalendarMonth
+
+	// always update position immediately
+	m.state.dashboard.CalendarCursor = newCursor
+	m.state.dashboard.CalendarMonth = newMonth
+
+	monthChanged := newMonth.Month() != oldMonth.Month() || newMonth.Year() != oldMonth.Year()
+
+	if monthChanged {
+		m.state.dashboard.CalendarLoading = true
+		m.state.dashboard.CalendarSpinnerStep = 0
+		return tea.Batch(
+			dashboard.FetchCalendarRecoveriesCmd(m.deps.Ctx, m.deps.CacheService, newMonth),
+			dashboard.CalendarSpinnerTickCmd(),
+		)
+	}
+
+	return nil
 }

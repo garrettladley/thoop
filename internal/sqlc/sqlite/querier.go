@@ -16,6 +16,7 @@ type Querier interface {
 	DeleteTokenMetadata(ctx context.Context) error
 	DeleteWorkout(ctx context.Context, id string) error
 	GetCycle(ctx context.Context, id int64) (Cycle, error)
+	GetCycleByDate(ctx context.Context, arg GetCycleByDateParams) (Cycle, error)
 	GetCyclesByDateRange(ctx context.Context, arg GetCyclesByDateRangeParams) ([]Cycle, error)
 	GetCyclesByDateRangeCursor(ctx context.Context, arg GetCyclesByDateRangeCursorParams) ([]Cycle, error)
 	GetLastNotificationPoll(ctx context.Context) (*time.Time, error)
