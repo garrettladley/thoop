@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.5](https://github.com/garrettladley/thoop/compare/v0.1.4...v0.1.5) (2026-01-25)
+
+
+### Features
+
+* scroll perf improvements ([#117](https://github.com/garrettladley/thoop/issues/117)) ([d6b2418](https://github.com/garrettladley/thoop/commit/d6b2418b2d3c8589997d702c85645b4683832a85))
+
+
+### Bug Fixes
+
+* scroll offset clamping & render labels above dual line points ([#115](https://github.com/garrettladley/thoop/issues/115)) ([1bd0f20](https://github.com/garrettladley/thoop/commit/1bd0f20f2b9cf89a78491e7f6086d2cbb29f74f0))
+
 ## [0.1.4](https://github.com/garrettladley/thoop/compare/v0.1.3...v0.1.4) (2026-01-25)
 
 
