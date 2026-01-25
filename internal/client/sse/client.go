@@ -3,6 +3,7 @@ package sse
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -20,11 +21,26 @@ const (
 	initialBackoff = 1 * time.Second
 	maxBackoff     = 30 * time.Second
 	backoffFactor  = 2
+	maxRetryAfter  = 30 * time.Second
 )
 
 type Event struct {
 	Type string
 	Data []byte
+}
+
+// retryAfterError wraps an error with a suggested retry delay.
+type retryAfterError struct {
+	err        error
+	retryAfter time.Duration
+}
+
+func (e *retryAfterError) Error() string {
+	return e.err.Error()
+}
+
+func (e *retryAfterError) Unwrap() error {
+	return e.err
 }
 
 type Client struct {
@@ -72,12 +88,19 @@ func (c *Client) Connect(ctx context.Context, handler NotificationHandler) error
 				return fmt.Errorf("context cancelled: %w", ctxErr)
 			}
 
+			// Use Retry-After from server if present, otherwise use exponential backoff
+			waitDuration := backoff
+			var raErr *retryAfterError
+			if errors.As(err, &raErr) && raErr.retryAfter > 0 {
+				waitDuration = raErr.retryAfter
+			}
+
 			c.logger.WarnContext(ctx, "SSE connection failed, reconnecting",
 				xslog.Error(err),
-				xslog.Backoff(backoff),
+				xslog.Backoff(waitDuration),
 			)
 
-			timer := time.NewTimer(backoff)
+			timer := time.NewTimer(waitDuration)
 			select {
 			case <-ctx.Done():
 				timer.Stop()
@@ -117,7 +140,11 @@ func (c *Client) connectOnce(ctx context.Context, handler NotificationHandler) e
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status: %d", resp.StatusCode)
+		err := fmt.Errorf("unexpected status: %d", resp.StatusCode)
+		if retryAfter := xhttp.ParseRetryAfter(resp, maxRetryAfter); retryAfter > 0 {
+			return &retryAfterError{err: err, retryAfter: retryAfter}
+		}
+		return err
 	}
 
 	c.logger.DebugContext(ctx, "SSE connection established")

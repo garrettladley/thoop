@@ -32,9 +32,10 @@ func NewPollClient(baseURL string, tokenSource oauth2.TokenSource, sessionID str
 		sessionID:   sessionID,
 		apiKey:      apiKey,
 	}
+	retryTransport := xhttp.NewRetryTransport(transport, xhttp.DefaultRetryConfig())
 	return &PollClient{
 		baseURL:    baseURL,
-		httpClient: &http.Client{Transport: transport, Timeout: 30 * time.Second},
+		httpClient: &http.Client{Transport: retryTransport, Timeout: 30 * time.Second},
 		transport:  transport,
 	}
 }
