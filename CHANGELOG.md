@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.10](https://github.com/garrettladley/thoop/compare/v0.1.9...v0.1.10) (2026-01-25)
+
+
+### Bug Fixes
+
+* cache off by 1 and coverage bugs ([#129](https://github.com/garrettladley/thoop/issues/129)) ([bd09a0a](https://github.com/garrettladley/thoop/commit/bd09a0ad61f74e8c2513a7702023a20a52204e3a))
+
 ## [0.1.9](https://github.com/garrettladley/thoop/compare/v0.1.8...v0.1.9) (2026-01-25)
 
 
