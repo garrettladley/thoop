@@ -81,7 +81,7 @@ func renderStrainMetrics(state State, width int) string {
 		score := state.CurrentCycle.Score
 
 		strainAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.Strain })
-		strainDirection := getDirectionHigherBetter(score.Strain, strainAvg)
+		strainDirection := getDirectionHigherBetter(score.Strain, strainAvg, WithPrecision(1))
 		strainRow := metric_row.New(
 			"Strain",
 			fmt.Sprintf("%.1f", score.Strain),
@@ -95,7 +95,7 @@ func renderStrainMetrics(state State, width int) string {
 
 		calories := units.KilojoulesToCalories(score.Kilojoule)
 		caloriesAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.Calories })
-		caloriesDirection := getDirectionHigherBetter(calories, caloriesAvg)
+		caloriesDirection := getDirectionHigherBetter(calories, caloriesAvg, WithPrecision(0))
 		caloriesRow := metric_row.New(
 			"Calories",
 			units.FormatWithCommas(calories),
@@ -109,7 +109,7 @@ func renderStrainMetrics(state State, width int) string {
 
 		avgHR := float64(score.AverageHeartRate)
 		avgHRAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.AvgHeartRate })
-		avgHRDirection := getDirectionHigherBetter(avgHR, avgHRAvg)
+		avgHRDirection := getDirectionHigherBetter(avgHR, avgHRAvg, WithPrecision(0))
 		avgHRRow := metric_row.New(
 			"Avg Heart Rate",
 			fmt.Sprintf("%.0f", avgHR),
@@ -123,7 +123,7 @@ func renderStrainMetrics(state State, width int) string {
 
 		maxHR := float64(score.MaxHeartRate)
 		maxHRAvg := getAvgValue(state.Averages, func(a *ThirtyDayAverages) float64 { return a.MaxHeartRate })
-		maxHRDirection := getDirectionHigherBetter(maxHR, maxHRAvg)
+		maxHRDirection := getDirectionHigherBetter(maxHR, maxHRAvg, WithPrecision(0))
 		maxHRRow := metric_row.New(
 			"Max Heart Rate",
 			fmt.Sprintf("%.0f", maxHR),
