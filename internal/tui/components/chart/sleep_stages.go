@@ -20,6 +20,7 @@ type SleepStage struct {
 
 // SleepStagesChart renders a sleep stages breakdown chart.
 type SleepStagesChart struct {
+	id               string // unique identifier for caching
 	stages           []SleepStage
 	totalDuration    int // total duration in milliseconds
 	showHeader       bool
@@ -33,6 +34,13 @@ type SleepStagesChartOption func(*SleepStagesChart)
 func WithSleepStagesBaseline(baselineMs int) SleepStagesChartOption {
 	return func(ssc *SleepStagesChart) {
 		ssc.baselineDuration = baselineMs
+	}
+}
+
+// WithSleepStagesID sets the chart ID for caching.
+func WithSleepStagesID(id string) SleepStagesChartOption {
+	return func(ssc *SleepStagesChart) {
+		ssc.id = id
 	}
 }
 
@@ -55,6 +63,21 @@ func (ssc *SleepStagesChart) Render(width int) string {
 		return ""
 	}
 
+	if ssc.id != "" {
+		dataHash := HashSleepStages(ssc.stages, ssc.totalDuration, ssc.baselineDuration)
+		if cached, ok := GetCached(ssc.id, width, dataHash); ok {
+			return cached
+		}
+		rendered := ssc.renderInternal(width)
+		SetCached(ssc.id, width, dataHash, rendered)
+		return rendered
+	}
+
+	return ssc.renderInternal(width)
+}
+
+// renderInternal performs the actual rendering without caching.
+func (ssc *SleepStagesChart) renderInternal(width int) string {
 	// pre-allocate: header (2 lines) + stages (2 lines each)
 	sections := make([]string, 0, 2+len(ssc.stages)*2)
 

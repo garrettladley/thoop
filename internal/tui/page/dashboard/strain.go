@@ -10,50 +10,26 @@ import (
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/tui/components/chart"
 	"github.com/garrettladley/thoop/internal/tui/components/gauge"
+	"github.com/garrettladley/thoop/internal/tui/components/lazy_list"
 	"github.com/garrettladley/thoop/internal/tui/components/metric_row"
-	"github.com/garrettladley/thoop/internal/tui/components/viewport"
 	"github.com/garrettladley/thoop/internal/tui/theme"
 	"github.com/garrettladley/thoop/internal/units"
 	"github.com/garrettladley/thoop/internal/xtime"
 )
 
 func RenderStrainDetail(state *State, width, height int) string {
-	strainGauge := gauge.New(
-		state.StrainScore,
-		21,
-		"STRAIN",
-		theme.ColorStrain,
-	)
-
-	gaugeStr := strainGauge.Render()
-
 	metricsWidth := 56
-	metrics := renderStrainMetrics(*state, metricsWidth)
+	viewportHeight := height - 2 // reserve space for footer
 
-	var contentParts []string
-	contentParts = append(contentParts, gaugeStr)
-	contentParts = append(contentParts, "", "")
-	contentParts = append(contentParts, metrics)
+	items := buildStrainItems(state, metricsWidth)
 
-	activitiesSection := renderActivities(state.TodaysWorkouts, state.SelectedDate, metricsWidth)
-	if activitiesSection != "" {
-		contentParts = append(contentParts, "", "", "")
-		contentParts = append(contentParts, activitiesSection)
-	}
+	list := lazy_list.New(items)
+	list.SetSize(metricsWidth, viewportHeight)
 
-	chartsSection := renderStrainCharts(*state, metricsWidth)
-	if chartsSection != "" {
-		contentParts = append(contentParts, "", "", "")
-		contentParts = append(contentParts, chartsSection)
-	}
-
-	content := lipgloss.JoinVertical(lipgloss.Center, contentParts...)
-
-	contentHeight := lipgloss.Height(content)
-	viewportHeight := height - 2
-
-	if contentHeight <= viewportHeight {
+	totalHeight := list.TotalHeight()
+	if totalHeight <= viewportHeight {
 		state.ScrollOffset = 0
+		content := list.Render()
 		return lipgloss.Place(
 			width,
 			height,
@@ -63,11 +39,10 @@ func RenderStrainDetail(state *State, width, height int) string {
 		)
 	}
 
-	// apply viewport scrolling and sync state
-	vp := viewport.New(viewport.WithSize(width, viewportHeight))
-	offset := vp.ClampOffset(content, state.ScrollOffset)
+	offset := list.ClampOffset(state.ScrollOffset)
 	state.ScrollOffset = offset
-	scrolledContent := vp.Render(content, offset)
+	list.SetOffset(offset)
+	scrolledContent := list.Render()
 
 	return lipgloss.Place(
 		width,
@@ -76,6 +51,54 @@ func RenderStrainDetail(state *State, width, height int) string {
 		lipgloss.Top,
 		scrolledContent,
 	)
+}
+
+func buildStrainItems(state *State, metricsWidth int) []lazy_list.Item {
+	items := make([]lazy_list.Item, 0, 15)
+
+	strainGauge := gauge.New(
+		state.StrainScore,
+		21,
+		"STRAIN",
+		theme.ColorStrain,
+	)
+	items = append(items, lazy_list.NewStaticItem(strainGauge.Render()))
+
+	items = append(items, lazy_list.NewSpacerItem(2))
+
+	metrics := renderStrainMetrics(*state, metricsWidth)
+	items = append(items, lazy_list.NewStaticItem(metrics))
+
+	if len(state.TodaysWorkouts) > 0 {
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		activitiesSection := renderActivities(state.TodaysWorkouts, state.SelectedDate, metricsWidth)
+		items = append(items, lazy_list.NewStaticItem(activitiesSection))
+	}
+
+	if len(state.HistoricalCycles) > 0 {
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		titleStyle := lipgloss.NewStyle().
+			Foreground(theme.ColorWhite).
+			Bold(true)
+		weeklyTrendsTitle := titleStyle.Width(metricsWidth).Render("WEEKLY TRENDS")
+		items = append(items, lazy_list.NewStaticItem(weeklyTrendsTitle))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("strain-trend", func(w int) string {
+			return strainTrendChart(*state, w)
+		}))
+
+		items = append(items, lazy_list.NewSpacerItem(3))
+
+		items = append(items, lazy_list.NewChartItem("strain-calories", func(w int) string {
+			return caloriesTrendChart(*state, w)
+		}))
+	}
+
+	return items
 }
 
 func renderStrainMetrics(state State, width int) string {
@@ -149,29 +172,6 @@ func renderStrainMetrics(state State, width int) string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
-}
-
-func renderStrainCharts(state State, width int) string {
-	if len(state.HistoricalCycles) == 0 {
-		return ""
-	}
-
-	titleStyle := lipgloss.NewStyle().
-		Foreground(theme.ColorWhite).
-		Bold(true)
-	weeklyTrendsTitle := titleStyle.Width(width).Render("WEEKLY TRENDS")
-
-	var sections []string
-	sections = append(sections, weeklyTrendsTitle)
-
-	if c := strainTrendChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-	if c := caloriesTrendChart(state, width); c != "" {
-		sections = append(sections, "", "", c)
-	}
-
-	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
 
 func strainTrendChart(state State, width int) string {

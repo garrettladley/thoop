@@ -11,6 +11,7 @@ import (
 
 // LineChart renders a line chart with axis labels and optional value display.
 type LineChart struct {
+	id         string // unique identifier for caching
 	data       []DataPoint
 	height     int
 	minValue   float64
@@ -57,6 +58,13 @@ func WithLineChartShowValues(show bool) LineChartOption {
 func WithLineChartShowDots(show bool) LineChartOption {
 	return func(lc *LineChart) {
 		lc.showDots = show
+	}
+}
+
+// WithLineChartID sets the chart ID for caching.
+func WithLineChartID(id string) LineChartOption {
+	return func(lc *LineChart) {
+		lc.id = id
 	}
 }
 
@@ -112,6 +120,21 @@ func (lc *LineChart) Render(width int) string {
 		return ""
 	}
 
+	if lc.id != "" {
+		dataHash := HashDataPoints(lc.data)
+		if cached, ok := GetCached(lc.id, width, dataHash); ok {
+			return cached
+		}
+		rendered := lc.renderInternal(width)
+		SetCached(lc.id, width, dataHash, rendered)
+		return rendered
+	}
+
+	return lc.renderInternal(width)
+}
+
+// renderInternal performs the actual rendering without caching.
+func (lc *LineChart) renderInternal(width int) string {
 	// extract values and normalize
 	values := make([]float64, len(lc.data))
 	for i, d := range lc.data {

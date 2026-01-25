@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/oauth"
+	"github.com/garrettladley/thoop/internal/tui/components/chart"
 	"github.com/garrettladley/thoop/internal/tui/components/footer"
 	"github.com/garrettladley/thoop/internal/tui/page"
 	"github.com/garrettladley/thoop/internal/tui/page/dashboard"
@@ -170,6 +171,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.maybeTransitionToDashboard()
 
 	case dashboard.HistoricalDataMsg:
+		// Clear chart cache when new data arrives
+		chart.ClearCache()
 		if msg.Err != nil {
 			m.deps.Logger.ErrorContext(m.deps.Ctx, "historical data fetch failed",
 				xslog.Source(msg.ErrSource),
@@ -413,6 +416,9 @@ func (m *Model) startDashboardServices() tea.Cmd {
 }
 
 func (m *Model) handleDateChange(date *time.Time) tea.Cmd {
+	// clear chart cache when navigating dates
+	chart.ClearCache()
+
 	m.state.dashboard.SelectedDate = date
 	m.state.dashboard.SetPending()
 
