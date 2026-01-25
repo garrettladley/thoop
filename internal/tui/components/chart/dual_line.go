@@ -367,49 +367,40 @@ func (dlc *DualLineChart) renderWithValueLabels(str1, str2 string, width, numPoi
 			runes2 = append(runes2, ' ')
 		}
 
-		col := 0
-		for col < width {
-			hasLabel1 := labelGrid1[row][col] != 0
-			hasLabel2 := labelGrid2[row][col] != 0
+		for col := range width {
+			label1 := labelGrid1[row][col]
+			label2 := labelGrid2[row][col]
 
-			if hasLabel1 || hasLabel2 {
-				// render label characters one at a time to handle overlapping grids
-				if hasLabel1 {
-					rowBuilder.WriteString(style1.Render(string(labelGrid1[row][col])))
-				} else {
-					rowBuilder.WriteString(style2.Render(string(labelGrid2[row][col])))
-				}
-				col++
-			} else {
-				// render single braille character with proper overlay coloring
-				if row < 2 {
-					// rows above chart - just spaces
-					rowBuilder.WriteRune(' ')
-				} else {
-					// chart row - overlay both series with colors
-					r1 := runes1[col]
-					r2 := runes2[col]
-					b1 := braille.Is(r1) && r1 != emptyBraille
-					b2 := braille.Is(r2) && r2 != emptyBraille
-
-					if b1 && b2 {
-						// both have content - show series1 on top
-						rowBuilder.WriteString(style1.Render(string(r1)))
-					} else if b1 {
-						rowBuilder.WriteString(style1.Render(string(r1)))
-					} else if b2 {
-						rowBuilder.WriteString(style2.Render(string(r2)))
-					} else {
-						rowBuilder.WriteRune(' ')
-					}
-				}
-				col++
+			switch {
+			case label1 != 0:
+				rowBuilder.WriteString(style1.Render(string(label1)))
+			case label2 != 0:
+				rowBuilder.WriteString(style2.Render(string(label2)))
+			case row < 2:
+				rowBuilder.WriteRune(' ')
+			default:
+				rowBuilder.WriteString(dlc.overlayBrailleChar(runes1[col], runes2[col], style1, style2))
 			}
 		}
 		result[row] = rowBuilder.String()
 	}
 
 	return strings.Join(result, "\n")
+}
+
+// overlayBrailleChar overlays two braille characters with appropriate coloring.
+func (dlc *DualLineChart) overlayBrailleChar(r1, r2 rune, style1, style2 lipgloss.Style) string {
+	b1 := braille.Is(r1) && r1 != emptyBraille
+	b2 := braille.Is(r2) && r2 != emptyBraille
+
+	switch {
+	case b1:
+		return style1.Render(string(r1))
+	case b2:
+		return style2.Render(string(r2))
+	default:
+		return " "
+	}
 }
 
 // normalizeDataPoints normalizes data points to [0, 1] range.
