@@ -181,7 +181,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				xslog.Error(msg.Err))
 		} else {
 			m.state.dashboard.Averages = dashboard.ComputeAverages(msg.Recoveries, msg.Cycles, msg.Sleeps)
-			// store full recoveries for calendar coloring (30 days)
+			// store full recoveries for calendar coloring (50 days)
 			m.state.dashboard.CalendarRecoveries = msg.Recoveries
 			// store last 7 days of data for charts
 			m.state.dashboard.HistoricalRecoveries = xslices.Truncate(msg.Recoveries, 7)

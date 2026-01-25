@@ -173,12 +173,12 @@ func FetchCalendarRecoveriesCmd(ctx context.Context, cacheSvc cache.CacheService
 	}
 }
 
-// FetchHistoricalDataCmd fetches 30 days of historical data ending at today.
+// FetchHistoricalDataCmd fetches 50 days of historical data ending at today.
 func FetchHistoricalDataCmd(ctx context.Context, cacheSvc cache.CacheService) tea.Cmd {
 	return FetchHistoricalDataForDateCmd(ctx, cacheSvc, time.Now())
 }
 
-// FetchHistoricalDataForDateCmd fetches 30 days of historical data ending at referenceDate via CacheService.
+// FetchHistoricalDataForDateCmd fetches 50 days of historical data ending at referenceDate via CacheService.
 func FetchHistoricalDataForDateCmd(ctx context.Context, cacheSvc cache.CacheService, referenceDate time.Time) tea.Cmd {
 	if cacheSvc == nil {
 		return func() tea.Msg {
@@ -187,7 +187,7 @@ func FetchHistoricalDataForDateCmd(ctx context.Context, cacheSvc cache.CacheServ
 	}
 
 	return func() tea.Msg {
-		result, err := cacheSvc.GetHistoricalData(ctx, referenceDate, 30)
+		result, err := cacheSvc.GetHistoricalData(ctx, referenceDate, 50)
 		if err != nil {
 			return HistoricalDataMsg{Err: err, ErrSource: "cache"}
 		}
