@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.6](https://github.com/garrettladley/thoop/compare/v0.1.5...v0.1.6) (2026-01-25)
+
+
+### Features
+
+* calendar modal ([#118](https://github.com/garrettladley/thoop/issues/118)) ([bacd228](https://github.com/garrettladley/thoop/commit/bacd2280a228b2434cda7e305d1f9285fa390758))
+
+
+### Bug Fixes
+
+* **chart:** render minimum bar block for small positive values instead of empty space ([#120](https://github.com/garrettladley/thoop/issues/120)) ([0950ea6](https://github.com/garrettladley/thoop/commit/0950ea65de078b5045aa41087a6a4565929d8aad))
+
 ## [0.1.5](https://github.com/garrettladley/thoop/compare/v0.1.4...v0.1.5) (2026-01-25)
 
 
