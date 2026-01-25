@@ -59,12 +59,9 @@ type SyncState struct {
 }
 
 type Token struct {
-	ID           int64     `json:"id"`
-	AccessToken  string    `json:"access_token"`
-	RefreshToken *string   `json:"refresh_token"`
-	TokenType    string    `json:"token_type"`
-	Expiry       time.Time `json:"expiry"`
-	ApiKey       *string   `json:"api_key"`
+	ID        int64     `json:"id"`
+	TokenType string    `json:"token_type"`
+	Expiry    time.Time `json:"expiry"`
 }
 
 type Workout struct {

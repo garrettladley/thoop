@@ -10,76 +10,40 @@ import (
 	"time"
 )
 
-const deleteToken = `-- name: DeleteToken :exec
+const deleteTokenMetadata = `-- name: DeleteTokenMetadata :exec
 DELETE FROM tokens WHERE id = 1
 `
 
-func (q *Queries) DeleteToken(ctx context.Context) error {
-	_, err := q.db.ExecContext(ctx, deleteToken)
+func (q *Queries) DeleteTokenMetadata(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteTokenMetadata)
 	return err
 }
 
-const getAPIKey = `-- name: GetAPIKey :one
-SELECT api_key FROM tokens WHERE id = 1
+const getTokenMetadata = `-- name: GetTokenMetadata :one
+SELECT id, token_type, expiry FROM tokens WHERE id = 1
 `
 
-func (q *Queries) GetAPIKey(ctx context.Context) (*string, error) {
-	row := q.db.QueryRowContext(ctx, getAPIKey)
-	var api_key *string
-	err := row.Scan(&api_key)
-	return api_key, err
-}
-
-const getToken = `-- name: GetToken :one
-SELECT id, access_token, refresh_token, token_type, expiry, api_key FROM tokens WHERE id = 1
-`
-
-func (q *Queries) GetToken(ctx context.Context) (Token, error) {
-	row := q.db.QueryRowContext(ctx, getToken)
+func (q *Queries) GetTokenMetadata(ctx context.Context) (Token, error) {
+	row := q.db.QueryRowContext(ctx, getTokenMetadata)
 	var i Token
-	err := row.Scan(
-		&i.ID,
-		&i.AccessToken,
-		&i.RefreshToken,
-		&i.TokenType,
-		&i.Expiry,
-		&i.ApiKey,
-	)
+	err := row.Scan(&i.ID, &i.TokenType, &i.Expiry)
 	return i, err
 }
 
-const setAPIKey = `-- name: SetAPIKey :exec
-UPDATE tokens SET api_key = ? WHERE id = 1
-`
-
-func (q *Queries) SetAPIKey(ctx context.Context, apiKey *string) error {
-	_, err := q.db.ExecContext(ctx, setAPIKey, apiKey)
-	return err
-}
-
-const upsertToken = `-- name: UpsertToken :exec
-INSERT INTO tokens (id, access_token, refresh_token, token_type, expiry)
-VALUES (1, ?, ?, ?, ?)
+const upsertTokenMetadata = `-- name: UpsertTokenMetadata :exec
+INSERT INTO tokens (id, token_type, expiry)
+VALUES (1, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
-    access_token = excluded.access_token,
-    refresh_token = excluded.refresh_token,
     token_type = excluded.token_type,
     expiry = excluded.expiry
 `
 
-type UpsertTokenParams struct {
-	AccessToken  string    `json:"access_token"`
-	RefreshToken *string   `json:"refresh_token"`
-	TokenType    string    `json:"token_type"`
-	Expiry       time.Time `json:"expiry"`
+type UpsertTokenMetadataParams struct {
+	TokenType string    `json:"token_type"`
+	Expiry    time.Time `json:"expiry"`
 }
 
-func (q *Queries) UpsertToken(ctx context.Context, arg UpsertTokenParams) error {
-	_, err := q.db.ExecContext(ctx, upsertToken,
-		arg.AccessToken,
-		arg.RefreshToken,
-		arg.TokenType,
-		arg.Expiry,
-	)
+func (q *Queries) UpsertTokenMetadata(ctx context.Context, arg UpsertTokenMetadataParams) error {
+	_, err := q.db.ExecContext(ctx, upsertTokenMetadata, arg.TokenType, arg.Expiry)
 	return err
 }

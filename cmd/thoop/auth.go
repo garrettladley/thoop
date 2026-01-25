@@ -8,6 +8,7 @@ import (
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
 	"github.com/garrettladley/thoop/internal/db"
+	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
 	"github.com/spf13/cobra"
@@ -38,7 +39,12 @@ func authCmd() *cobra.Command {
 				_ = sqlDB.Close()
 			}()
 
-			flow := oauth.NewServerFlow(config.ServerURL, querier)
+			kr := keyring.NewOSKeyring()
+			if !kr.Available() {
+				return fmt.Errorf("OS keyring is not available")
+			}
+
+			flow := oauth.NewServerFlow(config.ServerURL, querier, kr)
 
 			result, err := flow.Run(ctx)
 			if err != nil {
@@ -61,7 +67,7 @@ func purgeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "purge",
 		Short: "Remove stored authentication token",
-		Long:  "Deletes the locally stored WHOOP authentication token from the database.",
+		Long:  "Deletes the locally stored WHOOP authentication token from keyring and database.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
@@ -82,12 +88,12 @@ func purgeCmd() *cobra.Command {
 				_ = sqlDB.Close()
 			}()
 
-			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier)
+			kr := keyring.NewOSKeyring()
 
-			var apiKey string
-			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
-				apiKey = *apiKeyPtr
-			}
+			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier, kr)
+
+			// get API key from keyring for revocation call
+			apiKey, _ := kr.Get(keyring.KeyAPIKey)
 
 			client := whoop.New(tokenSource,
 				whoop.WithProxyURL(config.ServerURL+"/api/whoop"),
@@ -95,8 +101,14 @@ func purgeCmd() *cobra.Command {
 			)
 			_ = client.User.RevokeAccess(ctx) // best effort - token may already be invalid
 
-			if err := querier.DeleteToken(ctx); err != nil {
-				return fmt.Errorf("failed to delete token: %w", err)
+			// delete from keyring
+			if err := kr.DeleteAll(); err != nil {
+				fmt.Printf("Warning: failed to clear keyring: %v\n", err)
+			}
+
+			// Delete metadata from SQLite
+			if err := querier.DeleteTokenMetadata(ctx); err != nil {
+				return fmt.Errorf("failed to delete token metadata: %w", err)
 			}
 
 			fmt.Println("Authentication token removed successfully.")

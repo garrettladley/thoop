@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/garrettladley/thoop/internal/keyring"
 	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
 	"golang.org/x/oauth2"
 )
@@ -25,17 +26,20 @@ type TokenSource interface {
 
 var _ TokenSource = (*DBTokenSource)(nil)
 
+// DBTokenSource implements TokenSource using SQLite for metadata and OS keyring for secrets.
 type DBTokenSource struct {
 	config  *oauth2.Config
 	querier sqlitec.Querier
+	keyring keyring.Store
 	mu      sync.Mutex
 	token   *oauth2.Token
 }
 
-func NewDBTokenSource(config *oauth2.Config, querier sqlitec.Querier) *DBTokenSource {
+func NewDBTokenSource(config *oauth2.Config, querier sqlitec.Querier, kr keyring.Store) *DBTokenSource {
 	return &DBTokenSource{
 		config:  config,
 		querier: querier,
+		keyring: kr,
 	}
 }
 
@@ -50,16 +54,10 @@ func (s *DBTokenSource) Token() (*oauth2.Token, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	dbToken, err := s.querier.GetToken(ctx)
+	token, err := s.loadCredentials(ctx)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNoToken
-		}
-
-		return nil, fmt.Errorf("failed to load token: %w", err)
+		return nil, err
 	}
-
-	token := dbTokenToOAuth2(dbToken)
 
 	if token.Valid() {
 		s.token = token
@@ -77,7 +75,7 @@ func (s *DBTokenSource) Token() (*oauth2.Token, error) {
 		return nil, fmt.Errorf("failed to refresh token: %w", err)
 	}
 
-	if err := s.saveToken(ctx, newToken); err != nil {
+	if err := s.saveCredentials(ctx, newToken); err != nil {
 		return nil, fmt.Errorf("failed to save refreshed token: %w", err)
 	}
 
@@ -86,13 +84,67 @@ func (s *DBTokenSource) Token() (*oauth2.Token, error) {
 	return newToken, nil
 }
 
-func (s *DBTokenSource) HasToken(ctx context.Context) (bool, error) {
-	_, err := s.querier.GetToken(ctx)
+func (s *DBTokenSource) loadCredentials(ctx context.Context) (*oauth2.Token, error) {
+	metadata, err := s.querier.GetTokenMetadata(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNoToken
+		}
+		return nil, fmt.Errorf("failed to load token metadata: %w", err)
+	}
+
+	accessToken, err := s.keyring.Get(keyring.KeyAccessToken)
+	if err != nil {
+		if errors.Is(err, keyring.ErrNotFound) {
+			return nil, ErrNoToken
+		}
+		return nil, fmt.Errorf("failed to load access token from keyring: %w", err)
+	}
+
+	refreshToken, _ := s.keyring.Get(keyring.KeyRefreshToken)
+
+	return &oauth2.Token{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		TokenType:    metadata.TokenType,
+		Expiry:       metadata.Expiry,
+	}, nil
+}
+
+func (s *DBTokenSource) saveCredentials(ctx context.Context, token *oauth2.Token) error {
+	if err := s.keyring.Set(keyring.KeyAccessToken, token.AccessToken); err != nil {
+		return fmt.Errorf("failed to save access token to keyring: %w", err)
+	}
+
+	if token.RefreshToken != "" {
+		if err := s.keyring.Set(keyring.KeyRefreshToken, token.RefreshToken); err != nil {
+			return fmt.Errorf("failed to save refresh token to keyring: %w", err)
+		}
+	}
+
+	tokenType := token.TokenType
+	if tokenType == "" {
+		tokenType = "Bearer"
+	}
+
+	params := sqlitec.UpsertTokenMetadataParams{
+		TokenType: tokenType,
+		Expiry:    token.Expiry,
+	}
+	if err := s.querier.UpsertTokenMetadata(ctx, params); err != nil {
+		return fmt.Errorf("failed to save token metadata: %w", err)
+	}
+
+	return nil
+}
+
+func (s *DBTokenSource) HasToken(ctx context.Context) (bool, error) {
+	_, err := s.loadCredentials(ctx)
+	if err != nil {
+		if errors.Is(err, ErrNoToken) {
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to get token: %w", err)
+		return false, fmt.Errorf("failed to check token: %w", err)
 	}
 	return true, nil
 }
@@ -105,15 +157,15 @@ func (s *DBTokenSource) ExpiresWithin(ctx context.Context, d time.Duration) (boo
 		return time.Until(s.token.Expiry) <= d, nil
 	}
 
-	dbToken, err := s.querier.GetToken(ctx)
+	metadata, err := s.querier.GetTokenMetadata(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, ErrNoToken
 		}
-		return false, fmt.Errorf("failed to load token: %w", err)
+		return false, fmt.Errorf("failed to load token metadata: %w", err)
 	}
 
-	return time.Until(dbToken.Expiry) <= d, nil
+	return time.Until(metadata.Expiry) <= d, nil
 }
 
 func (s *DBTokenSource) RefreshIfNeeded(ctx context.Context, threshold time.Duration) (*oauth2.Token, error) {
@@ -128,36 +180,12 @@ func (s *DBTokenSource) RefreshIfNeeded(ctx context.Context, threshold time.Dura
 	return s.Token()
 }
 
-func (s *DBTokenSource) saveToken(ctx context.Context, token *oauth2.Token) error {
-	params := sqlitec.UpsertTokenParams{
-		AccessToken: token.AccessToken,
-		TokenType:   token.TokenType,
-		Expiry:      token.Expiry,
-	}
-
-	if token.RefreshToken != "" {
-		params.RefreshToken = &token.RefreshToken
-	}
-
-	err := s.querier.UpsertToken(ctx, params)
-	if err != nil {
-		return fmt.Errorf("failed to upsert token: %w", err)
-	}
-	return nil
+func (s *DBTokenSource) GetAPIKey() (string, error) {
+	return s.keyring.Get(keyring.KeyAPIKey)
 }
 
-func dbTokenToOAuth2(t sqlitec.Token) *oauth2.Token {
-	token := &oauth2.Token{
-		AccessToken: t.AccessToken,
-		TokenType:   t.TokenType,
-		Expiry:      t.Expiry,
-	}
-
-	if t.RefreshToken != nil {
-		token.RefreshToken = *t.RefreshToken
-	}
-
-	return token
+func (s *DBTokenSource) SaveAPIKey(apiKey string) error {
+	return s.keyring.Set(keyring.KeyAPIKey, apiKey)
 }
 
 var (
