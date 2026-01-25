@@ -121,7 +121,7 @@ func (s *ProxyTokenSource) saveCredentials(ctx context.Context, token *oauth2.To
 
 	tokenType := token.TokenType
 	if tokenType == "" {
-		tokenType = "Bearer"
+		tokenType = defaultTokenType
 	}
 
 	params := sqlitec.UpsertTokenMetadataParams{
@@ -227,9 +227,16 @@ func (s *ProxyTokenSource) RefreshIfNeeded(ctx context.Context, threshold time.D
 }
 
 func (s *ProxyTokenSource) GetAPIKey() (string, error) {
-	return s.keyring.Get(keyring.KeyAPIKey)
+	apiKey, err := s.keyring.Get(keyring.KeyAPIKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to get API key from keyring: %w", err)
+	}
+	return apiKey, nil
 }
 
 func (s *ProxyTokenSource) SaveAPIKey(apiKey string) error {
-	return s.keyring.Set(keyring.KeyAPIKey, apiKey)
+	if err := s.keyring.Set(keyring.KeyAPIKey, apiKey); err != nil {
+		return fmt.Errorf("failed to save API key to keyring: %w", err)
+	}
+	return nil
 }

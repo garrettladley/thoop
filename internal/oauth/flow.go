@@ -24,6 +24,7 @@ const (
 	callbackPath     = "/callback"
 	shutdownTime     = 5 * time.Second
 	defaultServerURL = "https://thoop.fly.dev"
+	defaultTokenType = "Bearer"
 )
 
 var (
@@ -258,7 +259,7 @@ func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Toke
 
 	tokenType := r.URL.Query().Get("token_type")
 	if tokenType == "" {
-		tokenType = "Bearer"
+		tokenType = defaultTokenType
 	}
 
 	var expiry time.Time
@@ -339,7 +340,7 @@ func saveToken(ctx context.Context, querier sqlitec.Querier, kr keyring.Store, t
 
 	tokenType := token.TokenType
 	if tokenType == "" {
-		tokenType = "Bearer"
+		tokenType = defaultTokenType
 	}
 
 	params := sqlitec.UpsertTokenMetadataParams{
