@@ -7,6 +7,8 @@ import (
 )
 
 func TestGetDirectionHigherBetter(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		current   float64
@@ -102,6 +104,8 @@ func TestGetDirectionHigherBetter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var result metric_row.Direction
 			if tt.precision == -1 {
 				result = getDirectionHigherBetter(tt.current, tt.avg)
@@ -118,6 +122,8 @@ func TestGetDirectionHigherBetter(t *testing.T) {
 }
 
 func TestGetDirectionLowerBetter(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		current   float64
@@ -185,6 +191,8 @@ func TestGetDirectionLowerBetter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var result metric_row.Direction
 			if tt.precision == -1 {
 				result = getDirectionLowerBetter(tt.current, tt.avg)
