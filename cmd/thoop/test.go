@@ -8,6 +8,7 @@ import (
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
 	"github.com/garrettladley/thoop/internal/db"
+	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
 	"github.com/spf13/cobra"
@@ -32,12 +33,14 @@ func testCmd() *cobra.Command {
 			}
 			defer func() { _ = sqlDB.Close() }()
 
-			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier)
-
-			var apiKey string
-			if apiKeyPtr, err := querier.GetAPIKey(ctx); err == nil && apiKeyPtr != nil {
-				apiKey = *apiKeyPtr
+			kr := keyring.NewOSKeyring()
+			if !kr.Available() {
+				return fmt.Errorf("OS keyring is not available")
 			}
+
+			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier, kr)
+
+			apiKey, _ := kr.Get(keyring.KeyAPIKey)
 
 			client := whoop.New(tokenSource,
 				whoop.WithProxyURL(config.ServerURL+"/api/whoop"),

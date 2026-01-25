@@ -13,9 +13,8 @@ type Querier interface {
 	DeleteCycle(ctx context.Context, id int64) error
 	DeleteRecovery(ctx context.Context, cycleID int64) error
 	DeleteSleep(ctx context.Context, id string) error
-	DeleteToken(ctx context.Context) error
+	DeleteTokenMetadata(ctx context.Context) error
 	DeleteWorkout(ctx context.Context, id string) error
-	GetAPIKey(ctx context.Context) (*string, error)
 	GetCycle(ctx context.Context, id int64) (Cycle, error)
 	GetCyclesByDateRange(ctx context.Context, arg GetCyclesByDateRangeParams) ([]Cycle, error)
 	GetCyclesByDateRangeCursor(ctx context.Context, arg GetCyclesByDateRangeCursorParams) ([]Cycle, error)
@@ -30,13 +29,12 @@ type Querier interface {
 	GetSleepsByDateRange(ctx context.Context, arg GetSleepsByDateRangeParams) ([]Sleep, error)
 	GetSleepsByDateRangeCursor(ctx context.Context, arg GetSleepsByDateRangeCursorParams) ([]Sleep, error)
 	GetSyncState(ctx context.Context) (SyncState, error)
-	GetToken(ctx context.Context) (Token, error)
+	GetTokenMetadata(ctx context.Context) (Token, error)
 	GetWorkout(ctx context.Context, id string) (Workout, error)
 	GetWorkoutsByCycleID(ctx context.Context, cycleID int64) ([]Workout, error)
 	GetWorkoutsByDateRange(ctx context.Context, arg GetWorkoutsByDateRangeParams) ([]Workout, error)
 	GetWorkoutsByDateRangeCursor(ctx context.Context, arg GetWorkoutsByDateRangeCursorParams) ([]Workout, error)
 	MarkBackfillComplete(ctx context.Context) error
-	SetAPIKey(ctx context.Context, apiKey *string) error
 	UpdateBackfillWatermark(ctx context.Context, backfillWatermark *time.Time) error
 	UpdateLastFullSync(ctx context.Context, lastFullSync *time.Time) error
 	UpdateLastNotificationPoll(ctx context.Context, lastNotificationPoll *time.Time) error
@@ -44,7 +42,7 @@ type Querier interface {
 	UpsertRecovery(ctx context.Context, arg UpsertRecoveryParams) error
 	UpsertSleep(ctx context.Context, arg UpsertSleepParams) error
 	UpsertSyncState(ctx context.Context, arg UpsertSyncStateParams) error
-	UpsertToken(ctx context.Context, arg UpsertTokenParams) error
+	UpsertTokenMetadata(ctx context.Context, arg UpsertTokenMetadataParams) error
 	UpsertWorkout(ctx context.Context, arg UpsertWorkoutParams) error
 }
 
