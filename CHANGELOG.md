@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/garrettladley/thoop/compare/v0.1.15...v0.1.16) (2026-01-26)
+
+
+### Bug Fixes
+
+* chart title left allignment ([#141](https://github.com/garrettladley/thoop/issues/141)) ([72978cf](https://github.com/garrettladley/thoop/commit/72978cfa2c6326f287a051bc2962f9cb7b1196d9))
+
 ## [0.1.15](https://github.com/garrettladley/thoop/compare/v0.1.14...v0.1.15) (2026-01-26)
 
 
