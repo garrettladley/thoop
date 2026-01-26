@@ -4,8 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
+
+	go_json "github.com/goccy/go-json"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	intoauth "github.com/garrettladley/thoop/internal/oauth"
@@ -156,6 +162,14 @@ func (s *OAuth) HandleCallback(ctx context.Context, req CallbackRequest) (*Callb
 	}, nil
 }
 
+type tokenResp struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
+	Scope        string `json:"scope"`
+}
+
 func (s *OAuth) RefreshToken(ctx context.Context, req RefreshRequest) (*RefreshResult, error) {
 	logger := xslog.FromContext(ctx)
 
@@ -163,14 +177,59 @@ func (s *OAuth) RefreshToken(ctx context.Context, req RefreshRequest) (*RefreshR
 		return nil, ErrInvalidRefreshToken
 	}
 
-	token := &oauth2.Token{RefreshToken: req.RefreshToken}
-	tokenSource := s.config.TokenSource(ctx, token)
+	refreshCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
-	newToken, err := tokenSource.Token()
+	// WHOOP requires scope=offline in the refresh request, which the standard
+	// oauth2.TokenSource doesn't include. we _must_ make a manual request.
+	// see: https://developer.whoop.com/docs/developing/oauth#receiving-a-refresh-token
+	data := url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {req.RefreshToken},
+		"client_id":     {s.config.ClientID},
+		"client_secret": {s.config.ClientSecret},
+		"scope":         {"offline"},
+	}
+
+	httpReq, err := http.NewRequestWithContext(refreshCtx, http.MethodPost, s.config.Endpoint.TokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
-		logger.ErrorContext(ctx, "whoop token refresh failed", xslog.Error(err))
+		return nil, fmt.Errorf("creating refresh request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		logger.ErrorContext(ctx, "whoop token refresh request failed", xslog.Error(err))
 		return nil, ErrRefreshFailed
 	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		logger.ErrorContext(ctx, "whoop token refresh failed",
+			xslog.HTTPStatus(resp.StatusCode),
+			xslog.Body(string(body)))
+		return nil, ErrRefreshFailed
+	}
+
+	var tokenResp tokenResp
+	if err := go_json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		logger.ErrorContext(ctx, "failed to decode token response", xslog.Error(err))
+		return nil, ErrRefreshFailed
+	}
+
+	newToken := &oauth2.Token{
+		AccessToken:  tokenResp.AccessToken,
+		TokenType:    tokenResp.TokenType,
+		RefreshToken: tokenResp.RefreshToken,
+		Expiry:       time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
+	}
+
+	logger.InfoContext(
+		ctx,
+		"whoop token refresh succeeded",
+		xslog.Duration(time.Duration(tokenResp.ExpiresIn)*time.Second),
+	)
 
 	return &RefreshResult{Token: newToken}, nil
 }

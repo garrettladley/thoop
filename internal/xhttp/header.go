@@ -35,11 +35,6 @@ func SetHeaderContentTypeApplicationJSON(w http.ResponseWriter) {
 	w.Header().Set(ContentType, applicationJSON)
 }
 
-func SetHeaderContentTypeTextHTML(w http.ResponseWriter) {
-	const textHTML = "text/html"
-	w.Header().Set(ContentType, textHTML)
-}
-
 func SetHeaderContentTypeTextHTMLCharsetUTF8(w http.ResponseWriter) {
 	const textHTMLCharsetUTF8 = "text/html; charset=utf-8"
 	w.Header().Set(ContentType, textHTMLCharsetUTF8)
