@@ -20,20 +20,20 @@ SELECT * FROM workouts WHERE id = ?;
 -- name: GetWorkoutsByDateRange :many
 SELECT * FROM workouts
 WHERE start >= sqlc.arg(range_start) AND start <= sqlc.arg(range_end)
-ORDER BY start DESC
+ORDER BY start ASC
 LIMIT sqlc.arg(limit);
 
 -- name: GetWorkoutsByDateRangeCursor :many
 SELECT * FROM workouts
-WHERE start >= sqlc.arg(range_start) AND start <= sqlc.arg(range_end) AND start < sqlc.arg(cursor)
-ORDER BY start DESC
+WHERE start >= sqlc.arg(range_start) AND start <= sqlc.arg(range_end) AND start > sqlc.arg(cursor)
+ORDER BY start ASC
 LIMIT sqlc.arg(limit);
 
 -- name: GetWorkoutsByCycleID :many
 SELECT * FROM workouts
 WHERE workouts.start >= (SELECT cycles.start FROM cycles WHERE cycles.id = sqlc.arg(cycle_id))
   AND workouts.start <= COALESCE((SELECT cycles.end FROM cycles WHERE cycles.id = sqlc.arg(cycle_id)), CURRENT_TIMESTAMP)
-ORDER BY workouts.start DESC;
+ORDER BY workouts.start ASC;
 
 -- name: DeleteWorkout :exec
 DELETE FROM workouts WHERE id = ?;

@@ -47,7 +47,7 @@ const getWorkoutsByCycleID = `-- name: GetWorkoutsByCycleID :many
 SELECT id, v1_id, user_id, created_at, updated_at, start, "end", timezone_offset, sport_name, score_state, score_json, fetched_at FROM workouts
 WHERE workouts.start >= (SELECT cycles.start FROM cycles WHERE cycles.id = ?1)
   AND workouts.start <= COALESCE((SELECT cycles.end FROM cycles WHERE cycles.id = ?1), CURRENT_TIMESTAMP)
-ORDER BY workouts.start DESC
+ORDER BY workouts.start ASC
 `
 
 func (q *Queries) GetWorkoutsByCycleID(ctx context.Context, cycleID int64) ([]Workout, error) {
@@ -89,7 +89,7 @@ func (q *Queries) GetWorkoutsByCycleID(ctx context.Context, cycleID int64) ([]Wo
 const getWorkoutsByDateRange = `-- name: GetWorkoutsByDateRange :many
 SELECT id, v1_id, user_id, created_at, updated_at, start, "end", timezone_offset, sport_name, score_state, score_json, fetched_at FROM workouts
 WHERE start >= ?1 AND start <= ?2
-ORDER BY start DESC
+ORDER BY start ASC
 LIMIT ?3
 `
 
@@ -137,8 +137,8 @@ func (q *Queries) GetWorkoutsByDateRange(ctx context.Context, arg GetWorkoutsByD
 
 const getWorkoutsByDateRangeCursor = `-- name: GetWorkoutsByDateRangeCursor :many
 SELECT id, v1_id, user_id, created_at, updated_at, start, "end", timezone_offset, sport_name, score_state, score_json, fetched_at FROM workouts
-WHERE start >= ?1 AND start <= ?2 AND start < ?3
-ORDER BY start DESC
+WHERE start >= ?1 AND start <= ?2 AND start > ?3
+ORDER BY start ASC
 LIMIT ?4
 `
 
