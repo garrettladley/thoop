@@ -169,3 +169,8 @@ func Source(source string) slog.Attr {
 	const sourceKey = "source"
 	return slog.String(sourceKey, source)
 }
+
+func Body(body string) slog.Attr {
+	const bodyKey = "body"
+	return slog.String(bodyKey, body)
+}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -203,13 +202,13 @@ func (s *OAuth) RefreshToken(ctx context.Context, req RefreshRequest) (*RefreshR
 		logger.ErrorContext(ctx, "whoop token refresh request failed", xslog.Error(err))
 		return nil, ErrRefreshFailed
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		logger.ErrorContext(ctx, "whoop token refresh failed",
-			slog.Int("status", resp.StatusCode),
-			slog.String("body", string(body)))
+			xslog.HTTPStatus(resp.StatusCode),
+			xslog.Body(string(body)))
 		return nil, ErrRefreshFailed
 	}
 
@@ -225,6 +224,12 @@ func (s *OAuth) RefreshToken(ctx context.Context, req RefreshRequest) (*RefreshR
 		RefreshToken: tokenResp.RefreshToken,
 		Expiry:       time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second),
 	}
+
+	logger.InfoContext(
+		ctx,
+		"whoop token refresh succeeded",
+		xslog.Duration(time.Duration(tokenResp.ExpiresIn)*time.Second),
+	)
 
 	return &RefreshResult{Token: newToken}, nil
 }
