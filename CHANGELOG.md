@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.14](https://github.com/garrettladley/thoop/compare/v0.1.13...v0.1.14) (2026-01-26)
+
+
+### Features
+
+* refactor sqlc pkg locations ([#137](https://github.com/garrettladley/thoop/issues/137)) ([85e8083](https://github.com/garrettladley/thoop/commit/85e8083dc25ec3343c554650c2c6a127eac431e2))
+
 ## [0.1.13](https://github.com/garrettladley/thoop/compare/v0.1.12...v0.1.13) (2026-01-26)
 
 
