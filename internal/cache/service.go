@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -184,6 +185,11 @@ func (s *Service) GetWorkoutsForDateRange(ctx context.Context, start, end time.T
 	if s.repo != nil && len(resp.Records) > 0 {
 		_ = s.repo.Workouts.UpsertBatch(ctx, resp.Records)
 	}
+
+	// 4. sort by start time (earliest first) to match SQL ordering
+	slices.SortFunc(resp.Records, func(a, b whoop.Workout) int {
+		return a.Start.Compare(b.Start)
+	})
 
 	return &CacheResult[[]whoop.Workout]{Data: resp.Records, FromCache: false}, nil
 }
