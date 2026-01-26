@@ -13,7 +13,7 @@ import (
 	"github.com/garrettladley/thoop/internal/client/sse"
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
-	"github.com/garrettladley/thoop/internal/db"
+	"github.com/garrettladley/thoop/internal/sqlite"
 	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
@@ -42,11 +42,11 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to get database path: %w", err)
 	}
 
-	sqlDB, querier, err := db.Open(ctx, dbPath)
+	db, err := sqlite.New(ctx, sqlite.DefaultConfig(dbPath))
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer func() { _ = sqlDB.Close() }()
+	defer func() { _ = db.Close() }()
 
 	kr := keyring.NewOSKeyring()
 	if !kr.Available() {
@@ -77,8 +77,8 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 	logger := baseLogger.With(xslog.SessionID(sessionID))
 	slog.SetDefault(logger)
 
-	tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier, kr)
-	authFlow := oauth.NewServerFlow(config.ServerURL, querier, kr)
+	tokenSource := oauth.NewProxyTokenSource(config.ServerURL, db, kr)
+	authFlow := oauth.NewServerFlow(config.ServerURL, db, kr)
 
 	apiKey, _ := kr.Get(keyring.KeyAPIKey)
 
@@ -90,7 +90,7 @@ func runTUI(cmd *cobra.Command, _ []string) error {
 	)
 	logger.InfoContext(ctx, "starting thoop", xslog.Version())
 
-	repo := repository.New(querier)
+	repo := repository.New(db)
 	cacheSvc := cache.NewService(client, repo)
 
 	sseClient := sse.NewClient(config.ServerURL, tokenSource, sessionID, apiKey, logger)

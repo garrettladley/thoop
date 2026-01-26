@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/garrettladley/thoop/internal/config"
-	"github.com/garrettladley/thoop/internal/db"
+	"github.com/garrettladley/thoop/internal/sqlite"
 	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
@@ -30,12 +30,12 @@ func authCmd() *cobra.Command {
 				return fmt.Errorf("failed to get database path: %w", err)
 			}
 
-			sqlDB, querier, err := db.Open(ctx, dbPath)
+			db, err := sqlite.New(ctx, sqlite.DefaultConfig(dbPath))
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
 			defer func() {
-				_ = sqlDB.Close()
+				_ = db.Close()
 			}()
 
 			kr := keyring.NewOSKeyring()
@@ -43,7 +43,7 @@ func authCmd() *cobra.Command {
 				return fmt.Errorf("OS keyring is not available")
 			}
 
-			flow := oauth.NewServerFlow(config.ServerURL, querier, kr)
+			flow := oauth.NewServerFlow(config.ServerURL, db, kr)
 
 			result, err := flow.Run(ctx)
 			if err != nil {

@@ -9,17 +9,17 @@ import (
 	"errors"
 	"fmt"
 
-	pgc "github.com/garrettladley/thoop/internal/sqlc/postgres"
+	"github.com/garrettladley/thoop/internal/postgres/sqlc"
 	"github.com/jackc/pgx/v5"
 )
 
 type PostgresService struct {
-	db pgc.Querier
+	db pgsqlc.Querier
 }
 
 var _ Service = (*PostgresService)(nil)
 
-func NewPostgresService(db pgc.Querier) *PostgresService {
+func NewPostgresService(db pgsqlc.Querier) *PostgresService {
 	return &PostgresService{db: db}
 }
 
@@ -88,7 +88,7 @@ func (s *PostgresService) GetOrCreateUser(ctx context.Context, whoopUserID int64
 
 	keyHash := hashSecret(apiKey)
 	keyName := "default"
-	_, err = s.db.CreateAPIKey(ctx, pgc.CreateAPIKeyParams{
+	_, err = s.db.CreateAPIKey(ctx, pgsqlc.CreateAPIKeyParams{
 		WhoopUserID: whoopUserID,
 		KeyHash:     keyHash,
 		Name:        &keyName,

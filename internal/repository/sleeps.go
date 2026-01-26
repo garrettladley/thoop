@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
-	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
+	"github.com/garrettladley/thoop/internal/sqlite/sqlc"
 	go_json "github.com/goccy/go-json"
 )
 
 type sleepRepo struct {
-	q sqlitec.Querier
+	q litesqlc.Querier
 }
 
 func (r *sleepRepo) Upsert(ctx context.Context, sleep *whoop.Sleep) error {
@@ -33,7 +33,7 @@ func (r *sleepRepo) Upsert(ctx context.Context, sleep *whoop.Sleep) error {
 		nap = 1
 	}
 
-	err := r.q.UpsertSleep(ctx, sqlitec.UpsertSleepParams{
+	err := r.q.UpsertSleep(ctx, litesqlc.UpsertSleepParams{
 		ID:             sleep.ID,
 		CycleID:        sleep.CycleID,
 		V1ID:           sleep.V1ID,
@@ -92,18 +92,18 @@ func (r *sleepRepo) GetByDateRange(ctx context.Context, start, end time.Time, cu
 
 	fetchLimit := limit + 1
 
-	var rows []sqlitec.Sleep
+	var rows []litesqlc.Sleep
 	var err error
 
 	if cursor != nil && cursor.Cursor != nil {
-		rows, err = r.q.GetSleepsByDateRangeCursor(ctx, sqlitec.GetSleepsByDateRangeCursorParams{
+		rows, err = r.q.GetSleepsByDateRangeCursor(ctx, litesqlc.GetSleepsByDateRangeCursorParams{
 			RangeStart: start,
 			RangeEnd:   end,
 			Cursor:     *cursor.Cursor,
 			Limit:      fetchLimit,
 		})
 	} else {
-		rows, err = r.q.GetSleepsByDateRange(ctx, sqlitec.GetSleepsByDateRangeParams{
+		rows, err = r.q.GetSleepsByDateRange(ctx, litesqlc.GetSleepsByDateRangeParams{
 			RangeStart: start,
 			RangeEnd:   end,
 			Limit:      fetchLimit,
@@ -135,7 +135,7 @@ func (r *sleepRepo) GetByDateRange(ctx context.Context, start, end time.Time, cu
 	return result, nil
 }
 
-func (r *sleepRepo) toDomain(row sqlitec.Sleep) (*whoop.Sleep, error) {
+func (r *sleepRepo) toDomain(row litesqlc.Sleep) (*whoop.Sleep, error) {
 	sleep := &whoop.Sleep{
 		ID:             row.ID,
 		CycleID:        row.CycleID,
@@ -161,7 +161,7 @@ func (r *sleepRepo) toDomain(row sqlitec.Sleep) (*whoop.Sleep, error) {
 	return sleep, nil
 }
 
-func (r *sleepRepo) toDomainSlice(rows []sqlitec.Sleep) ([]whoop.Sleep, error) {
+func (r *sleepRepo) toDomainSlice(rows []litesqlc.Sleep) ([]whoop.Sleep, error) {
 	sleeps := make([]whoop.Sleep, 0, len(rows))
 	for _, row := range rows {
 		sleep, err := r.toDomain(row)

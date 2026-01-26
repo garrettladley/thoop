@@ -16,7 +16,7 @@ import (
 	"github.com/garrettladley/thoop"
 	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/oauth/templates"
-	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
+	"github.com/garrettladley/thoop/internal/sqlite/sqlc"
 	"github.com/garrettladley/thoop/internal/xtempl"
 	"golang.org/x/oauth2"
 )
@@ -53,13 +53,13 @@ type callbackHandler func(w http.ResponseWriter, r *http.Request) (*oauth2.Token
 
 type ServerFlow struct {
 	serverURL string
-	querier   sqlitec.Querier
+	querier   litesqlc.Querier
 	keyring   keyring.Store
 }
 
 var _ Flow = (*ServerFlow)(nil)
 
-func NewServerFlow(serverURL string, querier sqlitec.Querier, kr keyring.Store) *ServerFlow {
+func NewServerFlow(serverURL string, querier litesqlc.Querier, kr keyring.Store) *ServerFlow {
 	return &ServerFlow{
 		serverURL: serverURL,
 		querier:   querier,
@@ -80,14 +80,14 @@ func (f *ServerFlow) authURL(port string) string {
 
 type DirectFlow struct {
 	config  *oauth2.Config
-	querier sqlitec.Querier
+	querier litesqlc.Querier
 	keyring keyring.Store
 	state   string
 }
 
 var _ Flow = (*DirectFlow)(nil)
 
-func NewDirectFlow(config *oauth2.Config, querier sqlitec.Querier, kr keyring.Store) (*DirectFlow, error) {
+func NewDirectFlow(config *oauth2.Config, querier litesqlc.Querier, kr keyring.Store) (*DirectFlow, error) {
 	state, err := GenerateState()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate state: %w", err)
@@ -139,7 +139,7 @@ func (f *DirectFlow) callbackHandler() callbackHandler {
 
 func runFlow(
 	ctx context.Context,
-	querier sqlitec.Querier,
+	querier litesqlc.Querier,
 	kr keyring.Store,
 	authURL func(port string) string,
 	handler callbackHandler,
@@ -279,7 +279,7 @@ func serverCallbackHandler(w http.ResponseWriter, r *http.Request) (*oauth2.Toke
 	}, apiKey, nil
 }
 
-func saveToken(ctx context.Context, querier sqlitec.Querier, kr keyring.Store, token *oauth2.Token, apiKey string) error {
+func saveToken(ctx context.Context, querier litesqlc.Querier, kr keyring.Store, token *oauth2.Token, apiKey string) error {
 	if err := kr.Set(keyring.KeyAccessToken, token.AccessToken); err != nil {
 		return fmt.Errorf("failed to save access token to keyring: %w", err)
 	}
@@ -301,7 +301,7 @@ func saveToken(ctx context.Context, querier sqlitec.Querier, kr keyring.Store, t
 		tokenType = defaultTokenType
 	}
 
-	params := sqlitec.UpsertTokenMetadataParams{
+	params := litesqlc.UpsertTokenMetadataParams{
 		TokenType: tokenType,
 		Expiry:    token.Expiry,
 	}

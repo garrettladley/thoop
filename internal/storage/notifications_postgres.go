@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	pgc "github.com/garrettladley/thoop/internal/sqlc/postgres"
+	"github.com/garrettladley/thoop/internal/postgres/sqlc"
 )
 
 const notificationsLivePrefix = "notifications:live:"
@@ -18,13 +18,13 @@ const notificationsLivePrefix = "notifications:live:"
 var _ NotificationStore = (*HybridNotificationStore)(nil)
 
 type HybridNotificationStore struct {
-	queries *pgc.Queries
+	queries *pgsqlc.Queries
 	redis   *redis.Client
 }
 
 func NewHybridNotificationStore(pool *pgxpool.Pool, redis *redis.Client) *HybridNotificationStore {
 	return &HybridNotificationStore{
-		queries: pgc.New(pool),
+		queries: pgsqlc.New(pool),
 		redis:   redis,
 	}
 }
@@ -34,7 +34,7 @@ func (s *HybridNotificationStore) liveKey(userID int64) string {
 }
 
 func (s *HybridNotificationStore) Add(ctx context.Context, userID int64, n Notification) error {
-	id, err := s.queries.InsertWebhookEvent(ctx, pgc.InsertWebhookEventParams{
+	id, err := s.queries.InsertWebhookEvent(ctx, pgsqlc.InsertWebhookEventParams{
 		TraceID:     n.TraceID,
 		WhoopUserID: userID,
 		Timestamp:   pgtype.Timestamptz{Time: n.Timestamp, Valid: true},
@@ -68,7 +68,7 @@ func (s *HybridNotificationStore) Add(ctx context.Context, userID int64, n Notif
 }
 
 func (s *HybridNotificationStore) GetUnacked(ctx context.Context, userID int64, cursor int64, limit int32) ([]Notification, error) {
-	events, err := s.queries.GetUnackedWebhookEvents(ctx, pgc.GetUnackedWebhookEventsParams{
+	events, err := s.queries.GetUnackedWebhookEvents(ctx, pgsqlc.GetUnackedWebhookEventsParams{
 		WhoopUserID: userID,
 		Cursor:      &cursor,
 		MaxResults:  limit,
@@ -96,7 +96,7 @@ func (s *HybridNotificationStore) GetUnacked(ctx context.Context, userID int64, 
 }
 
 func (s *HybridNotificationStore) Acknowledge(ctx context.Context, userID int64, traceIDs []string) error {
-	err := s.queries.AcknowledgeWebhookEventsByTraceIDs(ctx, pgc.AcknowledgeWebhookEventsByTraceIDsParams{
+	err := s.queries.AcknowledgeWebhookEventsByTraceIDs(ctx, pgsqlc.AcknowledgeWebhookEventsByTraceIDsParams{
 		WhoopUserID: userID,
 		TraceIds:    traceIDs,
 	})

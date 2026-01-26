@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/migrations/postgres"
+	xpostgres "github.com/garrettladley/thoop/internal/postgres"
 	"github.com/garrettladley/thoop/internal/oauth"
 	xredis "github.com/garrettladley/thoop/internal/redis"
 	"github.com/garrettladley/thoop/internal/server"
@@ -24,11 +25,9 @@ import (
 	"github.com/garrettladley/thoop/internal/service/token"
 	"github.com/garrettladley/thoop/internal/service/user"
 	"github.com/garrettladley/thoop/internal/service/webhook"
-	pgc "github.com/garrettladley/thoop/internal/sqlc/postgres"
 	"github.com/garrettladley/thoop/internal/storage"
 	"github.com/garrettladley/thoop/internal/xhttp/middleware"
 	"github.com/garrettladley/thoop/internal/xslog"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
@@ -62,11 +61,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
 
-	pool, err := initPostgres(ctx, cfg, logger)
+	db, err := initPostgres(ctx, cfg, logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize postgres: %w", err)
 	}
-	defer pool.Close()
+	defer db.Close()
 
 	redisClient, err := xredis.New(ctx, xredis.Config{URL: cfg.Redis.URL})
 	if err != nil {
@@ -85,13 +84,10 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	whoopLimiter := initWhoopLimiter(ctx, cfg, redisClient, logger)
 	tokenCache := initTokenCache(ctx, redisClient, logger)
-	notificationStore := initNotificationStore(ctx, pool, redisClient, logger)
-
-	// Database layer
-	queries := pgc.New(pool)
+	notificationStore := initNotificationStore(ctx, db, redisClient, logger)
 
 	// Services
-	userService := user.NewPostgresService(queries)
+	userService := user.NewPostgresService(db)
 	tokenService := token.NewValidator(tokenCache, whoopLimiter)
 	notificationService := notification.NewStore(notificationStore)
 	webhookService := webhook.NewProcessor(cfg.Whoop.ClientSecret, notificationStore)
@@ -240,23 +236,23 @@ func initTokenCache(ctx context.Context, redisClient *redis.Client, logger *slog
 	return storage.NewRedisTokenCache(storage.RedisConfig{Client: redisClient})
 }
 
-func initNotificationStore(ctx context.Context, pool *pgxpool.Pool, redisClient *redis.Client, logger *slog.Logger) storage.NotificationStore {
+func initNotificationStore(ctx context.Context, db xpostgres.DB, redisClient *redis.Client, logger *slog.Logger) storage.NotificationStore {
 	logger.InfoContext(ctx, "initializing notification store (PostgreSQL + Redis pub/sub)")
-	return storage.NewHybridNotificationStore(pool, redisClient)
+	return storage.NewHybridNotificationStore(db.Pool(), redisClient)
 }
 
-func initPostgres(ctx context.Context, cfg server.Config, logger *slog.Logger) (*pgxpool.Pool, error) {
+func initPostgres(ctx context.Context, cfg server.Config, logger *slog.Logger) (xpostgres.DB, error) {
 	logger.InfoContext(ctx, "initializing PostgreSQL")
 
-	pool, err := pgxpool.New(ctx, cfg.Database.URL)
+	db, err := xpostgres.New(ctx, xpostgres.DefaultConfig(cfg.Database.URL))
 	if err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
 
-	if err := postgres.Apply(ctx, pool); err != nil {
-		pool.Close()
+	if err := postgres.Apply(ctx, db.Pool()); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("migrations: %w", err)
 	}
 
-	return pool, nil
+	return db, nil
 }
