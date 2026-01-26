@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/sqlite/sqlc"
+	litesqlc "github.com/garrettladley/thoop/internal/sqlite/sqlc"
 )
 
 type syncStateRepo struct {

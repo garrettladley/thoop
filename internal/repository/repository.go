@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
-	"github.com/garrettladley/thoop/internal/sqlite/sqlc"
+	litesqlc "github.com/garrettladley/thoop/internal/sqlite/sqlc"
 )
 
 type Repository struct {

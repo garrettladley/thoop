@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/migrations/postgres"
-	xpostgres "github.com/garrettladley/thoop/internal/postgres"
 	"github.com/garrettladley/thoop/internal/oauth"
+	xpostgres "github.com/garrettladley/thoop/internal/postgres"
 	xredis "github.com/garrettladley/thoop/internal/redis"
 	"github.com/garrettladley/thoop/internal/server"
 	"github.com/garrettladley/thoop/internal/server/handler"

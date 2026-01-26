@@ -50,5 +50,8 @@ func New(ctx context.Context, cfg Config) (DB, error) {
 }
 
 func (d *db) Close() error {
-	return d.conn.Close()
+	if err := d.conn.Close(); err != nil {
+		return fmt.Errorf("close: %w", err)
+	}
+	return nil
 }

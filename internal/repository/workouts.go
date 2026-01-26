@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
-	"github.com/garrettladley/thoop/internal/sqlite/sqlc"
+	litesqlc "github.com/garrettladley/thoop/internal/sqlite/sqlc"
 	go_json "github.com/goccy/go-json"
 )
 

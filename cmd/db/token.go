@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/sqlite"
 	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/paths"
+	"github.com/garrettladley/thoop/internal/sqlite"
 	"github.com/spf13/cobra"
 )
 

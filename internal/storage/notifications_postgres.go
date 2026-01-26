@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/garrettladley/thoop/internal/postgres/sqlc"
+	pgsqlc "github.com/garrettladley/thoop/internal/postgres/sqlc"
 )
 
 const notificationsLivePrefix = "notifications:live:"

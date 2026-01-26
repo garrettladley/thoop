@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/garrettladley/thoop/internal/postgres/sqlc"
+	pgsqlc "github.com/garrettladley/thoop/internal/postgres/sqlc"
 	"github.com/jackc/pgx/v5"
 )
 

@@ -16,7 +16,7 @@ import (
 	"github.com/garrettladley/thoop"
 	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/oauth/templates"
-	"github.com/garrettladley/thoop/internal/sqlite/sqlc"
+	litesqlc "github.com/garrettladley/thoop/internal/sqlite/sqlc"
 	"github.com/garrettladley/thoop/internal/xtempl"
 	"golang.org/x/oauth2"
 )

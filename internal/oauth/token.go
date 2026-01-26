@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/keyring"
-	"github.com/garrettladley/thoop/internal/sqlite/sqlc"
+	litesqlc "github.com/garrettladley/thoop/internal/sqlite/sqlc"
 	"golang.org/x/oauth2"
 )
 

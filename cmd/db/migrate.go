@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/garrettladley/thoop/internal/sqlite"
 	"github.com/garrettladley/thoop/internal/paths"
+	"github.com/garrettladley/thoop/internal/sqlite"
 	"github.com/spf13/cobra"
 )
 
