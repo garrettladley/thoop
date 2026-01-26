@@ -169,3 +169,13 @@ func Source(source string) slog.Attr {
 	const sourceKey = "source"
 	return slog.String(sourceKey, source)
 }
+
+func DynamicLimit(limit int) slog.Attr {
+	const dynamicLimitKey = "dynamic_limit"
+	return slog.Int(dynamicLimitKey, limit)
+}
+
+func ActiveUsers(count int) slog.Attr {
+	const activeUsersKey = "active_users"
+	return slog.Int(activeUsersKey, count)
+}

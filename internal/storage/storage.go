@@ -51,12 +51,14 @@ const (
 )
 
 type WhoopRateLimitState struct {
-	Allowed         bool
-	MinuteRemaining int
-	MinuteReset     time.Time
-	DayRemaining    int
-	DayReset        time.Time
-	Reason          *WhoopRateLimitReason
+	Allowed            bool
+	MinuteRemaining    int
+	MinuteReset        time.Time
+	DayRemaining       int
+	DayReset           time.Time
+	Reason             *WhoopRateLimitReason
+	DynamicMinuteLimit int // calculated limit for this user based on active users
+	ActiveUserCount    int // current number of active users
 }
 
 type UserRateLimitStats struct {

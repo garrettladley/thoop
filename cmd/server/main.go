@@ -34,11 +34,13 @@ import (
 )
 
 const (
-	keyPort          = "port"
-	keyPerUserMinute = "per_user_minute"
-	keyPerUserDay    = "per_user_day"
-	keyGlobalMinute  = "global_minute"
-	keyGlobalDay     = "global_day"
+	keyPort             = "port"
+	keyPerUserDay       = "per_user_day"
+	keyGlobalMinute     = "global_minute"
+	keyGlobalDay        = "global_day"
+	keyReserveBuffer    = "reserve_buffer"
+	keyMinPerUserMinute = "min_per_user_minute"
+	keyActiveWindowSec  = "active_window_sec"
 )
 
 func main() {
@@ -94,10 +96,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	notificationService := notification.NewStore(notificationStore)
 	webhookService := webhook.NewProcessor(cfg.Whoop.ClientSecret, notificationStore)
 	proxyService := proxy.NewProxy(whoopLimiter, proxy.RateLimitConfig{
-		PerUserMinuteLimit: cfg.WhoopRateLimit.PerUserMinuteLimit,
-		PerUserDayLimit:    cfg.WhoopRateLimit.PerUserDayLimit,
-		GlobalMinuteLimit:  cfg.WhoopRateLimit.GlobalMinuteLimit,
-		GlobalDayLimit:     cfg.WhoopRateLimit.GlobalDayLimit,
+		PerUserDayLimit:   cfg.WhoopRateLimit.PerUserDayLimit,
+		GlobalMinuteLimit: cfg.WhoopRateLimit.GlobalMinuteLimit,
+		GlobalDayLimit:    cfg.WhoopRateLimit.GlobalDayLimit,
 	})
 	authService := auth.NewOAuth(
 		oauth.NewConfig(cfg),
@@ -215,17 +216,21 @@ func initBackend(ctx context.Context, cfg server.Config, redisClient *redis.Clie
 
 func initWhoopLimiter(ctx context.Context, cfg server.Config, redisClient *redis.Client, logger *slog.Logger) storage.WhoopRateLimiter {
 	whoopCfg := storage.WhoopRateLimiterConfig{
-		PerUserMinuteLimit: cfg.WhoopRateLimit.PerUserMinuteLimit,
-		PerUserDayLimit:    cfg.WhoopRateLimit.PerUserDayLimit,
-		GlobalMinuteLimit:  cfg.WhoopRateLimit.GlobalMinuteLimit,
-		GlobalDayLimit:     cfg.WhoopRateLimit.GlobalDayLimit,
+		PerUserDayLimit:       cfg.WhoopRateLimit.PerUserDayLimit,
+		GlobalMinuteLimit:     cfg.WhoopRateLimit.GlobalMinuteLimit,
+		GlobalDayLimit:        cfg.WhoopRateLimit.GlobalDayLimit,
+		ReserveBuffer:         cfg.WhoopRateLimit.ReserveBuffer,
+		MinPerUserMinuteLimit: cfg.WhoopRateLimit.MinPerUserMinuteLimit,
+		ActiveWindowSeconds:   cfg.WhoopRateLimit.ActiveWindowSeconds,
 	}
 
-	logger.InfoContext(ctx, "initializing WHOOP rate limiter",
-		slog.Int(keyPerUserMinute, whoopCfg.PerUserMinuteLimit),
+	logger.InfoContext(ctx, "initializing WHOOP rate limiter (dynamic)",
 		slog.Int(keyPerUserDay, whoopCfg.PerUserDayLimit),
 		slog.Int(keyGlobalMinute, whoopCfg.GlobalMinuteLimit),
-		slog.Int(keyGlobalDay, whoopCfg.GlobalDayLimit))
+		slog.Int(keyGlobalDay, whoopCfg.GlobalDayLimit),
+		slog.Int(keyReserveBuffer, whoopCfg.ReserveBuffer),
+		slog.Int(keyMinPerUserMinute, whoopCfg.MinPerUserMinuteLimit),
+		slog.Int(keyActiveWindowSec, whoopCfg.ActiveWindowSeconds))
 
 	return storage.NewWhoopRedisLimiter(storage.RedisConfig{Client: redisClient}, whoopCfg)
 }
