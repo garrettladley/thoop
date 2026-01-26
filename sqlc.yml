@@ -7,8 +7,8 @@ sql:
       - "internal/migrations/sqlite/sql/*.sql"
     gen:
       go:
-        package: "sqlitec"
-        out: "internal/sqlc/sqlite"
+        package: "litesqlc"
+        out: "internal/sqlite/sqlc"
         emit_json_tags: true
         emit_interface: true
         emit_empty_slices: true
@@ -21,8 +21,8 @@ sql:
       - "internal/migrations/postgres/sql/*.sql"
     gen:
       go:
-        package: "pgc"
-        out: "internal/sqlc/postgres"
+        package: "pgsqlc"
+        out: "internal/postgres/sqlc"
         sql_package: "pgx/v5"
         emit_json_tags: true
         emit_interface: true

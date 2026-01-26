@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/garrettladley/thoop/internal/db"
 	"github.com/garrettladley/thoop/internal/paths"
+	"github.com/garrettladley/thoop/internal/sqlite"
 	"github.com/spf13/cobra"
 )
 
@@ -22,12 +22,12 @@ func migrateCmd() *cobra.Command {
 				return fmt.Errorf("failed to get database path: %w", err)
 			}
 
-			sqlDB, _, err := db.Open(cmd.Context(), dbPath)
+			db, err := sqlite.New(cmd.Context(), sqlite.DefaultConfig(dbPath))
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
 			defer func() {
-				_ = sqlDB.Close()
+				_ = db.Close()
 			}()
 
 			fmt.Println("Migrations applied successfully")

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/keyring"
-	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
+	litesqlc "github.com/garrettladley/thoop/internal/sqlite/sqlc"
 	"golang.org/x/oauth2"
 )
 
@@ -29,13 +29,13 @@ var _ TokenSource = (*DBTokenSource)(nil)
 // DBTokenSource implements TokenSource using SQLite for metadata and OS keyring for secrets.
 type DBTokenSource struct {
 	config  *oauth2.Config
-	querier sqlitec.Querier
+	querier litesqlc.Querier
 	keyring keyring.Store
 	mu      sync.Mutex
 	token   *oauth2.Token
 }
 
-func NewDBTokenSource(config *oauth2.Config, querier sqlitec.Querier, kr keyring.Store) *DBTokenSource {
+func NewDBTokenSource(config *oauth2.Config, querier litesqlc.Querier, kr keyring.Store) *DBTokenSource {
 	return &DBTokenSource{
 		config:  config,
 		querier: querier,
@@ -127,7 +127,7 @@ func (s *DBTokenSource) saveCredentials(ctx context.Context, token *oauth2.Token
 		tokenType = defaultTokenType
 	}
 
-	params := sqlitec.UpsertTokenMetadataParams{
+	params := litesqlc.UpsertTokenMetadataParams{
 		TokenType: tokenType,
 		Expiry:    token.Expiry,
 	}

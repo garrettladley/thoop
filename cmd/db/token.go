@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/garrettladley/thoop/internal/db"
 	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/paths"
+	"github.com/garrettladley/thoop/internal/sqlite"
 	"github.com/spf13/cobra"
 )
 
@@ -22,18 +22,18 @@ func tokenCmd() *cobra.Command {
 				return fmt.Errorf("failed to get database path: %w", err)
 			}
 
-			sqlDB, querier, err := db.Open(cmd.Context(), dbPath)
+			db, err := sqlite.New(cmd.Context(), sqlite.DefaultConfig(dbPath))
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
 			defer func() {
-				_ = sqlDB.Close()
+				_ = db.Close()
 			}()
 
 			kr := keyring.NewOSKeyring()
 
 			// get metadata from SQLite
-			metadata, err := querier.GetTokenMetadata(ctx)
+			metadata, err := db.GetTokenMetadata(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get token metadata: %w", err)
 			}

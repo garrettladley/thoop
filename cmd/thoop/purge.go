@@ -11,10 +11,10 @@ import (
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
-	"github.com/garrettladley/thoop/internal/db"
 	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
+	"github.com/garrettladley/thoop/internal/sqlite"
 )
 
 func purgeCmd() *cobra.Command {
@@ -87,16 +87,16 @@ func revokeAccess(ctx context.Context) error {
 		return fmt.Errorf("getting db path: %w", err)
 	}
 
-	sqlDB, querier, err := db.Open(ctx, dbPath)
+	db, err := sqlite.New(ctx, sqlite.DefaultConfig(dbPath))
 	if err != nil {
 		return fmt.Errorf("opening db: %w", err)
 	}
 	defer func() {
-		_ = sqlDB.Close()
+		_ = db.Close()
 	}()
 
 	kr := keyring.NewOSKeyring()
-	tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier, kr)
+	tokenSource := oauth.NewProxyTokenSource(config.ServerURL, db, kr)
 
 	// go directly to WHOOP, not through proxy
 	client := whoop.New(tokenSource)

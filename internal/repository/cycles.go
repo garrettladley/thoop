@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
-	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
+	litesqlc "github.com/garrettladley/thoop/internal/sqlite/sqlc"
 	go_json "github.com/goccy/go-json"
 )
 
 type cycleRepo struct {
-	q sqlitec.Querier
+	q litesqlc.Querier
 }
 
 func (r *cycleRepo) Upsert(ctx context.Context, cycle *whoop.Cycle) error {
@@ -27,7 +27,7 @@ func (r *cycleRepo) Upsert(ctx context.Context, cycle *whoop.Cycle) error {
 		scoreJSON = &s
 	}
 
-	err := r.q.UpsertCycle(ctx, sqlitec.UpsertCycleParams{
+	err := r.q.UpsertCycle(ctx, litesqlc.UpsertCycleParams{
 		ID:             cycle.ID,
 		UserID:         cycle.UserID,
 		CreatedAt:      cycle.CreatedAt,
@@ -59,7 +59,7 @@ func (r *cycleRepo) GetByDate(ctx context.Context, date time.Time) (*whoop.Cycle
 	dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	dayEnd := dayStart.Add(24 * time.Hour)
 
-	row, err := r.q.GetCycleByDate(ctx, sqlitec.GetCycleByDateParams{
+	row, err := r.q.GetCycleByDate(ctx, litesqlc.GetCycleByDateParams{
 		DayStart: dayStart,
 		DayEnd:   dayEnd,
 	})
@@ -97,18 +97,18 @@ func (r *cycleRepo) GetByDateRange(ctx context.Context, start, end time.Time, cu
 
 	fetchLimit := limit + 1
 
-	var rows []sqlitec.Cycle
+	var rows []litesqlc.Cycle
 	var err error
 
 	if cursor != nil && cursor.Cursor != nil {
-		rows, err = r.q.GetCyclesByDateRangeCursor(ctx, sqlitec.GetCyclesByDateRangeCursorParams{
+		rows, err = r.q.GetCyclesByDateRangeCursor(ctx, litesqlc.GetCyclesByDateRangeCursorParams{
 			RangeStart: start,
 			RangeEnd:   end,
 			Cursor:     *cursor.Cursor,
 			Limit:      fetchLimit,
 		})
 	} else {
-		rows, err = r.q.GetCyclesByDateRange(ctx, sqlitec.GetCyclesByDateRangeParams{
+		rows, err = r.q.GetCyclesByDateRange(ctx, litesqlc.GetCyclesByDateRangeParams{
 			RangeStart: start,
 			RangeEnd:   end,
 			Limit:      fetchLimit,
@@ -148,7 +148,7 @@ func (r *cycleRepo) GetPending(ctx context.Context) ([]whoop.Cycle, error) {
 	return r.toDomainSlice(rows)
 }
 
-func (r *cycleRepo) toDomain(row sqlitec.Cycle) (*whoop.Cycle, error) {
+func (r *cycleRepo) toDomain(row litesqlc.Cycle) (*whoop.Cycle, error) {
 	cycle := &whoop.Cycle{
 		ID:             row.ID,
 		UserID:         row.UserID,
@@ -171,7 +171,7 @@ func (r *cycleRepo) toDomain(row sqlitec.Cycle) (*whoop.Cycle, error) {
 	return cycle, nil
 }
 
-func (r *cycleRepo) toDomainSlice(rows []sqlitec.Cycle) ([]whoop.Cycle, error) {
+func (r *cycleRepo) toDomainSlice(rows []litesqlc.Cycle) ([]whoop.Cycle, error) {
 	cycles := make([]whoop.Cycle, 0, len(rows))
 	for _, row := range rows {
 		cycle, err := r.toDomain(row)

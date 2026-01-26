@@ -3,7 +3,7 @@
 //   sqlc v1.30.0
 // source: api_keys.sql
 
-package pgc
+package pgsqlc
 
 import (
 	"context"

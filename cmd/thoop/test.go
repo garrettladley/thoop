@@ -7,10 +7,10 @@ import (
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/config"
-	"github.com/garrettladley/thoop/internal/db"
 	"github.com/garrettladley/thoop/internal/keyring"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/paths"
+	"github.com/garrettladley/thoop/internal/sqlite"
 	"github.com/spf13/cobra"
 )
 
@@ -27,18 +27,18 @@ func testCmd() *cobra.Command {
 				return fmt.Errorf("failed to get database path: %w", err)
 			}
 
-			sqlDB, querier, err := db.Open(ctx, dbPath)
+			db, err := sqlite.New(ctx, sqlite.DefaultConfig(dbPath))
 			if err != nil {
 				return fmt.Errorf("failed to open database: %w", err)
 			}
-			defer func() { _ = sqlDB.Close() }()
+			defer func() { _ = db.Close() }()
 
 			kr := keyring.NewOSKeyring()
 			if !kr.Available() {
 				return fmt.Errorf("OS keyring is not available")
 			}
 
-			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, querier, kr)
+			tokenSource := oauth.NewProxyTokenSource(config.ServerURL, db, kr)
 
 			apiKey, _ := kr.Get(keyring.KeyAPIKey)
 

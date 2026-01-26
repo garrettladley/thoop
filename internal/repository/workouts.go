@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
-	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
+	litesqlc "github.com/garrettladley/thoop/internal/sqlite/sqlc"
 	go_json "github.com/goccy/go-json"
 )
 
 type workoutRepo struct {
-	q sqlitec.Querier
+	q litesqlc.Querier
 }
 
 func (r *workoutRepo) Upsert(ctx context.Context, workout *whoop.Workout) error {
@@ -27,7 +27,7 @@ func (r *workoutRepo) Upsert(ctx context.Context, workout *whoop.Workout) error 
 		scoreJSON = &s
 	}
 
-	err := r.q.UpsertWorkout(ctx, sqlitec.UpsertWorkoutParams{
+	err := r.q.UpsertWorkout(ctx, litesqlc.UpsertWorkoutParams{
 		ID:             workout.ID,
 		V1ID:           workout.V1ID,
 		UserID:         workout.UserID,
@@ -74,18 +74,18 @@ func (r *workoutRepo) GetByDateRange(ctx context.Context, start, end time.Time, 
 
 	fetchLimit := limit + 1
 
-	var rows []sqlitec.Workout
+	var rows []litesqlc.Workout
 	var err error
 
 	if cursor != nil && cursor.Cursor != nil {
-		rows, err = r.q.GetWorkoutsByDateRangeCursor(ctx, sqlitec.GetWorkoutsByDateRangeCursorParams{
+		rows, err = r.q.GetWorkoutsByDateRangeCursor(ctx, litesqlc.GetWorkoutsByDateRangeCursorParams{
 			RangeStart: start,
 			RangeEnd:   end,
 			Cursor:     *cursor.Cursor,
 			Limit:      fetchLimit,
 		})
 	} else {
-		rows, err = r.q.GetWorkoutsByDateRange(ctx, sqlitec.GetWorkoutsByDateRangeParams{
+		rows, err = r.q.GetWorkoutsByDateRange(ctx, litesqlc.GetWorkoutsByDateRangeParams{
 			RangeStart: start,
 			RangeEnd:   end,
 			Limit:      fetchLimit,
@@ -117,7 +117,7 @@ func (r *workoutRepo) GetByDateRange(ctx context.Context, start, end time.Time, 
 	return result, nil
 }
 
-func (r *workoutRepo) toDomain(row sqlitec.Workout) (*whoop.Workout, error) {
+func (r *workoutRepo) toDomain(row litesqlc.Workout) (*whoop.Workout, error) {
 	workout := &whoop.Workout{
 		ID:             row.ID,
 		V1ID:           row.V1ID,
@@ -142,7 +142,7 @@ func (r *workoutRepo) toDomain(row sqlitec.Workout) (*whoop.Workout, error) {
 	return workout, nil
 }
 
-func (r *workoutRepo) toDomainSlice(rows []sqlitec.Workout) ([]whoop.Workout, error) {
+func (r *workoutRepo) toDomainSlice(rows []litesqlc.Workout) ([]whoop.Workout, error) {
 	workouts := make([]whoop.Workout, 0, len(rows))
 	for _, row := range rows {
 		workout, err := r.toDomain(row)

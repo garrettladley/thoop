@@ -13,7 +13,7 @@ import (
 	go_json "github.com/goccy/go-json"
 
 	"github.com/garrettladley/thoop/internal/keyring"
-	sqlitec "github.com/garrettladley/thoop/internal/sqlc/sqlite"
+	litesqlc "github.com/garrettladley/thoop/internal/sqlite/sqlc"
 	"golang.org/x/oauth2"
 )
 
@@ -24,14 +24,14 @@ var _ TokenSource = (*ProxyTokenSource)(nil)
 // Secrets are stored in the OS keyring, metadata in SQLite.
 type ProxyTokenSource struct {
 	serverURL string
-	querier   sqlitec.Querier
+	querier   litesqlc.Querier
 	keyring   keyring.Store
 	client    *http.Client
 	mu        sync.Mutex
 	token     *oauth2.Token
 }
 
-func NewProxyTokenSource(serverURL string, querier sqlitec.Querier, kr keyring.Store) *ProxyTokenSource {
+func NewProxyTokenSource(serverURL string, querier litesqlc.Querier, kr keyring.Store) *ProxyTokenSource {
 	return &ProxyTokenSource{
 		serverURL: serverURL,
 		querier:   querier,
@@ -124,7 +124,7 @@ func (s *ProxyTokenSource) saveCredentials(ctx context.Context, token *oauth2.To
 		tokenType = defaultTokenType
 	}
 
-	params := sqlitec.UpsertTokenMetadataParams{
+	params := litesqlc.UpsertTokenMetadataParams{
 		TokenType: tokenType,
 		Expiry:    token.Expiry,
 	}
