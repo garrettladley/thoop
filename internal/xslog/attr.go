@@ -174,3 +174,13 @@ func Body(body string) slog.Attr {
 	const bodyKey = "body"
 	return slog.String(bodyKey, body)
 }
+
+func DynamicLimit(limit int) slog.Attr {
+	const dynamicLimitKey = "dynamic_limit"
+	return slog.Int(dynamicLimitKey, limit)
+}
+
+func ActiveUsers(count int) slog.Attr {
+	const activeUsersKey = "active_users"
+	return slog.Int(activeUsersKey, count)
+}

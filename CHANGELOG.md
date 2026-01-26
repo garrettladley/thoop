@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12](https://github.com/garrettladley/thoop/compare/v0.1.11...v0.1.12) (2026-01-26)
+
+
+### Features
+
+* dynamic per-user rate limits based on active user count ([#133](https://github.com/garrettladley/thoop/issues/133)) ([221512c](https://github.com/garrettladley/thoop/commit/221512c29b5ec4ee8952c5ab7fb23ae624fc4d7e))
+
 ## [0.1.11](https://github.com/garrettladley/thoop/compare/v0.1.10...v0.1.11) (2026-01-25)
 
 

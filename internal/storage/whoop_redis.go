@@ -20,18 +20,50 @@ var whoopRateLimitScript = redis.NewScript(whoopRateLimitLua)
 const (
 	whoopUserKeyPrefix   = "whoop:ratelimit:user:"
 	whoopGlobalKeyPrefix = "whoop:ratelimit:global"
+	whoopActiveUsersKey  = "whoop:ratelimit:active_users"
 )
 
 type WhoopRateLimiterConfig struct {
-	PerUserMinuteLimit int // default: 20
-	PerUserDayLimit    int // default: 2000
-	GlobalMinuteLimit  int // default: 95
-	GlobalDayLimit     int // default: 9950
+	PerUserDayLimit       int // default: 1000
+	GlobalMinuteLimit     int // default: 95
+	GlobalDayLimit        int // default: 9950
+	ReserveBuffer         int // default: 5 (reserve for new users)
+	MinPerUserMinuteLimit int // default: 5 (floor)
+	ActiveWindowSeconds   int // default: 60
 }
 
 type WhoopRedisLimiter struct {
 	client *redis.Client
 	config WhoopRateLimiterConfig
+}
+
+// rateLimitScriptParams ensures correct argument order for the Lua script.
+type rateLimitScriptParams struct {
+	perUserDayLimit       int
+	globalMinuteLimit     int
+	globalDayLimit        int
+	minuteWindowMs        int
+	dayWindowMs           int
+	ttlSeconds            int
+	reserveBuffer         int
+	minPerUserMinuteLimit int
+	activeWindowMs        int
+	userID                string
+}
+
+func (p rateLimitScriptParams) args() []any {
+	return []any{
+		p.perUserDayLimit,       // ARGV[1]
+		p.globalMinuteLimit,     // ARGV[2]
+		p.globalDayLimit,        // ARGV[3]
+		p.minuteWindowMs,        // ARGV[4]
+		p.dayWindowMs,           // ARGV[5]
+		p.ttlSeconds,            // ARGV[6]
+		p.reserveBuffer,         // ARGV[7]
+		p.minPerUserMinuteLimit, // ARGV[8]
+		p.activeWindowMs,        // ARGV[9]
+		p.userID,                // ARGV[10]
+	}
 }
 
 func NewWhoopRedisLimiter(cfg RedisConfig, config WhoopRateLimiterConfig) *WhoopRedisLimiter {
@@ -47,30 +79,29 @@ func (w *WhoopRedisLimiter) CheckAndIncrement(ctx context.Context, userKey strin
 		whoopUserKeyPrefix + userKey + ":day",
 		whoopGlobalKeyPrefix + ":minute",
 		whoopGlobalKeyPrefix + ":day",
+		whoopActiveUsersKey,
 	}
 
-	const (
-		minuteWindowMs = 60_000     // minute window in ms
-		dayWindowMs    = 86_400_000 // day window in ms
-		ttlSeconds     = 90_000     // TTL in seconds (25 hours for safety)
-	)
-	args := []any{
-		w.config.PerUserMinuteLimit,
-		w.config.PerUserDayLimit,
-		w.config.GlobalMinuteLimit,
-		w.config.GlobalDayLimit,
-		minuteWindowMs,
-		dayWindowMs,
-		ttlSeconds,
+	params := rateLimitScriptParams{
+		perUserDayLimit:       w.config.PerUserDayLimit,
+		globalMinuteLimit:     w.config.GlobalMinuteLimit,
+		globalDayLimit:        w.config.GlobalDayLimit,
+		minuteWindowMs:        60_000,     // 1 minute
+		dayWindowMs:           86_400_000, // 24 hours
+		ttlSeconds:            90_000,     // 25 hours for safety
+		reserveBuffer:         w.config.ReserveBuffer,
+		minPerUserMinuteLimit: w.config.MinPerUserMinuteLimit,
+		activeWindowMs:        w.config.ActiveWindowSeconds * 1000,
+		userID:                userKey,
 	}
 
-	result, err := whoopRateLimitScript.Run(ctx, w.client, keys, args...).Result()
+	result, err := whoopRateLimitScript.Run(ctx, w.client, keys, params.args()...).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to run WHOOP rate limit script: %w", err)
 	}
 
 	resultSlice, ok := result.([]any)
-	if !ok || len(resultSlice) < 2 {
+	if !ok || len(resultSlice) < 4 {
 		return nil, fmt.Errorf("unexpected result format from rate limit script")
 	}
 
@@ -103,11 +134,21 @@ func populateAllowedState(state *WhoopRateLimitState, resultSlice []any) error {
 	if !ok {
 		return fmt.Errorf("unexpected day remaining type")
 	}
+	dynamicLimit, ok := resultSlice[3].(int64)
+	if !ok {
+		return fmt.Errorf("unexpected dynamic limit type")
+	}
+	activeCount, ok := resultSlice[4].(int64)
+	if !ok {
+		return fmt.Errorf("unexpected active count type")
+	}
 
 	state.MinuteRemaining = int(minRemaining)
 	state.DayRemaining = int(dayRemaining)
 	state.MinuteReset = time.Now().Add(time.Minute).Truncate(time.Minute)
 	state.DayReset = time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)
+	state.DynamicMinuteLimit = int(dynamicLimit)
+	state.ActiveUserCount = int(activeCount)
 	return nil
 }
 
@@ -116,8 +157,20 @@ func populateDeniedState(state *WhoopRateLimitState, resultSlice []any) error {
 	if !ok {
 		return fmt.Errorf("unexpected reason type: got %T", resultSlice[1])
 	}
+	dynamicLimit, ok := resultSlice[2].(int64)
+	if !ok {
+		return fmt.Errorf("unexpected dynamic limit type in denied state")
+	}
+	activeCount, ok := resultSlice[3].(int64)
+	if !ok {
+		return fmt.Errorf("unexpected active count type in denied state")
+	}
+
 	reason := WhoopRateLimitReason(reasonStr)
 	state.Reason = &reason
+	state.DynamicMinuteLimit = int(dynamicLimit)
+	state.ActiveUserCount = int(activeCount)
+
 	if reason == WhoopRateLimitReasonPerUserMinute || reason == WhoopRateLimitReasonGlobalMinute {
 		state.MinuteReset = time.Now().Add(time.Minute).Truncate(time.Minute)
 	} else {
