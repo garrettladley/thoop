@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.15](https://github.com/garrettladley/thoop/compare/v0.1.14...v0.1.15) (2026-01-26)
+
+
+### Bug Fixes
+
+* workout order to go from earliest -&gt; latest on strain page ([#139](https://github.com/garrettladley/thoop/issues/139)) ([d916b7e](https://github.com/garrettladley/thoop/commit/d916b7ee74e8fd59272c3e559afcd5337fb3b2be))
+
 ## [0.1.14](https://github.com/garrettladley/thoop/compare/v0.1.13...v0.1.14) (2026-01-26)
 
 
