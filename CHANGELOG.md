@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/garrettladley/thoop/compare/v0.1.12...v0.1.13) (2026-01-26)
+
+
+### Bug Fixes
+
+* refresh token w/ offline scope ([#135](https://github.com/garrettladley/thoop/issues/135)) ([8fd20f8](https://github.com/garrettladley/thoop/commit/8fd20f8dda84fda0916e445e8a64df1234a501c6))
+
 ## [0.1.12](https://github.com/garrettladley/thoop/compare/v0.1.11...v0.1.12) (2026-01-26)
 
 
