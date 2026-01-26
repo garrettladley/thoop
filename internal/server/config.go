@@ -6,7 +6,7 @@ import (
 )
 
 type Config struct {
-	Port           string         `env:"PORT" envDefault:"8080"`
+	Port           string         `env:"PORT" envDefault:"8989"`
 	BaseURL        string         `env:"BASE_URL,required"`
 	Whoop          Whoop          `envPrefix:"WHOOP_"`
 	RateLimit      RateLimit      `envPrefix:"RATE_"`

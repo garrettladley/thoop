@@ -6,6 +6,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/tui/theme"
+	"github.com/garrettladley/thoop/internal/tui/xtea"
 )
 
 // BarChart renders a vertical bar chart with labels and optional values.
@@ -229,6 +230,8 @@ func (bc *BarChart) renderInternal(width int) string {
 			sections = append(sections, strings.Repeat(" ", leftPad)+line)
 		}
 	}
+
+	xtea.PadLinesToWidth(sections, width)
 
 	return strings.Join(sections, "\n")
 }

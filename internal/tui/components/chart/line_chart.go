@@ -7,6 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/tui/theme"
+	"github.com/garrettladley/thoop/internal/tui/xtea"
 )
 
 // LineChart renders a line chart with axis labels and optional value display.
@@ -176,6 +177,8 @@ func (lc *LineChart) renderInternal(width int) string {
 		axis := NewAxis(labels, width, WithAxisTextColor(theme.ColorDim))
 		sections = append(sections, axis.Render())
 	}
+
+	xtea.PadLinesToWidth(sections, width)
 
 	return strings.Join(sections, "\n")
 }
