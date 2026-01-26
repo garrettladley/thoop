@@ -10,6 +10,7 @@ import (
 
 	"github.com/garrettladley/thoop/internal/braille"
 	"github.com/garrettladley/thoop/internal/tui/theme"
+	"github.com/garrettladley/thoop/internal/tui/xtea"
 )
 
 // DualLineChart renders two line series overlaid on the same chart.
@@ -265,6 +266,8 @@ func (dlc *DualLineChart) renderInternal(width int) string {
 		sections = append(sections, "")
 		sections = append(sections, legend.Render())
 	}
+
+	xtea.PadLinesToWidth(sections, width)
 
 	return strings.Join(sections, "\n")
 }

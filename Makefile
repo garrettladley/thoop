@@ -1,3 +1,8 @@
+# Ports
+REDIS_PORT := 6420
+POSTGRES_PORT := 6767
+SERVER_PORT := 8989
+
 ## help: print this help message
 .PHONY: help
 help:
@@ -169,8 +174,8 @@ sqlc/verify: sqlc/generate
 up:
 	@docker compose up -d
 	@echo 'Services running:'
-	@echo '  Redis:    localhost:6969'
-	@echo '  Postgres: localhost:6767 (user: thoop, pass: thoop, db: thoop)'
+	@echo '  Redis:    localhost:$(REDIS_PORT)'
+	@echo '  Postgres: localhost:$(POSTGRES_PORT) (user: thoop, pass: thoop, db: thoop)'
 
 ## down: stop all services
 .PHONY: down
@@ -185,7 +190,7 @@ psql:
 ## redis/flush: flush all redis data
 .PHONY: redis/flush
 redis/flush:
-	@redis-cli -p 6969 FLUSHALL
+	@redis-cli -p $(REDIS_PORT) FLUSHALL
 
 # Server
 ## server: run server (requires .env or env vars)

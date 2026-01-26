@@ -7,6 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/tui/theme"
+	"github.com/garrettladley/thoop/internal/tui/xtea"
 )
 
 // LegendPosition specifies where the legend is rendered.
@@ -313,6 +314,8 @@ func (sbc *StackedBarChart) renderInternal(width int) string {
 		sections = append(sections, "")
 		sections = append(sections, legend.Render())
 	}
+
+	xtea.PadLinesToWidth(sections, width)
 
 	return strings.Join(sections, "\n")
 }
