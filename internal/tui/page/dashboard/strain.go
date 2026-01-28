@@ -236,7 +236,7 @@ func activitiesTitle(selectedDate *time.Time) string {
 	if selectedDate == nil || xtime.IsToday(*selectedDate) {
 		return "TODAY'S ACTIVITIES"
 	}
-	return selectedDate.Format("Mon Jan 2") + " ACTIVITIES"
+	return strings.ToUpper(selectedDate.Format("Mon Jan 2")) + " ACTIVITIES"
 }
 
 func renderActivities(workouts []whoop.Workout, selectedDate *time.Time, width int) string {
@@ -263,7 +263,7 @@ func renderActivities(workouts []whoop.Workout, selectedDate *time.Time, width i
 func renderActivityRow(w whoop.Workout, width int) string {
 	var strainStr string
 	if w.Score != nil {
-		strainStr = fmt.Sprintf("%.1f", w.Score.Strain)
+		strainStr = fmt.Sprintf("%4.1f", w.Score.Strain)
 	} else {
 		strainStr = "--"
 	}
@@ -272,7 +272,8 @@ func renderActivityRow(w whoop.Workout, width int) string {
 		Background(theme.ColorStrain).
 		Foreground(theme.ColorWhite).
 		Bold(true).
-		Padding(0, 1)
+		Align(lipgloss.Center).
+		Width(6)
 
 	badge := badgeStyle.Render(strainStr)
 
@@ -299,7 +300,9 @@ func renderActivityRow(w whoop.Workout, width int) string {
 
 func formatTimeRange(start, end time.Time) string {
 	const timeFormat = "3:04 PM"
-	return fmt.Sprintf("%s - %s", start.Local().Format(timeFormat), end.Local().Format(timeFormat))
+	startStr := fmt.Sprintf("%8s", start.Local().Format(timeFormat))
+	endStr := fmt.Sprintf("%8s", end.Local().Format(timeFormat))
+	return fmt.Sprintf("%s - %s", startStr, endStr)
 }
 
 func formatAvgWithCommas(avg float64) string {
