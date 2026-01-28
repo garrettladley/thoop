@@ -119,7 +119,15 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Cache templ
+        id: cache-templ
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/templ
+          key: templ-${{ env.TEMPL_VERSION }}
+
       - name: Install templ
+        if: steps.cache-templ.outputs.cache-hit != 'true'
         run: go install github.com/a-h/templ/cmd/templ@${{ env.TEMPL_VERSION }}
 
       - name: Run templ generate
