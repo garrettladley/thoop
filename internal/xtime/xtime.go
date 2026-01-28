@@ -38,3 +38,18 @@ func LastDayOfMonth(t time.Time) time.Time {
 	firstOfNextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
 	return firstOfNextMonth.AddDate(0, 0, -1)
 }
+
+// DateOnOrBefore checks if the calendar date of t is on or before the calendar date of reference.
+// Each time's date is extracted in its own timezone, making this suitable for comparing
+// times that may be in different timezones when you care about the displayed date.
+func DateOnOrBefore(t, reference time.Time) bool {
+	tYear, tMonth, tDay := t.Date()
+	refYear, refMonth, refDay := reference.Date()
+	if tYear != refYear {
+		return tYear < refYear
+	}
+	if tMonth != refMonth {
+		return tMonth < refMonth
+	}
+	return tDay <= refDay
+}

@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/garrettladley/thoop/internal/cache"
+	"github.com/garrettladley/thoop/internal/client/whoop"
 	"github.com/garrettladley/thoop/internal/oauth"
 	"github.com/garrettladley/thoop/internal/tui/components/calendar"
 	"github.com/garrettladley/thoop/internal/tui/components/chart"
@@ -184,10 +185,40 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// store full data for calendar coloring (50 days)
 			m.state.dashboard.CalendarRecoveries = msg.Recoveries
 			m.state.dashboard.CalendarCycles = msg.Cycles
-			// store last 7 days of data for charts
-			m.state.dashboard.HistoricalRecoveries = xslices.Truncate(msg.Recoveries, 7)
-			m.state.dashboard.HistoricalCycles = xslices.Truncate(msg.Cycles, 7)
-			m.state.dashboard.HistoricalSleeps = xslices.Truncate(msg.Sleeps, 7)
+
+			// filter historical data to only include entries up to the effective date
+			// compare calendar dates (not timestamps) since labels show dates in the data's timezone
+			effectiveDate := m.state.dashboard.EffectiveDate()
+
+			// filter recoveries: only include where CreatedAt date <= effective date
+			var filteredRecoveries []whoop.Recovery
+			for _, r := range msg.Recoveries {
+				if xtime.DateOnOrBefore(r.CreatedAt, effectiveDate) {
+					filteredRecoveries = append(filteredRecoveries, r)
+				}
+			}
+
+			// filter cycles: only include where Start date <= effective date
+			var filteredCycles []whoop.Cycle
+			for _, c := range msg.Cycles {
+				if xtime.DateOnOrBefore(c.Start, effectiveDate) {
+					filteredCycles = append(filteredCycles, c)
+				}
+			}
+
+			// filter sleeps: only include where CreatedAt date <= effective date
+			// (sleeps use CreatedAt for chart labels, not Start)
+			var filteredSleeps []whoop.Sleep
+			for _, s := range msg.Sleeps {
+				if xtime.DateOnOrBefore(s.CreatedAt, effectiveDate) {
+					filteredSleeps = append(filteredSleeps, s)
+				}
+			}
+
+			// store last 7 days of filtered data for charts
+			m.state.dashboard.HistoricalRecoveries = xslices.Truncate(filteredRecoveries, 7)
+			m.state.dashboard.HistoricalCycles = xslices.Truncate(filteredCycles, 7)
+			m.state.dashboard.HistoricalSleeps = xslices.Truncate(filteredSleeps, 7)
 		}
 		return m, nil
 
