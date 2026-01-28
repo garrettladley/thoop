@@ -236,7 +236,7 @@ func activitiesTitle(selectedDate *time.Time) string {
 	if selectedDate == nil || xtime.IsToday(*selectedDate) {
 		return "TODAY'S ACTIVITIES"
 	}
-	return strings.ToUpper(selectedDate.Format("Mon Jan 2")) + " ACTIVITIES"
+	return selectedDate.Format("MON JAN 2") + " ACTIVITIES"
 }
 
 func renderActivities(workouts []whoop.Workout, selectedDate *time.Time, width int) string {
