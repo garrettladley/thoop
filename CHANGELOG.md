@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.17](https://github.com/garrettladley/thoop/compare/v0.1.16...v0.1.17) (2026-01-28)
+
+
+### Bug Fixes
+
+* dual line label ordering ([#145](https://github.com/garrettladley/thoop/issues/145)) ([53ea1b5](https://github.com/garrettladley/thoop/commit/53ea1b56a7307b622ec78af323dbc990853e305a))
+* strain page activity score & time aligment ([#143](https://github.com/garrettladley/thoop/issues/143)) ([90746da](https://github.com/garrettladley/thoop/commit/90746da06fa82fa4039b663818b80aa3894209fd))
+
 ## [0.1.16](https://github.com/garrettladley/thoop/compare/v0.1.15...v0.1.16) (2026-01-26)
 
 
