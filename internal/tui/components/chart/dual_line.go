@@ -320,13 +320,22 @@ func (dlc *DualLineChart) renderWithValueLabels(str1, str2 string, width, numPoi
 		dotX := int(float64(i) * xStep)
 		charX := dotX / 2
 
-		// series2 label goes in the row just above the max data point
+		// label ordering should reflect which value is higher
+		// the higher value label goes on top, lower value label goes below
 		// grid row 0,1 = above chart, rows 2..totalRows-1 = chart rows
-		// data point at charY (0-indexed in chart) maps to grid row charY+2
-		// series2 label goes at grid row charY+1 (one above data point)
-		// series1 label goes at grid row charY (two above data point)
-		labelRow2 := charY + 1
-		labelRow1 := charY
+		var (
+			labelRow1 int
+			labelRow2 int
+		)
+		if norm1 >= norm2 {
+			// series1 is higher or equal, put it on top
+			labelRow1 = charY
+			labelRow2 = charY + 1
+		} else {
+			// series2 is higher, put it on top
+			labelRow2 = charY
+			labelRow1 = charY + 1
+		}
 
 		if labelRow2 >= totalRows {
 			labelRow2 = totalRows - 1
