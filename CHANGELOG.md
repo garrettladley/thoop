@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.18](https://github.com/garrettladley/thoop/compare/v0.1.17...v0.1.18) (2026-01-28)
+
+
+### Bug Fixes
+
+* cache templ in ci ([#148](https://github.com/garrettladley/thoop/issues/148)) ([19a3c6a](https://github.com/garrettladley/thoop/commit/19a3c6a9b116ff4c256b9312842667e0991086d9))
+* effective date weekly trends rendering ([#146](https://github.com/garrettladley/thoop/issues/146)) ([49d438e](https://github.com/garrettladley/thoop/commit/49d438e68c89f65d77bfd6b957b7040495039ebc))
+
 ## [0.1.17](https://github.com/garrettladley/thoop/compare/v0.1.16...v0.1.17) (2026-01-28)
 
 
