@@ -30,6 +30,7 @@ type StackedBarChart struct {
 	showAxis       bool
 	showLegend     bool
 	legendPosition LegendPosition
+	legendReverse  bool // render legend items in reverse order
 	barWidth       int
 	barGap         int
 	bgColor        color.Color
@@ -77,6 +78,13 @@ func WithStackedBarShowLegend(show bool) StackedBarChartOption {
 func WithStackedBarLegendPosition(pos LegendPosition) StackedBarChartOption {
 	return func(sbc *StackedBarChart) {
 		sbc.legendPosition = pos
+	}
+}
+
+// WithStackedBarLegendReverse renders legend items in reverse order.
+func WithStackedBarLegendReverse(reverse bool) StackedBarChartOption {
+	return func(sbc *StackedBarChart) {
+		sbc.legendReverse = reverse
 	}
 }
 
@@ -179,14 +187,7 @@ func (sbc *StackedBarChart) renderInternal(width int) string {
 
 	// render legend at top right if configured
 	if sbc.showLegend && len(sbc.labels) > 0 && sbc.legendPosition == LegendTopRight {
-		var items []LegendItem
-		for i, label := range sbc.labels {
-			c := sbc.bgColor
-			if i < len(sbc.colors) {
-				c = sbc.colors[i]
-			}
-			items = append(items, LegendItem{Label: label, Color: c})
-		}
+		items := sbc.legendItems()
 		legend := NewLegend(items)
 		legendStr := legend.Render()
 		legendWidth := lipgloss.Width(legendStr)
@@ -302,14 +303,7 @@ func (sbc *StackedBarChart) renderInternal(width int) string {
 
 	// render legend at bottom if configured (default)
 	if sbc.showLegend && len(sbc.labels) > 0 && sbc.legendPosition == LegendBottom {
-		var items []LegendItem
-		for i, label := range sbc.labels {
-			c := sbc.bgColor
-			if i < len(sbc.colors) {
-				c = sbc.colors[i]
-			}
-			items = append(items, LegendItem{Label: label, Color: c})
-		}
+		items := sbc.legendItems()
 		legend := NewLegend(items)
 		sections = append(sections, "")
 		sections = append(sections, legend.Render())
@@ -318,4 +312,22 @@ func (sbc *StackedBarChart) renderInternal(width int) string {
 	xtea.PadLinesToWidth(sections, width)
 
 	return strings.Join(sections, "\n")
+}
+
+// legendItems builds the legend items, reversing order if legendReverse is set.
+func (sbc *StackedBarChart) legendItems() []LegendItem {
+	n := len(sbc.labels)
+	items := make([]LegendItem, n)
+	for i := range n {
+		idx := i
+		if sbc.legendReverse {
+			idx = n - 1 - i
+		}
+		c := sbc.bgColor
+		if idx < len(sbc.colors) {
+			c = sbc.colors[idx]
+		}
+		items[i] = LegendItem{Label: sbc.labels[idx], Color: c}
+	}
+	return items
 }
