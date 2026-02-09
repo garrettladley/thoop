@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.19](https://github.com/garrettladley/thoop/compare/v0.1.18...v0.1.19) (2026-02-09)
+
+
+### Bug Fixes
+
+* restorative sleep chart order and details ([#149](https://github.com/garrettladley/thoop/issues/149)) ([010e12d](https://github.com/garrettladley/thoop/commit/010e12d6c034a56de83a78c34a871087520bd217))
+
 ## [0.1.18](https://github.com/garrettladley/thoop/compare/v0.1.17...v0.1.18) (2026-01-28)
 
 
