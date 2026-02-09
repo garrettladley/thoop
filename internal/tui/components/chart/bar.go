@@ -123,12 +123,14 @@ func (b *Bar) Render() string {
 				rowChar = verticalBlocks[fillInRow]
 			}
 
-			// find the color: use the topmost segment that overlaps this row
-			for i := len(ranges) - 1; i >= 0; i-- {
-				r := ranges[i]
-				if r.endUnit > rowStartUnit && r.startUnit < rowEndUnit {
+			// find the color: use the segment that covers the most of this row
+			bestOverlap := 0
+			for _, r := range ranges {
+				overlapStart := max(r.startUnit, rowStartUnit)
+				overlapEnd := min(r.endUnit, rowEndUnit)
+				if overlap := overlapEnd - overlapStart; overlap > bestOverlap {
+					bestOverlap = overlap
 					rowColor = r.color
-					break
 				}
 			}
 		}

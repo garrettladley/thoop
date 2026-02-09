@@ -373,12 +373,13 @@ func restorativeSleepChart(state State, width int) string {
 
 	title := sleepChartTitle("RESTORATIVE SLEEP")
 	c := chart.NewStackedBarChart(data,
-		chart.WithStackedBarColors([]colorpkg.Color{theme.ColorSleepDeep, theme.ColorSleepREM}),
-		chart.WithStackedBarLabels([]string{"DEEP SLEEP", "REM SLEEP"}),
+		chart.WithStackedBarColors([]colorpkg.Color{theme.ColorSleepREM, theme.ColorSleepDeep}),
+		chart.WithStackedBarLabels([]string{"REM SLEEP", "DEEP SLEEP"}),
 		chart.WithStackedBarFormatter(chart.FormatDurationFromHours),
 		chart.WithStackedBarHeight(6),
 		chart.WithStackedBarShowLegend(true),
 		chart.WithStackedBarLegendPosition(chart.LegendTopRight),
+		chart.WithStackedBarLegendReverse(true),
 	)
 	return lipgloss.JoinVertical(lipgloss.Left, title, "", c.Render(width))
 }
