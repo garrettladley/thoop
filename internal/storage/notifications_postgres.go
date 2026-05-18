@@ -2,10 +2,12 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
 	go_json "github.com/goccy/go-json"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -42,12 +44,15 @@ func (s *HybridNotificationStore) Add(ctx context.Context, userID int64, n Notif
 		EntityType:  string(n.EntityType),
 		Action:      string(n.Action),
 	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("insert webhook event: %w", err)
 	}
 
-	// id is nil when ON CONFLICT DO NOTHING triggers (duplicate trace_id)
-	// In that case, skip publishing since it was already published
+	// id is nil only as a defensive fallback; duplicate trace IDs return
+	// pgx.ErrNoRows from the sqlc :one query above.
 	if id == nil {
 		return nil
 	}
