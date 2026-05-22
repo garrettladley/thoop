@@ -666,12 +666,15 @@ func collectCursorRecords[T any](ctx context.Context, fetch func(*time.Time) (*r
 
 	for {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("collect cursor records: %w", err)
 		}
 
 		result, err := fetch(cursor)
-		if err != nil || result == nil {
-			return records, err
+		if err != nil {
+			return records, fmt.Errorf("fetch cursor page: %w", err)
+		}
+		if result == nil {
+			return records, nil
 		}
 		records = append(records, result.Records...)
 		if result.NextCursor == nil {
