@@ -142,9 +142,6 @@ func takeSlice(items any, start, count int) any {
 	if start > v.Len() {
 		start = v.Len()
 	}
-	end := start + count
-	if end > v.Len() {
-		end = v.Len()
-	}
+	end := min(start+count, v.Len())
 	return v.Slice(start, end).Interface()
 }

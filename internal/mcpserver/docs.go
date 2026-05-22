@@ -124,16 +124,16 @@ func parseSkill(data string, fallbackName string) Skill {
 	}
 
 	rest := strings.TrimPrefix(content, "---\n")
-	end := strings.Index(rest, "\n---")
-	if end < 0 {
+	before, after, ok := strings.Cut(rest, "\n---")
+	if !ok {
 		return skill
 	}
 
-	header := rest[:end]
-	body := strings.TrimSpace(rest[end+len("\n---"):])
+	header := before
+	body := strings.TrimSpace(after)
 	skill.Content = body
 
-	for _, line := range strings.Split(header, "\n") {
+	for line := range strings.SplitSeq(header, "\n") {
 		key, value, ok := strings.Cut(line, ":")
 		if !ok {
 			continue
@@ -146,7 +146,7 @@ func parseSkill(data string, fallbackName string) Skill {
 			skill.Description = value
 		case "related":
 			if value != "" {
-				for _, related := range strings.Split(value, ",") {
+				for related := range strings.SplitSeq(value, ",") {
 					skill.Related = append(skill.Related, strings.TrimSpace(related))
 				}
 				sort.Strings(skill.Related)

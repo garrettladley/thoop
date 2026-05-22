@@ -1,7 +1,7 @@
 name: CI
 permissions: read-all
 env:
-  GO_VERSION: "1.25"
+  GO_VERSION: "1.26"
   SQLC_VERSION: "1.30.0"
   TEMPL_VERSION: "v0.3.865"
 on:
