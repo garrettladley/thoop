@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.21](https://github.com/garrettladley/thoop/compare/v0.1.20...v0.1.21) (2026-05-22)
+
+
+### Features
+
+* **dx:** migrate to justfile ([#160](https://github.com/garrettladley/thoop/issues/160)) ([3365a73](https://github.com/garrettladley/thoop/commit/3365a7320198f39fa8752e49efc3ebed3fe7df24))
+* **go:** migrate to go 1.26 ([#162](https://github.com/garrettladley/thoop/issues/162)) ([c0bd28f](https://github.com/garrettladley/thoop/commit/c0bd28f71fcaa476b8ef8face9aa27d5aedf338c))
+
+
+### Bug Fixes
+
+* **cache:** drain workout range pagination ([#163](https://github.com/garrettladley/thoop/issues/163)) ([bb51051](https://github.com/garrettladley/thoop/commit/bb51051028c24d3cd775d7f9f5b71f690c25b48d))
+
 ## [0.1.20](https://github.com/garrettladley/thoop/compare/v0.1.19...v0.1.20) (2026-05-22)
 
 
