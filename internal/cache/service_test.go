@@ -1,10 +1,16 @@
 package cache
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/garrettladley/thoop/internal/client/whoop"
+	"github.com/garrettladley/thoop/internal/repository"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -111,6 +117,135 @@ func TestAlwaysStaleChecker(t *testing.T) {
 	if !checker.ShouldRefresh(whoop.ScoreStateScored, now, now) {
 		t.Error("AlwaysStaleChecker should always return true")
 	}
+}
+
+func TestCollectCursorRecordsDrainsAllPages(t *testing.T) {
+	t.Parallel()
+
+	pageStarts := []time.Time{
+		time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
+	}
+	calls := 0
+
+	got, err := collectCursorRecords(t.Context(), func(cursor *time.Time) (*repository.CursorResult[string], error) {
+		calls++
+		if cursor == nil {
+			return &repository.CursorResult[string]{
+				Records:    []string{"a", "b"},
+				NextCursor: &pageStarts[0],
+			}, nil
+		}
+		if cursor.Equal(pageStarts[0]) {
+			return &repository.CursorResult[string]{
+				Records:    []string{"c"},
+				NextCursor: &pageStarts[1],
+			}, nil
+		}
+		return &repository.CursorResult[string]{
+			Records: []string{"d"},
+		}, nil
+	})
+	if err != nil {
+		t.Fatalf("collectCursorRecords() error = %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{"a", "b", "c", "d"}) {
+		t.Fatalf("collectCursorRecords() = %v", got)
+	}
+	if calls != 3 {
+		t.Fatalf("fetch calls = %d, want 3", calls)
+	}
+}
+
+func TestService_GetWorkoutsForDateRangeFollowsAPIPagination(t *testing.T) {
+	t.Parallel()
+
+	server, requests := newPaginatedWorkoutServer(t)
+
+	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "test"})
+	client := whoop.New(tokenSource, whoop.WithProxyURL(server.URL), whoop.WithTimeout(time.Second))
+	svc := NewService(client, nil)
+
+	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	result, err := svc.GetWorkoutsForDateRange(t.Context(), start, end)
+	if err != nil {
+		t.Fatalf("GetWorkoutsForDateRange() error = %v", err)
+	}
+	if result.FromCache {
+		t.Fatal("FromCache = true, want false")
+	}
+	if got := len(result.Data); got != 2 {
+		t.Fatalf("len(Data) = %d, want 2", got)
+	}
+	if gotIDs := []string{result.Data[0].ID, result.Data[1].ID}; !reflect.DeepEqual(gotIDs, []string{"workout-2", "workout-1"}) {
+		t.Fatalf("workout IDs = %v", gotIDs)
+	}
+	if got := requests.Load(); got != 2 {
+		t.Fatalf("requests = %d, want 2", got)
+	}
+}
+
+func newPaginatedWorkoutServer(t *testing.T) (*httptest.Server, *atomic.Int64) {
+	t.Helper()
+
+	var requests atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v2/activity/workout" {
+			t.Errorf("path = %s, want /v2/activity/workout", r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+
+		requests.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Query().Get("nextToken") {
+		case "":
+			if got := r.URL.Query().Get("limit"); got != "25" {
+				t.Errorf("limit = %s, want 25", got)
+				http.Error(w, "bad limit", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(`{
+				"records": [
+					{
+						"id": "workout-1",
+						"user_id": 1,
+						"created_at": "2024-01-01T00:00:00Z",
+						"updated_at": "2024-01-01T00:00:00Z",
+						"start": "2024-01-01T02:00:00Z",
+						"end": "2024-01-01T02:10:00Z",
+						"timezone_offset": "+00:00",
+						"sport_name": "walking",
+						"score_state": "SCORED"
+					}
+				],
+				"next_token": "page-2"
+			}`))
+		case "page-2":
+			_, _ = w.Write([]byte(`{
+				"records": [
+					{
+						"id": "workout-2",
+						"user_id": 1,
+						"created_at": "2024-01-01T00:00:00Z",
+						"updated_at": "2024-01-01T00:00:00Z",
+						"start": "2024-01-01T01:00:00Z",
+						"end": "2024-01-01T01:10:00Z",
+						"timezone_offset": "+00:00",
+						"sport_name": "cycling",
+						"score_state": "SCORED"
+					}
+				]
+			}`))
+		default:
+			t.Errorf("unexpected nextToken %q", r.URL.Query().Get("nextToken"))
+			http.Error(w, "bad next token", http.StatusBadRequest)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	return server, &requests
 }
 
 func TestService_hasSufficientCoverage(t *testing.T) {

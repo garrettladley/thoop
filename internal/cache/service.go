@@ -173,25 +173,37 @@ func (s *Service) GetWorkoutsForDateRange(ctx context.Context, start, end time.T
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	resp, err := s.client.Workout.List(ctx, &whoop.ListParams{
-		Start: &start,
-		End:   &end,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("list workouts: %w", err)
+	var allWorkouts []whoop.Workout
+	var nextToken *string
+
+	for {
+		resp, err := s.client.Workout.List(ctx, &whoop.ListParams{
+			Limit:     25,
+			Start:     &start,
+			End:       &end,
+			NextToken: nextToken,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("list workouts: %w", err)
+		}
+		allWorkouts = append(allWorkouts, resp.Records...)
+		if !resp.HasMore() {
+			break
+		}
+		nextToken = resp.NextToken
 	}
 
 	// 3. store to cache
-	if s.repo != nil && len(resp.Records) > 0 {
-		_ = s.repo.Workouts.UpsertBatch(ctx, resp.Records)
+	if s.repo != nil && len(allWorkouts) > 0 {
+		_ = s.repo.Workouts.UpsertBatch(ctx, allWorkouts)
 	}
 
 	// 4. sort by start time (earliest first) to match SQL ordering
-	slices.SortFunc(resp.Records, func(a, b whoop.Workout) int {
+	slices.SortFunc(allWorkouts, func(a, b whoop.Workout) int {
 		return a.Start.Compare(b.Start)
 	})
 
-	return &CacheResult[[]whoop.Workout]{Data: resp.Records, FromCache: false}, nil
+	return &CacheResult[[]whoop.Workout]{Data: allWorkouts, FromCache: false}, nil
 }
 
 // GetCyclesForRange fetches cycles within a date range.
@@ -488,18 +500,20 @@ func (s *Service) tryGetWorkoutsFromCache(ctx context.Context, start, end time.T
 		return nil
 	}
 
-	result, err := s.repo.Workouts.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
-	if err != nil || result == nil || len(result.Records) == 0 {
+	workouts, err := collectCursorRecords(ctx, func(cursor *time.Time) (*repository.CursorResult[whoop.Workout], error) {
+		return s.repo.Workouts.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: repository.DefaultPageSize, Cursor: cursor})
+	})
+	if err != nil || len(workouts) == 0 {
 		return nil
 	}
 
-	for _, w := range result.Records {
+	for _, w := range workouts {
 		if s.stalenessChecker.ShouldRefresh(w.ScoreState, w.Start, w.UpdatedAt) {
 			return nil
 		}
 	}
 
-	return &CacheResult[[]whoop.Workout]{Data: result.Records, FromCache: true}
+	return &CacheResult[[]whoop.Workout]{Data: workouts, FromCache: true}
 }
 
 // loadCalendarCache loads cached cycles and recoveries for calendar display.
@@ -508,22 +522,24 @@ func (s *Service) loadCalendarCache(ctx context.Context, start, end time.Time) (
 		return nil, nil, nil
 	}
 
-	cycleResult, err := s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
-	if err != nil || cycleResult == nil || len(cycleResult.Records) == 0 {
+	cycles, err := collectCursorRecords(ctx, func(cursor *time.Time) (*repository.CursorResult[whoop.Cycle], error) {
+		return s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: repository.DefaultPageSize, Cursor: cursor})
+	})
+	if err != nil || len(cycles) == 0 {
 		return nil, nil, nil
 	}
 
-	cycleIDs := make([]int64, len(cycleResult.Records))
-	cycleStartByID := make(map[int64]time.Time, len(cycleResult.Records))
+	cycleIDs := make([]int64, len(cycles))
+	cycleStartByID := make(map[int64]time.Time, len(cycles))
 
-	for i, c := range cycleResult.Records {
+	for i, c := range cycles {
 		cycleIDs[i] = c.ID
 		cycleStartByID[c.ID] = c.Start
 	}
 
 	recoveries, err := s.repo.Recoveries.GetByCycleIDs(ctx, cycleIDs)
 	if err != nil {
-		return nil, cycleResult.Records, nil
+		return nil, cycles, nil
 	}
 
 	// only mark dates as cached if we have BOTH cycle AND recovery
@@ -535,7 +551,7 @@ func (s *Service) loadCalendarCache(ctx context.Context, start, end time.Time) (
 		}
 	}
 
-	return recoveries, cycleResult.Records, cachedDates
+	return recoveries, cycles, cachedDates
 }
 
 // loadHistoricalCache loads all cached historical data.
@@ -548,14 +564,18 @@ func (s *Service) loadHistoricalCache(ctx context.Context, start, end time.Time)
 	var cachedRecoveries []whoop.Recovery
 	var cachedSleeps []whoop.Sleep
 
-	cycleResult, err := s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
-	if err == nil && cycleResult != nil {
-		cachedCycles = cycleResult.Records
+	cycles, err := collectCursorRecords(ctx, func(cursor *time.Time) (*repository.CursorResult[whoop.Cycle], error) {
+		return s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: repository.DefaultPageSize, Cursor: cursor})
+	})
+	if err == nil {
+		cachedCycles = cycles
 	}
 
-	sleepResult, err := s.repo.Sleeps.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
-	if err == nil && sleepResult != nil {
-		cachedSleeps = sleepResult.Records
+	sleeps, err := collectCursorRecords(ctx, func(cursor *time.Time) (*repository.CursorResult[whoop.Sleep], error) {
+		return s.repo.Sleeps.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: repository.DefaultPageSize, Cursor: cursor})
+	})
+	if err == nil {
+		cachedSleeps = sleeps
 	}
 
 	if len(cachedCycles) > 0 {
@@ -577,18 +597,20 @@ func (s *Service) tryGetCyclesFromCache(ctx context.Context, start, end time.Tim
 		return nil
 	}
 
-	result, err := s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
-	if err != nil || result == nil || len(result.Records) == 0 {
+	cycles, err := collectCursorRecords(ctx, func(cursor *time.Time) (*repository.CursorResult[whoop.Cycle], error) {
+		return s.repo.Cycles.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: repository.DefaultPageSize, Cursor: cursor})
+	})
+	if err != nil || len(cycles) == 0 {
 		return nil
 	}
 
-	for _, c := range result.Records {
+	for _, c := range cycles {
 		if s.stalenessChecker.ShouldRefresh(c.ScoreState, c.Start, c.UpdatedAt) {
 			return nil
 		}
 	}
 
-	return &DateRangeResult[whoop.Cycle]{Records: result.Records, FromCache: true}
+	return &DateRangeResult[whoop.Cycle]{Records: cycles, FromCache: true}
 }
 
 // tryGetRecoveriesFromCache attempts to load fresh recoveries from cache.
@@ -622,18 +644,41 @@ func (s *Service) tryGetSleepsFromCache(ctx context.Context, start, end time.Tim
 		return nil
 	}
 
-	result, err := s.repo.Sleeps.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: 50})
-	if err != nil || result == nil || len(result.Records) == 0 {
+	sleeps, err := collectCursorRecords(ctx, func(cursor *time.Time) (*repository.CursorResult[whoop.Sleep], error) {
+		return s.repo.Sleeps.GetByDateRange(ctx, start, end, &repository.CursorParams{Limit: repository.DefaultPageSize, Cursor: cursor})
+	})
+	if err != nil || len(sleeps) == 0 {
 		return nil
 	}
 
-	for _, sl := range result.Records {
+	for _, sl := range sleeps {
 		if s.stalenessChecker.ShouldRefresh(sl.ScoreState, sl.Start, sl.UpdatedAt) {
 			return nil
 		}
 	}
 
-	return &DateRangeResult[whoop.Sleep]{Records: result.Records, FromCache: true}
+	return &DateRangeResult[whoop.Sleep]{Records: sleeps, FromCache: true}
+}
+
+func collectCursorRecords[T any](ctx context.Context, fetch func(*time.Time) (*repository.CursorResult[T], error)) ([]T, error) {
+	var records []T
+	var cursor *time.Time
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
+		result, err := fetch(cursor)
+		if err != nil || result == nil {
+			return records, err
+		}
+		records = append(records, result.Records...)
+		if result.NextCursor == nil {
+			return records, nil
+		}
+		cursor = result.NextCursor
+	}
 }
 
 // hasSufficientCoverage checks if cached data covers enough of the date range.
