@@ -15,6 +15,7 @@ import (
 const (
 	sseHeartbeatInterval = 30 * time.Second
 	sseWriteTimeout      = 45 * time.Second
+	sseFieldTime         = "time"
 )
 
 type SSE struct {
@@ -71,8 +72,8 @@ func (h *SSE) HandleStream(w http.ResponseWriter, r *http.Request) {
 	rc := http.NewResponseController(w)
 
 	if err := writeSSEEvent(rc, w, flusher, "connected", map[string]any{
-		"user_id": userID,
-		"time":    time.Now().Format(time.RFC3339),
+		"user_id":    userID,
+		sseFieldTime: time.Now().Format(time.RFC3339),
 	}); err != nil {
 		logger.ErrorContext(ctx, "failed to send connected event", xslog.Error(err))
 		return
@@ -88,8 +89,8 @@ func (h *SSE) HandleStream(w http.ResponseWriter, r *http.Request) {
 
 			// best effort: send shutdown event to client
 			_ = writeSSEEvent(rc, w, flusher, "shutdown", map[string]string{
-				"reason": "server-restart",
-				"time":   time.Now().Format(time.RFC3339),
+				"reason":     "server-restart",
+				sseFieldTime: time.Now().Format(time.RFC3339),
 			})
 
 			return
@@ -113,7 +114,7 @@ func (h *SSE) HandleStream(w http.ResponseWriter, r *http.Request) {
 
 		case t := <-heartbeat.C:
 			if err := writeSSEEvent(rc, w, flusher, "heartbeat", map[string]string{
-				"time": t.Format(time.RFC3339),
+				sseFieldTime: t.Format(time.RFC3339),
 			}); err != nil {
 				logger.ErrorContext(ctx, "failed to send heartbeat", xslog.Error(err))
 				return

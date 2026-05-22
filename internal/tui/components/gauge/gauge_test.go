@@ -12,6 +12,16 @@ import (
 //go:embed testdata/*.golden
 var goldenFiles embed.FS
 
+const (
+	testAnsiABC            = "\x1b[31mA\x1b[0m\x1b[31mB\x1b[0m\x1b[31mC\x1b[0m"
+	testHello              = "Hello"
+	testOverlayBackground  = "AAAAA\nBBBBB\nCCCCC"
+	testBrailleFullBlock   = "⣿⣿⣿"
+	testGaugeLabelSleep    = "SLEEP"
+	testGaugeLabelRecovery = "RECOVERY"
+	testGaugeLabelStrain   = "STRAIN"
+)
+
 func TestExtractStyledSegment(t *testing.T) {
 	t.Parallel()
 
@@ -24,14 +34,14 @@ func TestExtractStyledSegment(t *testing.T) {
 	}{
 		{
 			name:     "extract middle segment with ANSI codes",
-			input:    "\x1b[31mA\x1b[0m\x1b[31mB\x1b[0m\x1b[31mC\x1b[0m",
+			input:    testAnsiABC,
 			start:    0,
 			end:      2,
 			expected: "\x1b[31mA\x1b[0m\x1b[31mB",
 		},
 		{
 			name:     "extract single character with ANSI",
-			input:    "\x1b[31mA\x1b[0m\x1b[31mB\x1b[0m\x1b[31mC\x1b[0m",
+			input:    testAnsiABC,
 			start:    1,
 			end:      2,
 			expected: "\x1b[0m\x1b[31mB",
@@ -45,7 +55,7 @@ func TestExtractStyledSegment(t *testing.T) {
 		},
 		{
 			name:     "extract from middle to end",
-			input:    "\x1b[31mA\x1b[0m\x1b[31mB\x1b[0m\x1b[31mC\x1b[0m",
+			input:    testAnsiABC,
 			start:    1,
 			end:      3,
 			expected: "\x1b[0m\x1b[31mB\x1b[0m\x1b[31mC",
@@ -88,8 +98,8 @@ func TestStripAnsi(t *testing.T) {
 	}{
 		{
 			name:     "remove single ANSI code",
-			input:    "\x1b[31mHello\x1b[0m",
-			expected: "Hello",
+			input:    "\x1b[31m" + testHello + "\x1b[0m",
+			expected: testHello,
 		},
 		{
 			name:     "remove multiple ANSI codes",
@@ -98,8 +108,8 @@ func TestStripAnsi(t *testing.T) {
 		},
 		{
 			name:     "no ANSI codes",
-			input:    "Hello",
-			expected: "Hello",
+			input:    testHello,
+			expected: testHello,
 		},
 		{
 			name:     "empty string",
@@ -135,19 +145,19 @@ func TestOverlayWithBackground(t *testing.T) {
 	}{
 		{
 			name:       "simple overlay",
-			background: "AAAAA\nBBBBB\nCCCCC",
+			background: testOverlayBackground,
 			foreground: "     \n  X  \n     ",
 			wantLines:  3,
 		},
 		{
 			name:       "foreground smaller than background",
-			background: "AAAAA\nBBBBB\nCCCCC",
+			background: testOverlayBackground,
 			foreground: "  X  ",
 			wantLines:  3,
 		},
 		{
 			name:       "empty foreground",
-			background: "AAAAA\nBBBBB\nCCCCC",
+			background: testOverlayBackground,
 			foreground: "     \n     \n     ",
 			wantLines:  3,
 		},
@@ -188,28 +198,28 @@ func TestOverlayArcsRaw_Coloring(t *testing.T) {
 	}{
 		{
 			name:          "full fill covers background",
-			bgStr:         "⣿⣿⣿",
-			fillStr:       "⣿⣿⣿",
+			bgStr:         testBrailleFullBlock,
+			fillStr:       testBrailleFullBlock,
 			expectBgParts: false, // all fill, no bg-only
 			expectFill:    true,
 		},
 		{
 			name:          "no fill shows background",
-			bgStr:         "⣿⣿⣿",
+			bgStr:         testBrailleFullBlock,
 			fillStr:       "   ",
 			expectBgParts: true,
 			expectFill:    false,
 		},
 		{
 			name:          "partial fill shows both colors",
-			bgStr:         "⣿⣿⣿",
+			bgStr:         testBrailleFullBlock,
 			fillStr:       "⣿  ",
 			expectBgParts: true,
 			expectFill:    true,
 		},
 		{
 			name:          "empty braille in fill uses bg color",
-			bgStr:         "⣿⣿⣿",
+			bgStr:         testBrailleFullBlock,
 			fillStr:       "⠀⠀⠀", // empty braille (U+2800)
 			expectBgParts: true,
 			expectFill:    false,
@@ -267,19 +277,19 @@ func TestGaugeRender_Golden(t *testing.T) {
 		label      string
 		goldenFile string
 	}{
-		{"sleep_0", 0, 100, "SLEEP", "testdata/sleep_0.golden"},
-		{"sleep_25", 25, 100, "SLEEP", "testdata/sleep_25.golden"},
-		{"sleep_50", 50, 100, "SLEEP", "testdata/sleep_50.golden"},
-		{"sleep_75", 75, 100, "SLEEP", "testdata/sleep_75.golden"},
-		{"sleep_100", 100, 100, "SLEEP", "testdata/sleep_100.golden"},
-		{"recovery_0", 0, 100, "RECOVERY", "testdata/recovery_0.golden"},
-		{"recovery_25", 25, 100, "RECOVERY", "testdata/recovery_25.golden"},
-		{"recovery_50", 50, 100, "RECOVERY", "testdata/recovery_50.golden"},
-		{"recovery_75", 75, 100, "RECOVERY", "testdata/recovery_75.golden"},
-		{"recovery_100", 100, 100, "RECOVERY", "testdata/recovery_100.golden"},
-		{"strain_0.0", 0, 21, "STRAIN", "testdata/strain_0.0.golden"},
-		{"strain_10.5", 10.5, 21, "STRAIN", "testdata/strain_10.5.golden"},
-		{"strain_21.0", 21, 21, "STRAIN", "testdata/strain_21.0.golden"},
+		{"sleep_0", 0, 100, testGaugeLabelSleep, "testdata/sleep_0.golden"},
+		{"sleep_25", 25, 100, testGaugeLabelSleep, "testdata/sleep_25.golden"},
+		{"sleep_50", 50, 100, testGaugeLabelSleep, "testdata/sleep_50.golden"},
+		{"sleep_75", 75, 100, testGaugeLabelSleep, "testdata/sleep_75.golden"},
+		{"sleep_100", 100, 100, testGaugeLabelSleep, "testdata/sleep_100.golden"},
+		{"recovery_0", 0, 100, testGaugeLabelRecovery, "testdata/recovery_0.golden"},
+		{"recovery_25", 25, 100, testGaugeLabelRecovery, "testdata/recovery_25.golden"},
+		{"recovery_50", 50, 100, testGaugeLabelRecovery, "testdata/recovery_50.golden"},
+		{"recovery_75", 75, 100, testGaugeLabelRecovery, "testdata/recovery_75.golden"},
+		{"recovery_100", 100, 100, testGaugeLabelRecovery, "testdata/recovery_100.golden"},
+		{"strain_0.0", 0, 21, testGaugeLabelStrain, "testdata/strain_0.0.golden"},
+		{"strain_10.5", 10.5, 21, testGaugeLabelStrain, "testdata/strain_10.5.golden"},
+		{"strain_21.0", 21, 21, testGaugeLabelStrain, "testdata/strain_21.0.golden"},
 	}
 
 	for _, tt := range tests {

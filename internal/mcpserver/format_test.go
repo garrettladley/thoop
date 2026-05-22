@@ -5,18 +5,23 @@ import (
 	"testing"
 )
 
+const (
+	testEnvelopeBody   = "body"
+	testEnvelopeSource = "test"
+)
+
 func TestTextEnvelopeTruncatesWithHint(t *testing.T) {
 	t.Parallel()
 
 	items := []map[string]string{
-		{"id": "1", "body": strings.Repeat("a", 100)},
-		{"id": "2", "body": strings.Repeat("b", 100)},
-		{"id": "3", "body": strings.Repeat("c", 100)},
+		{"id": "1", testEnvelopeBody: strings.Repeat("a", 100)},
+		{"id": "2", testEnvelopeBody: strings.Repeat("b", 100)},
+		{"id": "3", testEnvelopeBody: strings.Repeat("c", 100)},
 	}
 
 	out := textEnvelope(items, PageInput{MaxTokens: 30}, envelopeOptions{
-		Source:   "test",
-		ToolName: "list_cycles",
+		Source:   testEnvelopeSource,
+		ToolName: toolNameListCycles,
 		NextArgs: map[string]any{"start_date": "2026-05-01", "end_date": "2026-05-02", "max_tokens": 30},
 	})
 	if !strings.Contains(out, "<is_truncated>true</is_truncated>") {
@@ -25,10 +30,10 @@ func TestTextEnvelopeTruncatesWithHint(t *testing.T) {
 	if !strings.Contains(out, "start_at=") {
 		t.Fatalf("expected next-page hint:\n%s", out)
 	}
-	if !strings.Contains(out, "<next_call>list_cycles(") {
+	if !strings.Contains(out, "<next_call>"+toolNameListCycles+"(") {
 		t.Fatalf("expected next_call:\n%s", out)
 	}
-	if !strings.Contains(out, "<source>test</source>") {
+	if !strings.Contains(out, "<source>"+testEnvelopeSource+"</source>") {
 		t.Fatalf("expected source metadata:\n%s", out)
 	}
 }

@@ -318,10 +318,13 @@ func openBrowser(ctx context.Context, url string) error {
 
 	switch runtime.GOOS {
 	case "darwin":
+		// #nosec G204 -- command is fixed and URL is the OAuth authorization URL opened in the user's browser.
 		cmd = exec.CommandContext(ctx, "open", url)
 	case "linux":
+		// #nosec G204 -- command is fixed and URL is the OAuth authorization URL opened in the user's browser.
 		cmd = exec.CommandContext(ctx, "xdg-open", url)
 	case "windows":
+		// #nosec G204 -- command is fixed and URL is the OAuth authorization URL opened in the user's browser.
 		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", url)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)

@@ -697,15 +697,15 @@ func renderHorizontalStackedBar(totalWidth int, segments []stackedSegment) strin
 		return ""
 	}
 
-	var bar string
+	var bar strings.Builder
 
 	for _, seg := range segments {
 		if seg.width > 0 {
-			bar += lipgloss.NewStyle().Foreground(seg.color).Render(strings.Repeat("█", seg.width))
+			bar.WriteString(lipgloss.NewStyle().Foreground(seg.color).Render(strings.Repeat("█", seg.width)))
 		}
 	}
 
-	return bar
+	return bar.String()
 }
 
 func calculateHoursVsNeededBaseline(state State) float64 {

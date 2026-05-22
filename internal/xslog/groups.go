@@ -16,6 +16,7 @@ const (
 	groupUser       = "user"
 	groupToken      = "token"
 	groupAPIKey     = "api_key"
+	groupBinding    = "binding"
 	groupRateLimit  = "rate_limit"
 	groupValidation = "validation"
 )
@@ -35,6 +36,7 @@ const (
 	keyApiKeyUserID = "api_key_user_id" //nolint:gosec // this is a structured log field name, not a credential
 	keyRetryAfter   = "retry_after"
 	keyReason       = "reason"
+	keyFields       = "fields"
 )
 
 func RequestGroup(r *http.Request) slog.Attr {
@@ -89,7 +91,7 @@ func UserGroup(userID int64) slog.Attr {
 }
 
 func BindingMismatchGroup(tokenUserID, apiKeyUserID int64) slog.Attr {
-	return slog.Group("binding",
+	return slog.Group(groupBinding,
 		slog.Int64(keyTokenUserID, tokenUserID),
 		slog.Int64(keyApiKeyUserID, apiKeyUserID),
 	)
@@ -107,9 +109,5 @@ func RateLimitGroup(retryAfter time.Duration, reason string) slog.Attr {
 }
 
 func ValidationGroup(fields map[string]string) slog.Attr {
-	attrs := make([]any, 0, len(fields))
-	for k, v := range fields {
-		attrs = append(attrs, slog.String(k, v))
-	}
-	return slog.Group(groupValidation, attrs...)
+	return slog.Group(groupValidation, slog.Any(keyFields, fields))
 }

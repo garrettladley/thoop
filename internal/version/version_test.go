@@ -2,6 +2,15 @@ package version
 
 import "testing"
 
+const (
+	testVersion006         = "0.0.6"
+	testVersionV006        = "v0.0.6"
+	testVersion100         = "1.0.0"
+	testVersionV100        = "v1.0.0"
+	testVersion200         = "2.0.0"
+	testVersion100Snapshot = "1.0.0-snapshot"
+)
+
 func TestCheckCompatibilityBetween(t *testing.T) {
 	t.Parallel()
 
@@ -14,65 +23,65 @@ func TestCheckCompatibilityBetween(t *testing.T) {
 	}{
 		{
 			name:          "exact same v0.x versions are compatible",
-			clientVersion: "0.0.6",
-			serverVersion: "0.0.6",
+			clientVersion: testVersion006,
+			serverVersion: testVersion006,
 			wantError:     false,
 		},
 		{
 			name:          "exact same v0.x versions with v prefix are compatible",
-			clientVersion: "v0.0.6",
-			serverVersion: "v0.0.6",
+			clientVersion: testVersionV006,
+			serverVersion: testVersionV006,
 			wantError:     false,
 		},
 		{
 			name:          "same v0.x versions with mixed v prefix are compatible",
-			clientVersion: "0.0.6",
-			serverVersion: "v0.0.6",
+			clientVersion: testVersion006,
+			serverVersion: testVersionV006,
 			wantError:     false,
 		},
 		{
 			name:          "different v0.x versions are incompatible",
 			clientVersion: "0.0.5",
-			serverVersion: "0.0.6",
+			serverVersion: testVersion006,
 			wantError:     true,
 			wantUnstable:  true,
 		},
 		{
 			name:          "v0.x client with v1.x server is incompatible",
-			clientVersion: "0.0.6",
-			serverVersion: "1.0.0",
+			clientVersion: testVersion006,
+			serverVersion: testVersion100,
 			wantError:     true,
 			wantUnstable:  true,
 		},
 		{
 			name:          "v1.x client with v0.x server is incompatible",
-			clientVersion: "1.0.0",
-			serverVersion: "0.0.6",
+			clientVersion: testVersion100,
+			serverVersion: testVersion006,
 			wantError:     true,
 			wantUnstable:  true,
 		},
 		{
 			name:          "same major stable versions are compatible",
-			clientVersion: "1.0.0",
+			clientVersion: testVersion100,
 			serverVersion: "1.2.3",
 			wantError:     false,
 		},
 		{
 			name:          "different major stable versions are incompatible",
-			clientVersion: "1.0.0",
-			serverVersion: "2.0.0",
+			clientVersion: testVersion100,
+			serverVersion: testVersion200,
 			wantError:     true,
 			wantUnstable:  false,
 		},
 		{
 			name:          "snapshot client skips check",
-			clientVersion: "1.0.0-snapshot",
-			serverVersion: "2.0.0",
+			clientVersion: testVersion100Snapshot,
+			serverVersion: testVersion200,
 			wantError:     false,
 		},
 		{
 			name:          "snapshot server skips check",
-			clientVersion: "1.0.0",
+			clientVersion: testVersion100,
 			serverVersion: "2.0.0-snapshot",
 			wantError:     false,
 		},
@@ -110,50 +119,50 @@ func TestIsNewer(t *testing.T) {
 	}{
 		{
 			name:    "same version",
-			current: "1.0.0",
-			latest:  "1.0.0",
+			current: testVersion100,
+			latest:  testVersion100,
 			want:    false,
 		},
 		{
 			name:    "same version with v prefix on current",
-			current: "v1.0.0",
-			latest:  "1.0.0",
+			current: testVersionV100,
+			latest:  testVersion100,
 			want:    false,
 		},
 		{
 			name:    "same version with v prefix on latest",
-			current: "1.0.0",
-			latest:  "v1.0.0",
+			current: testVersion100,
+			latest:  testVersionV100,
 			want:    false,
 		},
 		{
 			name:    "same version with v prefix on both",
-			current: "v1.0.0",
-			latest:  "v1.0.0",
+			current: testVersionV100,
+			latest:  testVersionV100,
 			want:    false,
 		},
 		{
 			name:    "newer version available",
-			current: "1.0.0",
+			current: testVersion100,
 			latest:  "1.1.0",
 			want:    true,
 		},
 		{
 			name:    "major version bump",
-			current: "1.0.0",
-			latest:  "2.0.0",
+			current: testVersion100,
+			latest:  testVersion200,
 			want:    true,
 		},
 		{
 			name:    "patch version bump",
-			current: "1.0.0",
+			current: testVersion100,
 			latest:  "1.0.1",
 			want:    true,
 		},
 		{
 			name:    "snapshot version never outdated",
-			current: "1.0.0-snapshot",
-			latest:  "2.0.0",
+			current: testVersion100Snapshot,
+			latest:  testVersion200,
 			want:    false,
 		},
 	}
@@ -175,10 +184,10 @@ func TestIsDevelopment(t *testing.T) {
 		version string
 		want    bool
 	}{
-		{"1.0.0", false},
+		{testVersion100, false},
 		{"0.0.11", false},
-		{"v1.0.0", false},
-		{"1.0.0-snapshot", true},
+		{testVersionV100, false},
+		{testVersion100Snapshot, true},
 		{"0.0.12-snapshot", true},
 		{"v1.0.0-snapshot", true},
 		{"1.0.0-SNAPSHOT", false}, // case sensitive

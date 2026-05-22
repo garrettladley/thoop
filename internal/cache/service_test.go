@@ -7,6 +7,15 @@ import (
 	"github.com/garrettladley/thoop/internal/client/whoop"
 )
 
+const (
+	testDate20240101 = "2024-01-01"
+	testDate20240102 = "2024-01-02"
+	testDate20240103 = "2024-01-03"
+	testDate20240104 = "2024-01-04"
+	testDate20240105 = "2024-01-05"
+	testDate20240106 = "2024-01-06"
+)
+
 func TestDefaultStalenessChecker_ShouldRefresh(t *testing.T) {
 	t.Parallel()
 
@@ -134,14 +143,14 @@ func TestService_hasSufficientCoverage(t *testing.T) {
 			start: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			end:   time.Date(2024, 1, 11, 0, 0, 0, 0, time.UTC), // 10 days
 			cachedDates: map[string]bool{
-				"2024-01-01": true,
-				"2024-01-02": true,
-				"2024-01-03": true,
-				"2024-01-04": true,
-				"2024-01-05": true,
-				"2024-01-06": true,
-				"2024-01-07": true,
-				"2024-01-08": true, // 8 of 10 = 80%
+				testDate20240101: true,
+				testDate20240102: true,
+				testDate20240103: true,
+				testDate20240104: true,
+				testDate20240105: true,
+				testDate20240106: true,
+				"2024-01-07":     true,
+				"2024-01-08":     true, // 8 of 10 = 80%
 			},
 			want: true,
 		},
@@ -150,13 +159,13 @@ func TestService_hasSufficientCoverage(t *testing.T) {
 			start: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			end:   time.Date(2024, 1, 11, 0, 0, 0, 0, time.UTC), // 10 days
 			cachedDates: map[string]bool{
-				"2024-01-01": true,
-				"2024-01-02": true,
-				"2024-01-03": true,
-				"2024-01-04": true,
-				"2024-01-05": true,
-				"2024-01-06": true,
-				"2024-01-07": true, // 7 of 10 = 70%
+				testDate20240101: true,
+				testDate20240102: true,
+				testDate20240103: true,
+				testDate20240104: true,
+				testDate20240105: true,
+				testDate20240106: true,
+				"2024-01-07":     true, // 7 of 10 = 70%
 			},
 			want: false,
 		},
@@ -196,10 +205,10 @@ func TestService_findMissingRanges(t *testing.T) {
 			start: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			end:   time.Date(2024, 1, 6, 0, 0, 0, 0, time.UTC),
 			cachedDates: map[string]bool{
-				"2024-01-01": true,
-				"2024-01-02": true,
+				testDate20240101: true,
+				testDate20240102: true,
 				// gap: 2024-01-03, 2024-01-04
-				"2024-01-05": true,
+				testDate20240105: true,
 			},
 			wantLen: 1, // one gap range
 		},
@@ -208,9 +217,9 @@ func TestService_findMissingRanges(t *testing.T) {
 			start: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			end:   time.Date(2024, 1, 8, 0, 0, 0, 0, time.UTC),
 			cachedDates: map[string]bool{
-				"2024-01-02": true,
-				"2024-01-04": true,
-				"2024-01-06": true,
+				testDate20240102: true,
+				testDate20240104: true,
+				testDate20240106: true,
 			},
 			wantLen: 4, // gaps: 1, 3, 5, 7
 		},
@@ -219,9 +228,9 @@ func TestService_findMissingRanges(t *testing.T) {
 			start: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			end:   time.Date(2024, 1, 4, 0, 0, 0, 0, time.UTC),
 			cachedDates: map[string]bool{
-				"2024-01-01": true,
-				"2024-01-02": true,
-				"2024-01-03": true,
+				testDate20240101: true,
+				testDate20240102: true,
+				testDate20240103: true,
 			},
 			wantLen: 0,
 		},

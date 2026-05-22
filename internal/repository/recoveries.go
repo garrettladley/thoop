@@ -22,8 +22,7 @@ func (r *recoveryRepo) Upsert(ctx context.Context, recovery *whoop.Recovery) err
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
-		s := string(data)
-		scoreJSON = &s
+		scoreJSON = new(string(data))
 	}
 
 	err := r.q.UpsertRecovery(ctx, litesqlc.UpsertRecoveryParams{
