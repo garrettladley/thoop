@@ -23,8 +23,7 @@ func (r *cycleRepo) Upsert(ctx context.Context, cycle *whoop.Cycle) error {
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
-		s := string(data)
-		scoreJSON = &s
+		scoreJSON = new(string(data))
 	}
 
 	err := r.q.UpsertCycle(ctx, litesqlc.UpsertCycleParams{
@@ -133,8 +132,7 @@ func (r *cycleRepo) GetByDateRange(ctx context.Context, start, end time.Time, cu
 	}
 
 	if hasMore && len(cycles) > 0 {
-		lastStart := cycles[len(cycles)-1].Start
-		result.NextCursor = &lastStart
+		result.NextCursor = new(cycles[len(cycles)-1].Start)
 	}
 
 	return result, nil

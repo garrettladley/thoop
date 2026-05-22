@@ -166,12 +166,11 @@ func populateDeniedState(state *WhoopRateLimitState, resultSlice []any) error {
 		return fmt.Errorf("unexpected active count type in denied state")
 	}
 
-	reason := WhoopRateLimitReason(reasonStr)
-	state.Reason = &reason
+	state.Reason = new(WhoopRateLimitReason(reasonStr))
 	state.DynamicMinuteLimit = int(dynamicLimit)
 	state.ActiveUserCount = int(activeCount)
 
-	if reason == WhoopRateLimitReasonPerUserMinute || reason == WhoopRateLimitReasonGlobalMinute {
+	if *state.Reason == WhoopRateLimitReasonPerUserMinute || *state.Reason == WhoopRateLimitReasonGlobalMinute {
 		state.MinuteReset = time.Now().Add(time.Minute).Truncate(time.Minute)
 	} else {
 		state.DayReset = time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour)

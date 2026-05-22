@@ -478,18 +478,14 @@ func mapCycles(cycles []whoop.Cycle) []cycleSummary {
 			ScoreState:     string(cycle.ScoreState),
 		}
 		if cycle.End != nil {
-			endLocalDate := localDate(*cycle.End)
-			endLocalTime := localTime(*cycle.End)
-			duration := formatDuration(cycle.End.Sub(cycle.Start))
-			item.EndLocalDate = &endLocalDate
-			item.EndLocalTime = &endLocalTime
-			item.Duration = &duration
+			item.EndLocalDate = new(localDate(*cycle.End))
+			item.EndLocalTime = new(localTime(*cycle.End))
+			item.Duration = new(formatDuration(cycle.End.Sub(cycle.Start)))
 		}
 		if cycle.Score != nil {
 			item.Strain = &cycle.Score.Strain
 			item.Kilojoule = &cycle.Score.Kilojoule
-			kcal := kilojouleToKilocalorie(cycle.Score.Kilojoule)
-			item.Kilocalorie = &kcal
+			item.Kilocalorie = new(kilojouleToKilocalorie(cycle.Score.Kilojoule))
 			item.AverageHR = &cycle.Score.AverageHeartRate
 			item.AverageHRUnit = unitBPM
 			item.MaxHR = &cycle.Score.MaxHeartRate
@@ -511,19 +507,15 @@ func mapRecoveries(recoveries []whoop.Recovery) []recoverySummary {
 		}
 		if recovery.Score != nil {
 			item.RecoveryScore = &recovery.Score.RecoveryScore
-			recoveryScorePct := formatPercent(recovery.Score.RecoveryScore)
-			item.RecoveryScorePct = &recoveryScorePct
+			item.RecoveryScorePct = new(formatPercent(recovery.Score.RecoveryScore))
 			item.RestingHeartRate = &recovery.Score.RestingHeartRate
 			item.RestingHRUnit = unitBPM
 			item.HRVRmssdMilli = &recovery.Score.HRVRmssdMilli
-			hrv := formatMilliseconds(recovery.Score.HRVRmssdMilli)
-			item.HRVRmssd = &hrv
+			item.HRVRmssd = new(formatMilliseconds(recovery.Score.HRVRmssdMilli))
 			item.SpO2Percentage = &recovery.Score.SpO2Percentage
-			spo2 := formatPercent(recovery.Score.SpO2Percentage)
-			item.SpO2Pct = &spo2
+			item.SpO2Pct = new(formatPercent(recovery.Score.SpO2Percentage))
 			item.SkinTempCelsius = &recovery.Score.SkinTempCelsius
-			skinTempF := celsiusToFahrenheit(recovery.Score.SkinTempCelsius)
-			item.SkinTempFahrenheit = &skinTempF
+			item.SkinTempFahrenheit = new(celsiusToFahrenheit(recovery.Score.SkinTempCelsius))
 		}
 		items = append(items, item)
 	}
@@ -549,11 +541,9 @@ func mapSleeps(sleeps []whoop.Sleep) []sleepSummary {
 		}
 		if sleep.Score != nil {
 			item.SleepPerformancePercentage = &sleep.Score.SleepPerformancePercentage
-			sleepPerformancePct := formatPercent(sleep.Score.SleepPerformancePercentage)
-			item.SleepPerformancePct = &sleepPerformancePct
+			item.SleepPerformancePct = new(formatPercent(sleep.Score.SleepPerformancePercentage))
 			item.SleepEfficiencyPercentage = &sleep.Score.SleepEfficiencyPercentage
-			sleepEfficiencyPct := formatPercent(sleep.Score.SleepEfficiencyPercentage)
-			item.SleepEfficiencyPct = &sleepEfficiencyPct
+			item.SleepEfficiencyPct = new(formatPercent(sleep.Score.SleepEfficiencyPercentage))
 		}
 		items = append(items, item)
 	}
@@ -579,34 +569,26 @@ func mapWorkouts(workouts []whoop.Workout) []workoutSummary {
 		if workout.Score != nil {
 			item.Strain = &workout.Score.Strain
 			item.Kilojoule = &workout.Score.Kilojoule
-			kcal := kilojouleToKilocalorie(workout.Score.Kilojoule)
-			item.Kilocalorie = &kcal
+			item.Kilocalorie = new(kilojouleToKilocalorie(workout.Score.Kilojoule))
 			item.AverageHeartRate = &workout.Score.AverageHeartRate
 			item.AverageHRUnit = unitBPM
 			item.MaxHeartRate = &workout.Score.MaxHeartRate
 			item.MaxHRUnit = unitBPM
 			item.DistanceMeter = workout.Score.DistanceMeter
 			if workout.Score.DistanceMeter != nil {
-				distance := formatMeters(*workout.Score.DistanceMeter)
-				distanceKM := metersToKilometers(*workout.Score.DistanceMeter)
-				distanceMile := metersToMiles(*workout.Score.DistanceMeter)
-				item.Distance = &distance
-				item.DistanceKilometer = &distanceKM
-				item.DistanceMile = &distanceMile
+				item.Distance = new(formatMeters(*workout.Score.DistanceMeter))
+				item.DistanceKilometer = new(metersToKilometers(*workout.Score.DistanceMeter))
+				item.DistanceMile = new(metersToMiles(*workout.Score.DistanceMeter))
 			}
 			item.AltitudeGainMeter = workout.Score.AltitudeGainMeter
 			if workout.Score.AltitudeGainMeter != nil {
-				altitudeGain := formatMeters(*workout.Score.AltitudeGainMeter)
-				altitudeGainFeet := metersToFeet(*workout.Score.AltitudeGainMeter)
-				item.AltitudeGain = &altitudeGain
-				item.AltitudeGainFeet = &altitudeGainFeet
+				item.AltitudeGain = new(formatMeters(*workout.Score.AltitudeGainMeter))
+				item.AltitudeGainFeet = new(metersToFeet(*workout.Score.AltitudeGainMeter))
 			}
 			item.AltitudeChangeMeter = workout.Score.AltitudeChangeMeter
 			if workout.Score.AltitudeChangeMeter != nil {
-				altitudeChange := formatMeters(*workout.Score.AltitudeChangeMeter)
-				altitudeChangeFeet := metersToFeet(*workout.Score.AltitudeChangeMeter)
-				item.AltitudeChange = &altitudeChange
-				item.AltitudeChangeFeet = &altitudeChangeFeet
+				item.AltitudeChange = new(formatMeters(*workout.Score.AltitudeChangeMeter))
+				item.AltitudeChangeFeet = new(metersToFeet(*workout.Score.AltitudeChangeMeter))
 			}
 			item.ZoneDurations = mapWorkoutZones(workout.Score.ZoneDurations)
 		}

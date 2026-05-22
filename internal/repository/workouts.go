@@ -23,8 +23,7 @@ func (r *workoutRepo) Upsert(ctx context.Context, workout *whoop.Workout) error 
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
-		s := string(data)
-		scoreJSON = &s
+		scoreJSON = new(string(data))
 	}
 
 	err := r.q.UpsertWorkout(ctx, litesqlc.UpsertWorkoutParams{
@@ -110,8 +109,7 @@ func (r *workoutRepo) GetByDateRange(ctx context.Context, start, end time.Time, 
 	}
 
 	if hasMore && len(workouts) > 0 {
-		lastStart := workouts[len(workouts)-1].Start
-		result.NextCursor = &lastStart
+		result.NextCursor = new(workouts[len(workouts)-1].Start)
 	}
 
 	return result, nil

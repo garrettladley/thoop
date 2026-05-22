@@ -24,8 +24,7 @@ func (r *sleepRepo) Upsert(ctx context.Context, sleep *whoop.Sleep) error {
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
-		s := string(data)
-		scoreJSON = &s
+		scoreJSON = new(string(data))
 	}
 
 	var nap int64
@@ -128,8 +127,7 @@ func (r *sleepRepo) GetByDateRange(ctx context.Context, start, end time.Time, cu
 	}
 
 	if hasMore && len(sleeps) > 0 {
-		lastStart := sleeps[len(sleeps)-1].Start
-		result.NextCursor = &lastStart
+		result.NextCursor = new(sleeps[len(sleeps)-1].Start)
 	}
 
 	return result, nil
