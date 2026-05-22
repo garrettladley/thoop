@@ -5,7 +5,7 @@
     <a href="https://github.com/garrettladley/thoop/actions"><img src="https://github.com/garrettladley/thoop/actions/workflows/ci.yml/badge.svg" alt="Build Status"></a>
 </p>
 
-tui for your whoop data
+local-first tui & mcp for your whoop data
 
 ## Install
 
