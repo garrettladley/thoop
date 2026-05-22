@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.22](https://github.com/garrettladley/thoop/compare/v0.1.21...v0.1.22) (2026-05-22)
+
+
+### Bug Fixes
+
+* **docker:** use go 1.26 builder ([#164](https://github.com/garrettladley/thoop/issues/164)) ([8d86a60](https://github.com/garrettladley/thoop/commit/8d86a608c351c3bfdc6211ea4a526d93638d6033))
+
 ## [0.1.21](https://github.com/garrettladley/thoop/compare/v0.1.20...v0.1.21) (2026-05-22)
 
 
