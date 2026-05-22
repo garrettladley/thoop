@@ -39,10 +39,9 @@ test:
 test-ci:
     go test -v -json -race -coverpkg=./... -covermode=atomic -coverprofile=coverage.txt ./... -timeout 5m
 
-# format and modernize code
+# format code
 [group('dev')]
 fmt:
-    go fix ./...
     golangci-lint fmt
 
 # modernize Go code
