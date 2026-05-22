@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.20](https://github.com/garrettladley/thoop/compare/v0.1.19...v0.1.20) (2026-05-22)
+
+
+### Features
+
+* **mcp:** add local mcp server ([#157](https://github.com/garrettladley/thoop/issues/157)) ([40fc4da](https://github.com/garrettladley/thoop/commit/40fc4da54bc87ad862a1e96dfc178a686dba37f3))
+
+
+### Bug Fixes
+
+* **webhooks:** ignore duplicate event inserts ([#152](https://github.com/garrettladley/thoop/issues/152)) ([55777f3](https://github.com/garrettladley/thoop/commit/55777f35e6cc1dfe48b7324431fcb9a540f634c1))
+
 ## [0.1.19](https://github.com/garrettladley/thoop/compare/v0.1.18...v0.1.19) (2026-02-09)
 
 
