@@ -29,6 +29,7 @@ func main() {
 	rootCmd.AddCommand(upgradeCmd())
 	rootCmd.AddCommand(logoutCmd())
 	rootCmd.AddCommand(purgeCmd())
+	rootCmd.AddCommand(mcpCmd())
 	addDevCommands(rootCmd)
 
 	if err := fang.Execute(context.Background(), rootCmd,
