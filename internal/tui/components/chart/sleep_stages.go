@@ -143,7 +143,7 @@ func (ssc *SleepStagesChart) renderBaselineRow(width int) string {
 }
 
 func (ssc *SleepStagesChart) renderStageRow(stage SleepStage, width int) string {
-	var lines []string
+	lines := make([]string, 0, 2)
 
 	circleStyle := lipgloss.NewStyle().Foreground(stage.Color)
 	circle := circleStyle.Render(theme.SymbolCircleEmpty)

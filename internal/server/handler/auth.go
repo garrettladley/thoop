@@ -186,5 +186,5 @@ func redirectWithError(w http.ResponseWriter, r *http.Request, localPort string,
 
 	u.RawQuery = q.Encode()
 
-	http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect) //nolint:gosec // redirect target is constructed from the local callback port, not user-provided host input.
 }

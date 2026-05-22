@@ -95,7 +95,7 @@ func TestMockSleepDetailSerializesReadableUnits(t *testing.T) {
 		},
 	}
 
-	out := singleEnvelope(mapSleepDetail(sleep), envelopeOptions{Source: "test"})
+	out := singleEnvelope(mapSleepDetail(sleep), envelopeOptions{Source: testEnvelopeSource})
 
 	assertContainsAll(t, out,
 		"duration: 6h44m",
@@ -141,7 +141,7 @@ func TestMockSummariesSerializeReadableUnits(t *testing.T) {
 		},
 	}})
 
-	out := textEnvelope(items, PageInput{MaxTokens: 1000}, envelopeOptions{Source: "test"})
+	out := textEnvelope(items, PageInput{MaxTokens: 1000}, envelopeOptions{Source: testEnvelopeSource})
 
 	assertContainsAll(t, out,
 		"duration: 46m",
@@ -177,7 +177,7 @@ func TestMockRecoverySummarySerializesReadableUnits(t *testing.T) {
 		},
 	}})
 
-	out := textEnvelope(recoveries, PageInput{MaxTokens: 1000}, envelopeOptions{Source: "test"})
+	out := textEnvelope(recoveries, PageInput{MaxTokens: 1000}, envelopeOptions{Source: testEnvelopeSource})
 
 	assertContainsAll(t, out,
 		"recovery_score_pct: 72%",

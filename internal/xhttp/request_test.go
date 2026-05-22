@@ -5,6 +5,13 @@ import (
 	"testing"
 )
 
+const (
+	testForwardedIPv4      = "203.0.113.195"
+	testRemoteIPv4         = "192.0.2.1"
+	testRemoteIPv4WithPort = testRemoteIPv4 + ":1234"
+	testForwardedIPv6      = "2001:db8::1"
+)
+
 func TestGetIP(t *testing.T) {
 	t.Parallel()
 
@@ -16,51 +23,51 @@ func TestGetIP(t *testing.T) {
 	}{
 		{
 			name:          "x-forwarded-for with IP only",
-			xForwardedFor: "203.0.113.195",
-			remoteAddr:    "192.0.2.1:1234",
-			expectedIP:    "203.0.113.195",
+			xForwardedFor: testForwardedIPv4,
+			remoteAddr:    testRemoteIPv4WithPort,
+			expectedIP:    testForwardedIPv4,
 		},
 		{
 			name:          "x-forwarded-for with IP and port",
 			xForwardedFor: "203.0.113.195:8080",
-			remoteAddr:    "192.0.2.1:1234",
-			expectedIP:    "203.0.113.195",
+			remoteAddr:    testRemoteIPv4WithPort,
+			expectedIP:    testForwardedIPv4,
 		},
 		{
 			name:          "remote addr with IP and port",
 			xForwardedFor: "",
-			remoteAddr:    "192.0.2.1:1234",
-			expectedIP:    "192.0.2.1",
+			remoteAddr:    testRemoteIPv4WithPort,
+			expectedIP:    testRemoteIPv4,
 		},
 		{
 			name:          "remote addr with IP only",
 			xForwardedFor: "",
-			remoteAddr:    "192.0.2.1",
-			expectedIP:    "192.0.2.1",
+			remoteAddr:    testRemoteIPv4,
+			expectedIP:    testRemoteIPv4,
 		},
 		{
 			name:          "IPv6 in x-forwarded-for",
-			xForwardedFor: "2001:db8::1",
-			remoteAddr:    "192.0.2.1:1234",
-			expectedIP:    "2001:db8::1",
+			xForwardedFor: testForwardedIPv6,
+			remoteAddr:    testRemoteIPv4WithPort,
+			expectedIP:    testForwardedIPv6,
 		},
 		{
 			name:          "IPv6 with port in x-forwarded-for",
 			xForwardedFor: "[2001:db8::1]:8080",
-			remoteAddr:    "192.0.2.1:1234",
-			expectedIP:    "2001:db8::1",
+			remoteAddr:    testRemoteIPv4WithPort,
+			expectedIP:    testForwardedIPv6,
 		},
 		{
 			name:          "IPv6 in remote addr",
 			xForwardedFor: "",
 			remoteAddr:    "[2001:db8::1]:1234",
-			expectedIP:    "2001:db8::1",
+			expectedIP:    testForwardedIPv6,
 		},
 		{
 			name:          "IPv6 without port in remote addr",
 			xForwardedFor: "",
-			remoteAddr:    "2001:db8::1",
-			expectedIP:    "2001:db8::1",
+			remoteAddr:    testForwardedIPv6,
+			expectedIP:    testForwardedIPv6,
 		},
 		{
 			name:          "localhost IPv4",
@@ -76,9 +83,9 @@ func TestGetIP(t *testing.T) {
 		},
 		{
 			name:          "x-forwarded-for takes precedence",
-			xForwardedFor: "203.0.113.195",
-			remoteAddr:    "192.0.2.1:1234",
-			expectedIP:    "203.0.113.195",
+			xForwardedFor: testForwardedIPv4,
+			remoteAddr:    testRemoteIPv4WithPort,
+			expectedIP:    testForwardedIPv4,
 		},
 		{
 			name:          "empty remote addr",

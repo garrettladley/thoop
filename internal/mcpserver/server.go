@@ -70,7 +70,7 @@ func New(cacheSvc cache.CacheService, repo *repository.Repository) *Server {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	server := mcp.NewServer(&mcp.Implementation{Name: "thoop", Version: thoop.Version}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: mcpServerName, Version: thoop.Version}, nil)
 	s.registerTools(server)
 	if err := server.Run(ctx, &mcp.StdioTransport{}); err != nil {
 		return fmt.Errorf("run MCP server: %w", err)
@@ -93,16 +93,16 @@ func (s *Server) registerTools(server *mcp.Server) {
 		}
 	}
 
-	mcp.AddTool(server, tool("list_thoop_skills"), s.listSkills)
-	mcp.AddTool(server, tool("load_thoop_skill"), s.loadSkill)
-	mcp.AddTool(server, tool("get_latest_metrics"), s.getLatestMetrics)
-	mcp.AddTool(server, tool("get_cycle"), s.getCycle)
-	mcp.AddTool(server, tool("get_recovery"), s.getRecovery)
-	mcp.AddTool(server, tool("get_sleep"), s.getSleep)
-	mcp.AddTool(server, tool("list_cycles"), s.listCycles)
-	mcp.AddTool(server, tool("list_recoveries"), s.listRecoveries)
-	mcp.AddTool(server, tool("list_sleeps"), s.listSleeps)
-	mcp.AddTool(server, tool("list_workouts"), s.listWorkouts)
+	mcp.AddTool(server, tool(toolNameListThoopSkills), s.listSkills)
+	mcp.AddTool(server, tool(toolNameLoadThoopSkill), s.loadSkill)
+	mcp.AddTool(server, tool(toolNameGetLatestMetrics), s.getLatestMetrics)
+	mcp.AddTool(server, tool(toolNameGetCycle), s.getCycle)
+	mcp.AddTool(server, tool(toolNameGetRecovery), s.getRecovery)
+	mcp.AddTool(server, tool(toolNameGetSleep), s.getSleep)
+	mcp.AddTool(server, tool(toolNameListCycles), s.listCycles)
+	mcp.AddTool(server, tool(toolNameListRecoveries), s.listRecoveries)
+	mcp.AddTool(server, tool(toolNameListSleeps), s.listSleeps)
+	mcp.AddTool(server, tool(toolNameListWorkouts), s.listWorkouts)
 }
 
 type emptyInput struct{}
@@ -137,9 +137,9 @@ func (s *Server) listSkills(_ context.Context, _ *mcp.CallToolRequest, _ emptyIn
 	headers := make([]map[string]any, 0, len(skills))
 	for _, skill := range skills {
 		headers = append(headers, map[string]any{
-			"name":        skill.Name,
-			"description": skill.Description,
-			"related":     skill.Related,
+			skillFieldName:        skill.Name,
+			skillFieldDescription: skill.Description,
+			skillFieldRelated:     skill.Related,
 		})
 	}
 	return textResult(textEnvelope(headers, PageInput{}, envelopeOptions{Source: "embedded_docs"})), nil, nil
@@ -156,10 +156,10 @@ func (s *Server) loadSkill(_ context.Context, _ *mcp.CallToolRequest, input load
 
 	if input.HeaderOnly {
 		header := map[string]any{
-			"name":        skill.Name,
-			"description": skill.Description,
-			"related":     skill.Related,
-			"resources":   []string{},
+			skillFieldName:        skill.Name,
+			skillFieldDescription: skill.Description,
+			skillFieldRelated:     skill.Related,
+			"resources":           []string{},
 		}
 		return textResult(singleEnvelope(header, envelopeOptions{Source: "embedded_docs"})), nil, nil
 	}
@@ -232,7 +232,7 @@ func (s *Server) listCycles(ctx context.Context, _ *mcp.CallToolRequest, input r
 	if err != nil {
 		return nil, nil, fmt.Errorf("get cycles for range: %w", err)
 	}
-	opts := s.cacheEnvelopeOptions(result.FromCache, result.PartialCache).withNextCall("list_cycles", input.nextArgs())
+	opts := s.cacheEnvelopeOptions(result.FromCache, result.PartialCache).withNextCall(toolNameListCycles, input.nextArgs())
 	return textResult(textEnvelope(mapCycles(result.Records), input.PageInput, opts)), nil, nil
 }
 

@@ -1,6 +1,7 @@
 package chart
 
 import (
+	"encoding/binary"
 	"hash/fnv"
 	"sync"
 )
@@ -28,6 +29,12 @@ type CachedChart struct {
 }
 
 var chartCache sync.Map // key: string (chartID) -> *CachedChart
+
+func writeUint64(h interface{ Write([]byte) (int, error) }, value uint64) {
+	var buf [8]byte
+	binary.LittleEndian.PutUint64(buf[:], value)
+	_, _ = h.Write(buf[:])
+}
 
 // GetCached retrieves a cached chart render if it exists and matches the current parameters.
 // Returns the rendered string and true if found and valid, empty string and false otherwise.
@@ -78,9 +85,7 @@ func HashDataPoints(data []DataPoint) uint64 {
 		_, _ = h.Write([]byte(d.Label))
 		// write float64 as bytes
 		bits := uint64(d.Value * 1000000) // preserve 6 decimal places
-		for i := range 8 {
-			_, _ = h.Write([]byte{byte(bits >> (i * 8))})
-		}
+		writeUint64(h, bits)
 	}
 	return h.Sum64()
 }
@@ -92,9 +97,7 @@ func HashStackedDataPoints(data []StackedDataPoint) uint64 {
 		_, _ = h.Write([]byte(d.Label))
 		for _, v := range d.Values {
 			bits := uint64(v * 1000000)
-			for i := range 8 {
-				_, _ = h.Write([]byte{byte(bits >> (i * 8))})
-			}
+			writeUint64(h, bits)
 		}
 	}
 	return h.Sum64()
@@ -106,20 +109,14 @@ func HashSleepStages(stages []SleepStage, totalDuration, baselineDuration int) u
 	for _, s := range stages {
 		_, _ = h.Write([]byte(s.Name))
 		bits := uint64(s.Percentage * 1000000)
-		for i := range 8 {
-			_, _ = h.Write([]byte{byte(bits >> (i * 8))})
-		}
+		writeUint64(h, bits)
 		dur := uint64(int64(s.DurationMs)) //nolint:gosec // duration is always non-negative
-		for i := range 8 {
-			_, _ = h.Write([]byte{byte(dur >> (i * 8))})
-		}
+		writeUint64(h, dur)
 	}
 	// include total and baseline in hash
 	total := uint64(int64(totalDuration))       //nolint:gosec // duration is always non-negative
 	baseline := uint64(int64(baselineDuration)) //nolint:gosec // duration is always non-negative
-	for i := range 8 {
-		_, _ = h.Write([]byte{byte(total >> (i * 8))})
-		_, _ = h.Write([]byte{byte(baseline >> (i * 8))})
-	}
+	writeUint64(h, total)
+	writeUint64(h, baseline)
 	return h.Sum64()
 }

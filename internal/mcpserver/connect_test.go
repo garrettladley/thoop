@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,8 +38,8 @@ func TestConnectClaudeDesktopMergesConfig(t *testing.T) {
 	if _, ok := servers["other"]; !ok {
 		t.Fatal("existing server was not preserved")
 	}
-	thoop := servers["thoop"].(map[string]any)
-	if got := thoop["command"]; got != "thoop" {
+	thoop := servers[mcpServerName].(map[string]any)
+	if got := thoop["command"]; got != mcpServerName {
 		t.Fatalf("command = %v", got)
 	}
 }
@@ -78,7 +79,7 @@ func TestUpsertCodexBlock(t *testing.T) {
 		{
 			name:     "creates block in empty file",
 			existing: "",
-			want:     []string{"[mcp_servers.thoop]", `command = "thoop"`},
+			want:     []string{"[mcp_servers.thoop]", fmt.Sprintf(`command = "%s"`, mcpServerName)},
 		},
 	}
 

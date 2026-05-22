@@ -16,7 +16,7 @@ func TestEmbeddedToolDescriptions(t *testing.T) {
 		"get_cycle",
 		"get_recovery",
 		"get_sleep",
-		"list_cycles",
+		toolNameListCycles,
 		"list_recoveries",
 		"list_sleeps",
 		"list_workouts",

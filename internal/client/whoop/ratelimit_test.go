@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+const (
+	testInvalidRateLimitValue = "invalid"
+	testWhoopRateLimitHeader  = "100, 100;window=60, 10000;window=86400"
+)
+
 func TestParseRateLimitValue(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -22,7 +27,7 @@ func TestParseRateLimitValue(t *testing.T) {
 		},
 		{
 			name:    "complex format with windows",
-			input:   "100, 100;window=60, 10000;window=86400",
+			input:   testWhoopRateLimitHeader,
 			want:    100,
 			wantErr: false,
 		},
@@ -96,7 +101,7 @@ func TestParseRateLimitHeaders(t *testing.T) {
 		{
 			name: "WHOOP docs example",
 			headers: http.Header{
-				limitHeaderKey:     []string{"100, 100;window=60, 10000;window=86400"},
+				limitHeaderKey:     []string{testWhoopRateLimitHeader},
 				remainingHeaderKey: []string{"98"},
 				resetHeaderKey:     []string{"3"},
 			},
@@ -110,7 +115,7 @@ func TestParseRateLimitHeaders(t *testing.T) {
 		{
 			name: "complex WHOOP format with remaining windows",
 			headers: http.Header{
-				limitHeaderKey:     []string{"100, 100;window=60, 10000;window=86400"},
+				limitHeaderKey:     []string{testWhoopRateLimitHeader},
 				remainingHeaderKey: []string{"95, 95;window=60, 9950;window=86400"},
 				resetHeaderKey:     []string{"45"},
 			},
@@ -138,7 +143,7 @@ func TestParseRateLimitHeaders(t *testing.T) {
 		{
 			name: "invalid limit returns error",
 			headers: http.Header{
-				limitHeaderKey:     []string{"invalid"},
+				limitHeaderKey:     []string{testInvalidRateLimitValue},
 				remainingHeaderKey: []string{"99"},
 				resetHeaderKey:     []string{"1735100000"},
 			},
@@ -148,7 +153,7 @@ func TestParseRateLimitHeaders(t *testing.T) {
 			name: "invalid remaining returns error",
 			headers: http.Header{
 				limitHeaderKey:     []string{"100"},
-				remainingHeaderKey: []string{"invalid"},
+				remainingHeaderKey: []string{testInvalidRateLimitValue},
 				resetHeaderKey:     []string{"1735100000"},
 			},
 			wantErr: true,
@@ -158,7 +163,7 @@ func TestParseRateLimitHeaders(t *testing.T) {
 			headers: http.Header{
 				limitHeaderKey:     []string{"100"},
 				remainingHeaderKey: []string{"99"},
-				resetHeaderKey:     []string{"invalid"},
+				resetHeaderKey:     []string{testInvalidRateLimitValue},
 			},
 			wantErr: true,
 		},

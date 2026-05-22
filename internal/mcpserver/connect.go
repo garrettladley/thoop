@@ -110,7 +110,7 @@ func ConnectClaudeCode(ctx context.Context) (ConnectResult, error) {
 	}
 
 	// #nosec G204 -- command and subcommands are fixed; data is generated MCP config JSON.
-	cmd := exec.CommandContext(ctx, "claude", "mcp", "add-json", "thoop", string(data))
+	cmd := exec.CommandContext(ctx, "claude", "mcp", "add-json", mcpServerName, string(data))
 	if output, err := cmd.CombinedOutput(); err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
 			return ConnectResult{}, fmt.Errorf("claude CLI not found; install Claude Code or configure Claude Desktop with `thoop mcp connect claude-desktop`")
@@ -201,7 +201,7 @@ func ConnectCodex(configPath string) (ConnectResult, error) {
 func stdioConfig() map[string]any {
 	return map[string]any{
 		"type":    "stdio",
-		"command": "thoop",
+		"command": mcpServerName,
 		"args":    []string{"mcp", "serve"},
 	}
 }
@@ -211,7 +211,7 @@ func upsertCodexBlock(existing string) string {
 	block := strings.Join([]string{
 		header,
 		`type = "stdio"`,
-		`command = "thoop"`,
+		fmt.Sprintf(`command = "%s"`, mcpServerName),
 		`args = ["mcp", "serve"]`,
 	}, "\n") + "\n"
 

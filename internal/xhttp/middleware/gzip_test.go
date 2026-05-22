@@ -13,6 +13,8 @@ import (
 	"github.com/garrettladley/thoop/internal/xhttp"
 )
 
+const testAPIPath = "/api/test"
+
 func TestGzip(t *testing.T) {
 	t.Parallel()
 
@@ -28,8 +30,8 @@ func TestGzip(t *testing.T) {
 	}{
 		{
 			name:               "small response not compressed",
-			acceptEncoding:     "gzip",
-			path:               "/api/test",
+			acceptEncoding:     gzipEncoding,
+			path:               testAPIPath,
 			responseBody:       "small",
 			wantCompressed:     false,
 			wantVaryHeader:     true,
@@ -37,8 +39,8 @@ func TestGzip(t *testing.T) {
 		},
 		{
 			name:               "large response compressed",
-			acceptEncoding:     "gzip",
-			path:               "/api/test",
+			acceptEncoding:     gzipEncoding,
+			path:               testAPIPath,
 			responseBody:       strings.Repeat("x", 2000),
 			wantCompressed:     true,
 			wantVaryHeader:     true,
@@ -46,8 +48,8 @@ func TestGzip(t *testing.T) {
 		},
 		{
 			name:               "exactly 1KB compressed",
-			acceptEncoding:     "gzip",
-			path:               "/api/test",
+			acceptEncoding:     gzipEncoding,
+			path:               testAPIPath,
 			responseBody:       strings.Repeat("y", 1024),
 			wantCompressed:     true,
 			wantVaryHeader:     true,
@@ -56,7 +58,7 @@ func TestGzip(t *testing.T) {
 		{
 			name:               "no accept-encoding header",
 			acceptEncoding:     "",
-			path:               "/api/test",
+			path:               testAPIPath,
 			responseBody:       strings.Repeat("x", 2000),
 			wantCompressed:     false,
 			wantVaryHeader:     false,
@@ -65,7 +67,7 @@ func TestGzip(t *testing.T) {
 		{
 			name:               "accept-encoding without gzip",
 			acceptEncoding:     "deflate, br",
-			path:               "/api/test",
+			path:               testAPIPath,
 			responseBody:       strings.Repeat("x", 2000),
 			wantCompressed:     false,
 			wantVaryHeader:     false,
@@ -73,7 +75,7 @@ func TestGzip(t *testing.T) {
 		},
 		{
 			name:               "SSE path excluded",
-			acceptEncoding:     "gzip",
+			acceptEncoding:     gzipEncoding,
 			path:               "/api/notifications/stream",
 			responseBody:       strings.Repeat("x", 2000),
 			wantCompressed:     false,
@@ -82,8 +84,8 @@ func TestGzip(t *testing.T) {
 		},
 		{
 			name:               "already encoded response",
-			acceptEncoding:     "gzip",
-			path:               "/api/test",
+			acceptEncoding:     gzipEncoding,
+			path:               testAPIPath,
 			responseBody:       strings.Repeat("x", 2000),
 			existingEncoding:   "br",
 			wantCompressed:     false,
@@ -170,8 +172,8 @@ func TestGzipFlusher(t *testing.T) {
 
 	wrapped := Gzip(handler)
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/test", nil)
-	req.Header.Set(xhttp.AcceptEncoding, "gzip")
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, testAPIPath, nil)
+	req.Header.Set(xhttp.AcceptEncoding, gzipEncoding)
 
 	rec := httptest.NewRecorder()
 	wrapped.ServeHTTP(rec, req)
@@ -207,8 +209,8 @@ func TestGzipUnwrap(t *testing.T) {
 
 	wrapped := Gzip(handler)
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/test", nil)
-	req.Header.Set(xhttp.AcceptEncoding, "gzip")
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, testAPIPath, nil)
+	req.Header.Set(xhttp.AcceptEncoding, gzipEncoding)
 
 	rec := httptest.NewRecorder()
 	wrapped.ServeHTTP(rec, req)

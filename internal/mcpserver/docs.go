@@ -60,17 +60,36 @@ type Skill struct {
 	Content     string
 }
 
+const (
+	mcpServerName = "thoop"
+
+	toolNameListThoopSkills  = "list_thoop_skills"
+	toolNameLoadThoopSkill   = "load_thoop_skill"
+	toolNameGetLatestMetrics = "get_latest_metrics"
+	toolNameGetCycle         = "get_cycle"
+	toolNameGetRecovery      = "get_recovery"
+	toolNameGetSleep         = "get_sleep"
+	toolNameListCycles       = "list_cycles"
+	toolNameListRecoveries   = "list_recoveries"
+	toolNameListSleeps       = "list_sleeps"
+	toolNameListWorkouts     = "list_workouts"
+
+	skillFieldName        = "name"
+	skillFieldDescription = "description"
+	skillFieldRelated     = "related"
+)
+
 var toolDescriptions = map[string]string{
-	"list_thoop_skills":  toolListThoopSkills,
-	"load_thoop_skill":   toolLoadThoopSkill,
-	"get_latest_metrics": toolGetLatestMetrics,
-	"get_cycle":          toolGetCycle,
-	"get_recovery":       toolGetRecovery,
-	"get_sleep":          toolGetSleep,
-	"list_cycles":        toolListCycles,
-	"list_recoveries":    toolListRecoveries,
-	"list_sleeps":        toolListSleeps,
-	"list_workouts":      toolListWorkouts,
+	toolNameListThoopSkills:  toolListThoopSkills,
+	toolNameLoadThoopSkill:   toolLoadThoopSkill,
+	toolNameGetLatestMetrics: toolGetLatestMetrics,
+	toolNameGetCycle:         toolGetCycle,
+	toolNameGetRecovery:      toolGetRecovery,
+	toolNameGetSleep:         toolGetSleep,
+	toolNameListCycles:       toolListCycles,
+	toolNameListRecoveries:   toolListRecoveries,
+	toolNameListSleeps:       toolListSleeps,
+	toolNameListWorkouts:     toolListWorkouts,
 }
 
 var skillDocs = map[string]string{
@@ -140,11 +159,11 @@ func parseSkill(data string, fallbackName string) Skill {
 		}
 		value = strings.TrimSpace(value)
 		switch strings.TrimSpace(key) {
-		case "name":
+		case skillFieldName:
 			skill.Name = value
-		case "description":
+		case skillFieldDescription:
 			skill.Description = value
-		case "related":
+		case skillFieldRelated:
 			if value != "" {
 				for related := range strings.SplitSeq(value, ",") {
 					skill.Related = append(skill.Related, strings.TrimSpace(related))
