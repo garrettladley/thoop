@@ -25,14 +25,19 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: make install
-        run: make install
+      - uses: extractions/setup-just@v3
+
+      - name: install dependencies
+        run: just install
+
+      - name: go fix
+        run: just go-fix-verify
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.6
-          args: --timeout=5m
+          args: --path-mode=abs --config=".golangci.yml" --timeout=5m
 
   sqlc-vet:
     name: sqlc vet
@@ -47,8 +52,10 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: make install
-        run: make install
+      - uses: extractions/setup-just@v3
+
+      - name: install dependencies
+        run: just install
 
       - name: Setup sqlc
         uses: sqlc-dev/setup-sqlc@v4
@@ -56,7 +63,7 @@ jobs:
           sqlc-version: ${{ env.SQLC_VERSION }}
 
       - name: Run sqlc vet
-        run: sqlc vet
+        run: just sqlc-vet
 
   sqlc-diff:
     name: sqlc diff
@@ -71,8 +78,10 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: make install
-        run: make install
+      - uses: extractions/setup-just@v3
+
+      - name: install dependencies
+        run: just install
 
       - name: Setup sqlc
         uses: sqlc-dev/setup-sqlc@v4
@@ -80,7 +89,7 @@ jobs:
           sqlc-version: ${{ env.SQLC_VERSION }}
 
       - name: Run sqlc diff
-        run: sqlc diff
+        run: just sqlc-diff
 
   test:
     name: Test
@@ -95,11 +104,13 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: make install
-        run: make install
+      - uses: extractions/setup-just@v3
+
+      - name: install dependencies
+        run: just install
 
       - name: Test
-        run: go test -v -json -race -coverpkg=./... -covermode=atomic -coverprofile=coverage.txt ./... -timeout 5m
+        run: just test-ci
 
       - uses: codecov/codecov-action@v5
         with:
@@ -119,6 +130,8 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - uses: extractions/setup-just@v3
+
       - name: Cache templ
         id: cache-templ
         uses: actions/cache@v4
@@ -128,10 +141,7 @@ jobs:
 
       - name: Install templ
         if: steps.cache-templ.outputs.cache-hit != 'true'
-        run: go install github.com/a-h/templ/cmd/templ@${{ env.TEMPL_VERSION }}
+        run: just templ-install
 
       - name: Run templ generate
-        run: templ generate
-
-      - name: Check for uncommitted changes
-        run: git diff --exit-code
+        run: just templ-verify
